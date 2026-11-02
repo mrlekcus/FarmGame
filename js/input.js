@@ -10,6 +10,7 @@ window.addEventListener('keydown', e => {
   if (e.key === 'Escape' && vyOpen) { if (voy.mode !== 'summary') closeVoyModal(); return; }
   if (e.key === 'Escape' && lkOpen) { closeLekcus(); return; }
   if (e.key === 'Escape' && bdOpen) { closeBoard(); return; }
+  if (e.key === 'Escape' && mbOpen) { closeMsgBoard(); return; }
   if (e.key === 'Escape' && ckOpen) { closeKitchen(); return; }
   if (e.key === 'Escape' && dgOpen) { closeDlg(); return; }
   if (e.key === 'Escape' && rcOpen) { closeRanch(); return; }

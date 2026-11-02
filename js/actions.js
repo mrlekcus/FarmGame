@@ -48,6 +48,7 @@ function act() {
     else if (k2 === TS) enterLekcus();
     else if (k2 === CPT) openCaptain();
     else if (k2 === BB) openBuild('');
+    else if (k2 === MB) openMsgBoard();
     return;
   }
   if (scene === 'house') {

@@ -131,6 +131,7 @@ function updateTip() {
       else if (hwHint(x, y)) s = hwHint(x, y);
       else if (K[y][x] === FR) s = '噴水池。';
       else if (K[y][x] === BN) s = '長椅：按動作鍵坐下。';
+      else if (K[y][x] === MB) s = '碼頭留言板：按動作鍵看大家的便利貼，也能貼一張（每天 3 次）。';
       else if (K[y][x] === SB) s = '蛇梯棋：按動作鍵開桌或加入（1～4 人，一個人也能玩）。';
       else if (K[y][x] === TS) s = '塔羅小攤：按動作鍵走進去，找 Lekcus 抽今天的運勢牌。';
     }

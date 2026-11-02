@@ -208,6 +208,9 @@ for (let y = 12; y <= 16; y++) {
 const BB = 76;   // 出海碼頭的建造告示牌（全服捐材料；走不進去，面向它按動作鍵）
 pkind[13][18] = BB;
 const PR = 74, PIER_X0 = 19, PIER_X1 = 24, PIER_Y = 15, PIER_WX = 21;
+/* 碼頭留言板（MB，js/msgboard.js）：棧橋南邊的草地，4×2 格（x 20~23、y 17~18），走不進去；從左右兩側面向它按動作鍵。板子的圖往上蓋到水邊那一排。 */
+const MB = 77, MB_X = 20, MB_Y = 17, MB_W = 4, MB_H = 2;
+for (let y = MB_Y; y < MB_Y + MB_H; y++) for (let x = MB_X; x < MB_X + MB_W; x++) pkind[y][x] = MB;
 for (let x = PIER_X0; x <= PIER_X1; x++) pkind[PIER_Y][x] = PR;
 /* ---------- 出海團的船甲板（3/4 俯視，16×12 格）：上面兩排是天空，其餘是海；甲板 x 3~12、y 4~9，一圈欄杆，左上是船艙 ----------
    BRL 欄杆（走不進去，面向它可以拋竿，魚線落在欄杆外的水面）、BCB 船艙與船頭（走不進去）、VSK 天空。海面用既有的 WA。 */

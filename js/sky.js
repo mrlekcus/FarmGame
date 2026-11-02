@@ -222,7 +222,7 @@ function draw(now) {
   else if (scene === 'town') TOWN_BLD.forEach(b => drawBldg(b, now, dark > 0.15));
   else if (scene === 'forest') FOREST_BLD.forEach(b => drawBldg(b, now, dark > 0.15));
   else {
-    if (scene === 'plaza') { drawSnakeBoard(now); drawPlazaBoat(now); }   // 蛇梯棋用新地圖座標
+    if (scene === 'plaza') { drawSnakeBoard(now); drawPlazaBoat(now); drawMsgBoard(now); }   // 蛇梯棋用新地圖座標
     ctx.save(); ctx.translate(PXO * T, PYO * T);   // 塔羅攤、路燈、噴水池是舊廣場座標，位移後再畫
     drawTarotStall(now);
     if (scene === 'plaza') drawPlazaLamps(now);   // 廣場路燈（js/plaza-light.js）

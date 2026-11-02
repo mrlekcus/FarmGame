@@ -101,6 +101,22 @@ function drawCrop(px, py, c, now) {
     r('#6bb86a', px + 4, py + 5, 1, 9); r('#6bb86a', px + 8, py + 5, 1, 9); r('#6bb86a', px + 12, py + 5, 1, 9);
     r('#6bb86a', px + 7, py + 2, 2, 3); r('#d8f5b8', px + 3, py + 6, 2, 1);
     face(px, py, 6, 9);
+  } else if (c.t === 'berry') {   // 藍莓：一顆大藍莓，星形果蒂、一片葉子
+    rr('#7fd08a', px + 9, py + 1, 5, 3); r('#5fbf6a', px + 8, py + 2, 1, 4);
+    ob('#6f84e8', '#3a4aa6', px + 3, py + 5, 10, 10);
+    r('#2f3b86', px + 7, py + 5, 2, 2); r('#2f3b86', px + 6, py + 6, 1, 1); r('#2f3b86', px + 9, py + 6, 1, 1);
+    r('#c3ccff', px + 4, py + 8, 2, 1);
+    face(px, py, 6, 9);
+  } else if (c.t === 'lotus') {   // 蓮藕：粉色花苞＋一節一節有孔的根
+    rr('#ff9bbd', px + 6, py + 1, 4, 5); rr('#ffc0d6', px + 3, py + 2, 4, 5); rr('#ffc0d6', px + 9, py + 2, 4, 5); r('#5fbf6a', px + 7, py + 6, 2, 2);
+    ob('#f6dcd0', '#c99a8a', px + 1, py + 7, 14, 8); r('#d9b8a8', px + 8, py + 8, 1, 6);
+    r('#d9a8a0', px + 11, py + 10, 2, 2); r('#d9a8a0', px + 10, py + 13, 1, 1);
+    face(px, py, 4, 10);
+  } else if (c.t === 'frost') {   // 霜根：淡藍色冰根，葉子偏白，帶霜光
+    rr('#e8fbff', px + 3, py + 1, 4, 5); rr('#cfeff7', px + 9, py + 1, 4, 5); rr('#a8dff0', px + 6, py + 2, 4, 6);
+    ob('#bfeaf5', '#6fb6cc', px + 3, py + 6, 10, 6); rr('#bfeaf5', px + 5, py + 11, 6, 3); r('#6fb6cc', px + 7, py + 14, 2, 1);
+    r('#ffffff', px + 4, py + 7, 2, 1); r('#ffffff', px + 12, py + 4, 1, 1); r('#ffffff', px + 2, py + 10, 1, 1);
+    face(px, py, 6, 8);
   } else {
     ob('#ffb45c', '#d9772a', px + 1, py + 5, 14, 10);
     r('#f59a38', px + 4, py + 6, 1, 8); r('#f59a38', px + 11, py + 6, 1, 8);
