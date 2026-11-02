@@ -2,12 +2,13 @@
 /* 玩家名片 —— 雷克斯農場。所有檔案共用同一個全域範圍，載入順序見 index.html。 */
 /* ---------- 玩家名片：自我介紹、等級、成就（自己和好友看得到） ---------- */
 const cdEl = $('cdm'), cdCard = $('cdcard');
-let cd = null, cdMsg = '', cdSeq = 0, cdCat = '';
+let cd = null, cdMsg = '', cdSeq = 0, cdCat = '', cdSlot = -1, cdPick = 'got', cdRecent = [], cdRecentReal = false;
 const ACH = [
   { id: 'days7', ic: '🌱', n: '農場新鮮人', d: '加入滿 7 天' }, { id: 'days30', ic: '🏡', n: '老住戶', d: '加入滿 30 天' },
   { id: 'pl5', ic: '⭐', n: '玩家 Lv.5', d: '玩家等級達到 5' }, { id: 'pl10', ic: '🌟', n: '玩家滿級', d: '玩家等級達到 10' },
   { id: 'farm5', ic: '🥕', n: '農耕達人', d: '農耕 Lv.5' }, { id: 'farm10', ic: '🌾', n: '農耕大師', d: '農耕 Lv.10' },
   { id: 'fish5', ic: '🎣', n: '釣魚達人', d: '釣魚 Lv.5' }, { id: 'bug5', ic: '🦋', n: '捕蟲達人', d: '捕蟲 Lv.5' },
+  { id: 'cook5', ic: '🍳', n: '烹飪達人', d: '烹飪 Lv.5' }, { id: 'cook10', ic: '🍲', n: '烹飪大師', d: '烹飪 Lv.10' },
   { id: 'fish100', ic: '🐟', n: '百魚', d: '累計釣到 100 條魚' }, { id: 'bug100', ic: '🐞', n: '百蟲', d: '累計抓到 100 隻蟲蝶' },
   { id: 'fish_half', ic: '📘', n: '魚圖鑑過半', d: '魚類圖鑑集滿一半' }, { id: 'fish_all', ic: '📗', n: '魚圖鑑全收集', d: '魚類圖鑑全部集滿' },
   { id: 'bug_half', ic: '📙', n: '蟲圖鑑過半', d: '蟲蝶圖鑑集滿一半' }, { id: 'bug_all', ic: '📕', n: '蟲圖鑑全收集', d: '蟲蝶圖鑑全部集滿' },
@@ -22,7 +23,7 @@ FITS.forEach((nm, i) => { if (i >= FREE_N.fits) ACH.push({ id: 'fit' + i, ic: FI
 /* 成就分類：成長、技能、收集、生活、服裝（服裝成就 id 都是 fit 開頭） */
 const ACH_CATS = [
   { k: 'g', ic: '🌱', n: '成長', ids: ['days7', 'days30', 'pl5', 'pl10'] },
-  { k: 's', ic: '🌾', n: '技能', ids: ['farm5', 'farm10', 'fish5', 'bug5'] },
+  { k: 's', ic: '🌾', n: '技能', ids: ['farm5', 'farm10', 'fish5', 'bug5', 'cook5', 'cook10'] },
   { k: 'c', ic: '📚', n: '收集', ids: ['fish100', 'bug100', 'fish_half', 'fish_all', 'bug_half', 'bug_all'] },
   { k: 'l', ic: '🏡', n: '生活', ids: ['plots10', 'home15', 'friend3', 'photo'] },
   { k: 'v', ic: '⛵', n: '出海', ids: ['voy1', 'voy10', 'voy50', 'sea_all', 'pier'] },
@@ -45,6 +46,75 @@ const itemName = k => {
   const fb = fallbackItem(k);
   return fb ? fb.name : id;
 };
+
+/* ---------- 自己的名片：置頂三格 + 選擇抽屜 + 最近獲得捷徑 ---------- */
+const cdLS = (k, v) => { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch (e) { /* 略過 */ } return null; };
+/* 烹飪等級在遊戲端（level_get）就有，自己的名片先用它判斷；伺服器 card_get 也會回傳同樣的成就 */
+function cdCookSelf() { let L = 1; try { L = ckLv(); } catch (e) { /* 略過 */ } return (L >= 5 ? ['cook5'] : []).concat(L >= 10 ? ['cook10'] : []); }
+function cdGot() { return new Set((cd.ach || []).concat(voyAchSelf(), cdCookSelf())); }
+function cdPins() { return (cd.badges || []).filter(x => ACH.some(a => a.id === x)); }   // 不用「已獲得」過濾，避免出海成就還沒載入時，存檔把它們洗掉
+/* 記下每個成就第一次被看到的時間，當作「最近獲得」；第一次使用時舊成就都算舊的 */
+function cdSeenInit() {
+  const got = [...cdGot()]; let st = null;
+  try { st = JSON.parse(cdLS('rexAchSeen') || 'null'); } catch (e) { st = null; }
+  const first = !st || typeof st !== 'object'; if (first) st = {};
+  const now = Date.now(), fresh = [];
+  got.forEach(id => { if (!(id in st)) { st[id] = first ? 0 : now; if (!first) fresh.push(id); } });
+  cdLS('rexAchSeen', JSON.stringify(st));
+  const real = got.filter(id => st[id] > 0).sort((a, b) => st[b] - st[a]);
+  cdRecentReal = real.length > 0;
+  cdRecent = cdRecentReal ? real.slice(0, 4) : got.slice().reverse().slice(0, 4);
+  return fresh.sort((a, b) => st[b] - st[a]);
+}
+async function cdSaveBadges(cur) {
+  try { const r = await rpc('badges_set', { p_ids: cur }); cd.badges = (r && r.badges) || cur; cdMsg = ''; }
+  catch (err) { cdMsg = errText(err); try { toast('置頂失敗：' + cdMsg); } catch (e) { /* 略過 */ } }
+}
+async function cdAutoPin(fresh) {                             // 新成就自動換上第 3 格
+  if (cdLS('rexAchAuto') !== '1' || !fresh.length) return;
+  const cur = cdPins().filter(x => x !== fresh[0]).slice(0, 2);
+  cur.push(fresh[0]);
+  await cdSaveBadges(cur);
+}
+async function cdPlace(id) {
+  const cur = cdPins().filter(x => x !== id);
+  if (cdSlot >= 0 && cdSlot < 3) { if (cdSlot < cur.length) cur[cdSlot] = id; else cur.push(id); }
+  else if (cur.length < 3) cur.push(id);
+  else { cdMsg = '三格都滿了，先點一格要換掉的'; renderCard(); return; }
+  cdSlot = -1; await cdSaveBadges(cur.slice(0, 3)); renderCard();
+}
+function cdTile(a, got, pins, st) {
+  const ok = got.has(a.id), pin = pins.includes(a.id);
+  return '<div class="cdx-t' + (ok ? '' : ' off') + (pin ? ' p' : '') + '"' + (ok ? ' data-a="pk" data-id="' + a.id + '"' : '') + '><i>' + a.ic + '</i>' + esc(a.n) + (st ? '<small>' + st + '</small>' : '') + '</div>';
+}
+function cdPicker(got, tot, pct) {
+  const pins = cdPins(); let h = '';
+  h += '<div class="cdx-h">置頂成就　<small>點格子選位置，再點下面的成就放上去</small></div><div class="cdx-sl">';
+  for (let i = 0; i < 3; i++) {
+    const a = pins[i] ? ACH.find(x => x.id === pins[i]) : null, sel = cdSlot === i;
+    h += a ? '<div class="cdx-s f' + (sel ? ' sel' : '') + '" data-a="slot" data-i="' + i + '"><i>' + a.ic + '</i><span>' + esc(a.n) + '</span><b class="x" data-a="unslot" data-i="' + i + '" aria-label="取下">✕</b></div>'
+      : '<div class="cdx-s' + (sel ? ' sel' : '') + '" data-a="slot" data-i="' + i + '"><i>＋</i><span>' + (sel ? '選擇中' : '空位') + '</span></div>';
+  }
+  h += '</div>';
+  if (cdSlot >= 0 && cdSlot < pins.length && pins.length > 1)
+    h += '<div class="cdx-mv"><button type="button" class="btn small ghost" data-a="mv" data-i="' + cdSlot + '" data-d="-1"' + (cdSlot === 0 ? ' disabled' : '') + '>◀ 往左</button><button type="button" class="btn small ghost" data-a="mv" data-i="' + cdSlot + '" data-d="1"' + (cdSlot === pins.length - 1 ? ' disabled' : '') + '>往右 ▶</button></div>';
+  if (cdMsg) h += '<p class="mk-msg">' + esc(cdMsg) + '</p>';
+  const rec = cdRecent.filter(id => !pins.includes(id));
+  if (rec.length) h += '<div class="cdx-h">' + (cdRecentReal ? '最近獲得' : '推薦放上去') + '　<small>點一下直接放上去</small></div><div class="cdx-gr">' +
+    rec.map(id => { const a = ACH.find(x => x.id === id); return a ? '<div class="cdx-t" data-a="pk" data-id="' + id + '"><i>' + a.ic + '</i>' + esc(a.n) + '<small class="add">＋ 放上</small></div>' : ''; }).join('') + '</div>';
+  h += '<div class="cdx-sw"><span>新成就自動換上第 3 格</span><button type="button" class="cdx-tg' + (cdLS('rexAchAuto') === '1' ? ' on' : '') + '" data-a="auto" aria-label="自動置頂開關"></button></div>';
+  h += '<div class="cdx-h">全部成就　<small>' + tot + '/' + ACH.length + '（' + pct + '%）</small></div><div class="cdx-chips"><button type="button" class="cdx-c' + (cdPick === 'got' ? ' on' : '') + '" data-a="pcat" data-c="got">已獲得</button>' +
+    ACH_CATS.map(c => '<button type="button" class="cdx-c' + (cdPick === c.k ? ' on' : '') + '" data-a="pcat" data-c="' + c.k + '">' + c.ic + ' ' + c.n + '</button>').join('') + '</div>';
+  let list;
+  if (cdPick === 'got') list = ACH_CATS.reduce((r, c) => r.concat(c.a.filter(a => got.has(a.id))), []);
+  else list = (ACH_CATS.find(c => c.k === cdPick) || { a: [] }).a;
+  h += '<div class="cdx-gr cdx-long">' + (list.length ? list.map(a => {
+    let st = ''; const fm = /^fit(\d+)$/.exec(a.id);
+    if (!got.has(a.id) && fm) { let c_ = 0; for (let c = 0; c < OUTFITS.length; c++) if (fcHave(+fm[1], c)) c_++; st = c_ + '/' + OUTFITS.length; }
+    return cdTile(a, got, pins, st);
+  }).join('') : '<p class="empty">這裡還沒有成就。</p>') + '</div>';
+  return h;
+}
 let cdGift = false;
 function renderCard() {
   let h = '<div class="shop-h"><h2>' + (cd && cd.self ? '我的名片' : '玩家名片') + '</h2></div>';
@@ -54,18 +124,19 @@ function renderCard() {
     h += '<p class="empty">選一樣送給 ' + esc(cd.name) + '（每天最多送 3 份，一次送 1 個）</p>' + (cdMsg ? '<p class="mk-msg">' + esc(cdMsg) + '</p>' : '') +
       (items.length ? items.map(k => '<div class="giftrow"><span>' + esc(itemName(k)) + ' ×' + have(k) + '</span><button type="button" class="btn small" data-a="give" data-k="' + esc(k) + '">送出</button></div>').join('') : '<p class="empty">背包裡沒有可以送的作物、魚或蟲蝶。</p>');
   } else {
-    const st = cd.stats || {}, got = new Set((cd.ach || []).concat(cd.self ? voyAchSelf() : [])), pins = (cd.badges || []).filter(x => got.has(x));
+    const st = cd.stats || {}, got = new Set((cd.ach || []).concat(cd.self ? voyAchSelf().concat(cdCookSelf()) : [])), pins = (cd.badges || []).filter(x => ACH.some(a => a.id === x));   // 置頂已經由伺服器檢查過，出海成就是遊戲端算的，不能再用 got 過濾
     h += '<div class="cdav"><canvas id="cd-av" width="16" height="22"></canvas><div class="offer" style="flex:1"><p><b>' + esc(cd.name) + '</b>　<small>@' + esc(cd.username) + '</small></p>' +
-      '<p>' + (pins.length ? pins.map(id => { const a = ACH.find(x => x.id === id); return a ? '<span title="' + esc(a.n) + '" style="font-size:22px">' + a.ic + '</span>' : ''; }).join(' ') : '<small style="opacity:.5">' + (cd.self ? '點下面的成就可以置頂（最多 3 個）' : '還沒有置頂成就') + '</small>') + '</p></div></div>';
+      '<p>' + (pins.length ? pins.map(id => { const a = ACH.find(x => x.id === id); return a ? '<span title="' + esc(a.n) + '" style="font-size:22px">' + a.ic + '</span>' : ''; }).join(' ') : '<small style="opacity:.5">' + (cd.self ? '下面的格子可以放置頂成就（最多 3 個）' : '還沒有置頂成就') + '</small>') + '</p></div></div>';
     if (cd.self) {
       h += '<div class="gmrow"><input class="nameinput" id="cd-bio" type="text" maxlength="80" autocomplete="off" placeholder="寫一句自我介紹（好友看得到）" value="' + esc(cd.bio || '') + '"><button type="button" class="btn small" data-a="bio">儲存</button></div>';
       if (cdMsg) h += '<p class="mk-msg">' + esc(cdMsg) + '</p>';
     } else h += '<div class="cdbio">' + (cd.bio ? esc(cd.bio) : '<span style="opacity:.5">這個人還沒有寫自我介紹</span>') + '</div>';
-    h += '<div class="cdlv"><div><b>' + (cd.pl | 0) + '</b>玩家</div><div><b>' + (cd.farm | 0) + '</b>農耕</div><div><b>' + (cd.fish | 0) + '</b>釣魚</div><div><b>' + (cd.bug | 0) + '</b>捕蟲</div></div>';
+    h += '<div class="cdlv"><div><b>' + (cd.pl | 0) + '</b>玩家</div><div><b>' + (cd.farm | 0) + '</b>農耕</div><div><b>' + (cd.fish | 0) + '</b>釣魚</div><div><b>' + (cd.bug | 0) + '</b>捕蟲</div><div><b>' + (cd.cook != null ? (cd.cook | 0) : cd.self ? ckLv() : '–') + '</b>烹飪</div></div>';
     h += '<p class="empty">魚圖鑑 ' + (st.fish_found | 0) + '/' + (st.fish_total | 0) + ' · 蟲蝶圖鑑 ' + (st.bug_found | 0) + '/' + (st.bug_total | 0) + ' · 釣到 ' + (st.fish_caught | 0) + ' 條 · 抓到 ' + (st.bug_caught | 0) + ' 隻<br>田 ' + (st.plots | 0) + ' 塊 · 家具 ' + (st.furniture | 0) + ' 件 · 好友 ' + (st.friends | 0) + ' 位 · 加入 ' + (st.days | 0) + ' 天</p>';
     const tot = ACH.filter(a => got.has(a.id)).length, pct = Math.round(tot / ACH.length * 100);
     const cat = ACH_CATS.find(c => c.k === cdCat);
-    if (!cat) {
+    if (cd.self) h += cdPicker(got, tot, pct);
+    else if (!cat) {
       h += '<div class="achhero"><div class="achring" style="--p:' + pct + '"><b>' + tot + '/' + ACH.length + '</b></div><div><b>成就收集</b><small>' + (tot >= ACH.length ? '全部集滿了！' : '還差 ' + (ACH.length - tot) + ' 個，點分類看看') + '</small></div></div>' +
         '<div class="achcats">' + ACH_CATS.map(c => { const n = c.a.filter(a => got.has(a.id)).length; return '<button type="button" class="achcat" data-a="acat" data-c="' + c.k + '"><i>' + c.ic + '</i><b>' + c.n + '</b><span class="achbar"><i style="width:' + Math.round(n / c.a.length * 100) + '%"></i></span><small>' + n + ' / ' + c.a.length + '</small></button>'; }).join('') + '</div>';
     } else {
@@ -102,10 +173,11 @@ function cdShow() {                                                // 畫面出�
   catch (e) { console.error('名片顯示失敗', e); cd = null; cdMsg = '名片資料讀取失敗，請重試'; try { renderCard(); } catch (e2) { /* 略過 */ } }
 }
 async function loadCard() {
-  const my = ++cdSeq; cd = null; cdMsg = ''; cdGift = false; cdCat = ''; cdShow();
+  const my = ++cdSeq; cd = null; cdMsg = ''; cdGift = false; cdCat = ''; cdSlot = -1; cdPick = 'got'; cdShow();
+  let fresh = [];
   try {
     const r = cdNorm(await cdTimeout(rpc('card_get', cdUid ? { p_uid: cdUid } : {}), 12000));
-    if (my === cdSeq) { cd = r; if (!r) cdMsg = '找不到這張名片，對方可能剛離開'; }
+    if (my === cdSeq) { cd = r; if (!r) cdMsg = '找不到這張名片，對方可能剛離開'; else if (r.self) { fresh = cdSeenInit(); await cdAutoPin(fresh); } }
   } catch (e) { if (my === cdSeq) cdMsg = /timeout/.test(String((e && e.message) || e)) ? '讀取太久了，請檢查網路後按重試' : errText(e); }
   if (my === cdSeq && cdOpen) cdShow();
 }
@@ -131,6 +203,15 @@ cdCard.addEventListener('click', async e => {
     catch (err) { cdMsg = errText(err); }
     renderCard();
   }
+  else if (a === 'slot') { const i = +b.dataset.i; cdSlot = cdSlot === i ? -1 : i; cdMsg = ''; renderCard(); }
+  else if (a === 'unslot') { const i = +b.dataset.i, cur = cdPins(); cur.splice(i, 1); cdSlot = -1; await cdSaveBadges(cur); renderCard(); }
+  else if (a === 'mv') { const i = +b.dataset.i, d = +b.dataset.d, cur = cdPins(), j = i + d; if (j >= 0 && j < cur.length) { [cur[i], cur[j]] = [cur[j], cur[i]]; cdSlot = j; await cdSaveBadges(cur); } renderCard(); }
+  else if (a === 'pk') {
+    const id = b.dataset.id, cur = cdPins(), i = cur.indexOf(id);
+    if (i >= 0 && cdSlot < 0) { cur.splice(i, 1); cdSlot = -1; await cdSaveBadges(cur); renderCard(); } else await cdPlace(id);
+  }
+  else if (a === 'pcat') { cdPick = b.dataset.c; renderCard(); }
+  else if (a === 'auto') { cdLS('rexAchAuto', cdLS('rexAchAuto') === '1' ? '0' : '1'); renderCard(); }
   else if (a === 'pin') {
     const id = b.dataset.id, cur = (cd.badges || []).slice(), i = cur.indexOf(id);
     if (i >= 0) cur.splice(i, 1); else if (cur.length < 3) cur.push(id); else { cdMsg = '最多置頂 3 個'; renderCard(); return; }
