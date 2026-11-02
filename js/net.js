@@ -28,8 +28,10 @@ const errText = e => {
 async function rpc(name, args) {
   const { data, error } = await sb.rpc(name, args || {});
   if (error) throw error;
+  if (HOUSE_WRITE_RPC.test(name)) houseChanged();   // 屋主改了家具／牆／地板／門：通知屋子裡的訪客重新讀取
   return data;
 }
+const HOUSE_WRITE_RPC = /^house_(place|move|flip|sell|pickup|display_set|door_set|wall_line|wall_recolor|paint_rect|expand)$/;
 let chain = Promise.resolve(), pending = 0, resyncWanted = false;
 function enqueue(fn) {
   pending++;

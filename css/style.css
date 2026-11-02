@@ -1171,3 +1171,10 @@ body.imm .camhint{display:block}
 .ck-btns .btn{flex:1;white-space:nowrap;padding-inline:6px}
 @media(max-width:560px){.ck-wrap{flex-direction:column}.ck-side{flex-direction:row;flex-wrap:wrap;width:auto;position:static}.ck-side .ck-only{margin-top:0}}
 .ck-item .ck-rec{color:var(--pink-deep);font-weight:700}
+
+/* ---- 出海集合：準備／離開／出發 放在上方倒數膠囊 ---- */
+#voyhud{display:flex;align-items:center;gap:8px}
+#voyhud.hasb{pointer-events:auto;padding:4px 5px 4px 14px}
+.voyhb{display:flex;gap:5px}.voyhb:empty{display:none}
+#voyhud .btn{min-height:28px;padding:4px 12px;font-size:12px;margin:0}
+@media(max-width:480px){#voyhud.hasb{gap:5px;padding-left:10px}#voyhud .btn{padding:4px 9px}}

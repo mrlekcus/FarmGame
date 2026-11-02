@@ -259,6 +259,7 @@ function startNet(rm, priv, tries) {
       .on('broadcast', { event: 'pno' }, m => onPno(m && m.payload))
       .on('broadcast', { event: 'snl' }, m => onSnl(m && m.payload))
       .on('broadcast', { event: 'fx' }, m => onFx(m && m.payload))
+      .on('broadcast', { event: 'hrf' }, m => onHouseRefresh(m && m.payload))
       .subscribe(status => {
         if (!net || net.ch !== ch) return;
         if (status === 'SUBSCRIBED') { net.ok = true; net.wasOk = true; net.bad = 0; lastSendAt = 0; if (priv) privEverOk = true; trackSelf(); try { fxJoined(); } catch (e) { /* 略過 */ } }

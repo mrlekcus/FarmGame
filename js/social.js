@@ -509,7 +509,7 @@ async function visitHouse(uid, name) {
     if (scene !== 'farm') { toast('現在不能拜訪'); enterBusy = false; return; }
     closeFriends();
     pose = null; ownHouse = house; applyHouse(d);
-    visiting = { uid, name: clean(d.owner && d.owner.name, 8) || name || '朋友' };
+    visiting = { uid, name: clean(d.owner && d.owner.name, 8) || name || '朋友', sig: houseSig(d) };
     scene = 'house'; K = hkind; W = houseMapW(); H = houseMapH();
     pl.x = pl.sx = RX + DX + 1; pl.y = pl.sy = RY + RH - 1; pl.prog = 1; pl.face = 'up'; pressed.length = 0;
     edit.on = false; edit.door = false; edit.hold = null; edit.sel = null; myShow = null;
@@ -538,6 +538,39 @@ function joinHouseRoom(ownerUid) {
   renderVillage();
   addSys(ownerUid === myUid ? '你的家連上了，朋友來拜訪時可以在這裡聊天。' : '來到朋友的家了，可以和屋子裡的人聊天。');
 }
+/* ---------- 屋主佈置時，訪客即時同步 ----------
+   屋主每次改動（放／搬／轉／收／賣家具、畫牆和地板、搬門、擴建）伺服器成功後，在屋子頻道廣播 'hrf'；
+   訪客收到就重新向伺服器讀這間屋子。廣播可能掉包，所以訪客另外每 15 秒對一次（內容沒變就不動畫面）。 */
+let hrfSendT = 0, hrfGetT = 0, hrfBusy = false;
+function houseChanged() {
+  if (scene !== 'house' || visiting || !net || !net.ch) return;
+  clearTimeout(hrfSendT);
+  hrfSendT = setTimeout(() => {
+    try { if (scene === 'house' && !visiting && net && net.ch) net.ch.send({ type: 'broadcast', event: 'hrf', payload: { i: myUid } }); } catch (e) { /* 略過 */ }
+  }, 350);
+}
+function houseSig(d) { try { return JSON.stringify([d.items, d.walls, d.paint, d.size, d.door, d.display, d.dish_by, d.style, d.tier]); } catch (e) { return ''; } }
+function onHouseRefresh(p) {
+  if (!p || scene !== 'house' || !visiting || String(p.i) !== String(visiting.uid)) return;
+  clearTimeout(hrfGetT);
+  hrfGetT = setTimeout(() => refreshVisitedHouse(), 450);   // 稍等一下，屋主連續動作（放下再翻面）合併成一次
+}
+async function refreshVisitedHouse() {
+  if (!visiting || scene !== 'house' || hrfBusy) return;
+  if (dsOpen) { hrfGetT = setTimeout(refreshVisitedHouse, 1500); return; }
+  const v = visiting; hrfBusy = true;
+  try {
+    const d = await withTimeout(rpc('house_visit', { p_uid: v.uid }).then(x => houseDoorOf(x, v.uid)), 12000);
+    if (visiting !== v || scene !== 'house') return;
+    const sig = houseSig(d);
+    if (sig === v.sig) return;
+    v.sig = sig;
+    applyHouse(d);
+    renderHousePanel();
+  } catch (e) { /* 下一次再試 */ }
+  finally { hrfBusy = false; }
+}
+setInterval(() => { if (visiting && scene === 'house' && !document.hidden) refreshVisitedHouse(); }, 15000);
 function leaveHouse(silent) {
   if (scene !== 'house') return;
   pose = null;

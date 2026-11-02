@@ -20,6 +20,9 @@ const voyBackNow = () => ({ scene, x: pl.x, y: pl.y, room: roomInfo ? roomInfo.r
 const voyStage = document.querySelector('.stage');
 const voyNoteEl = voyMk('div', 'voynote'); voyNoteEl.setAttribute('aria-live', 'polite'); voyStage.appendChild(voyNoteEl);
 const voyHud = voyMk('div', 'voyhud'); voyHud.hidden = true; voyStage.appendChild(voyHud);
+const voyHT = document.createElement('span'), voyHB = document.createElement('span');   // 上方膠囊：左邊文字（倒數），右邊按鈕（準備／離開／出發）
+voyHT.className = 'voyht'; voyHB.className = 'voyhb'; voyHud.append(voyHT, voyHB);
+let voyHBsig = '';
 const voyPanel = voyMk('section', 'voypanel', 'village'); voyPanel.hidden = true;
 vPanel.parentNode.insertBefore(voyPanel, vPanel);
 const voyM = voyMk('div', 'voym', 'maker'); voyM.hidden = true;
@@ -244,7 +247,7 @@ async function voyFinish() {
   if (voy.finishing || !voy.cur) return;
   voy.finishing = true; vfAbort(); fishing = null; netFish({ a: 0 });
   const id = voy.cur.id;
-  voyHud.textContent = '⛵ 回港中…'; voyRender();
+  voyHT.textContent = '⛵ 回港中…'; voyHB.innerHTML = ''; voyHBsig = ''; voyHud.classList.remove('hasb'); voyRender();
   await voySleep(2300);                                          // 航程結束後 2 秒內伺服器還接受最後一次拉竿回報
   try { voy.sum = await rpc('voyage_summary', { p_id: id }); }
   catch (e) { voy.sum = null; }
@@ -266,14 +269,10 @@ function voyRender() {
     (sailing ? ' <small>🎣' + (m.catches | 0) + '</small>' : '') +
     (lobby && host && !m.host ? '<button type="button" class="pkick" data-a="kick" data-u="' + esc(m.uid) + '" aria-label="踢掉 ' + esc(m.name) + '">✕</button>' : '') + '</span>').join('') + '</div>';
   if (lobby) {
-    h += '<p class="voy-note">' + (host ? (wait ? '還有 ' + wait + ' 人沒準備。' : mem.length > 1 ? '大家都準備好了！' : '只有你一個人也可以直接出發。') : '準備好之後，等船長出發。') + '</p><div class="v-quick">';
-    if (host) {
-      h += '<button type="button" class="btn small" data-a="start"' + (wait ? ' disabled' : '') + '>出發</button>';
+    h += '<p class="voy-note">' + (host ? (wait ? '還有 ' + wait + ' 人沒準備。' : mem.length > 1 ? '大家都準備好了！' : '只有你一個人也可以直接出發。') : '按上方的「準備」，準備好之後等船長出發。') + '</p><div class="v-quick">';
+    if (host) {   // 出發、準備、離開三個按鈕在上方的倒數膠囊裡（voyHudUpdate），這裡只留不常用的
       if (wait) h += '<button type="button" class="btn small ghost" data-a="kickall">踢掉未準備的人（' + wait + '）</button>';
       h += '<button type="button" class="btn small ghost" data-a="cancel">解散並退款</button>';
-    } else {
-      h += '<button type="button" class="btn small" data-a="ready" aria-pressed="' + (me_ && me_.ready ? 'true' : 'false') + '">' + (me_ && me_.ready ? '取消準備' : '準備') + '</button>' +
-        '<button type="button" class="btn small ghost" data-a="leave">離開</button>';
     }
     h += '</div>';
   } else if (sailing) {
@@ -284,7 +283,7 @@ function voyRender() {
   voyHudUpdate();
 }
 voyPanel.addEventListener('pointerdown', e => e.stopPropagation());
-voyPanel.addEventListener('click', async e => {
+async function voyClick(e) {
   const b = e.target.closest('button[data-a]');
   if (!b || !voy.cur || voy.busy) return;
   const v = voy.cur, a = b.dataset.a;
@@ -305,7 +304,9 @@ voyPanel.addEventListener('click', async e => {
     if (/voyage_closed|not_member|not_sailing/.test(String((err && err.message) || err))) voySync();
   }
   voy.busy = false;
-});
+}
+voyPanel.addEventListener('click', voyClick); voyHud.addEventListener('click', voyClick);
+voyHud.addEventListener('pointerdown', e => e.stopPropagation());
 
 /* 航程倒數 HUD（畫面上方中間）：集合倒數、航行倒數、釣到幾條、拋竿冷卻 */
 function voyHudUpdate() {
@@ -318,7 +319,15 @@ function voyHudUpdate() {
     const cd = voy.lastReelAt + VY_COOLDOWN_MS - Date.now();
     t = (v.mystery ? '🌫 神秘路線 ' : '⛵ 航行中 ') + voyFmt(v.ends_ms - now) + ' · 🎣 ' + (me_.catches | 0) + '/' + cap + (cd > 0 ? ' · 冷卻 ' + Math.ceil(cd / 1000) + 's' : '');
   } else t = '⛵ 回港中…';
-  if (voyHud.textContent !== t) voyHud.textContent = t;
+  if (voyHT.textContent !== t) voyHT.textContent = t;
+  let bh = '';   // 按鈕只在集合中出現，內容沒變就不重畫（不然倒數每次更新都會打斷點擊）
+  if (v.status === 'lobby') {
+    const mem = v.members || [], mm = mem.find(m => m.uid === myUid), wait = mem.filter(m => !m.host && !m.ready).length;
+    bh = v.host === myUid ? '<button type="button" class="btn small" data-a="start"' + (wait ? ' disabled' : '') + '>出發</button>' :
+      '<button type="button" class="btn small" data-a="ready" aria-pressed="' + (mm && mm.ready ? 'true' : 'false') + '">' + (mm && mm.ready ? '取消準備' : '準備') + '</button>' +
+      '<button type="button" class="btn small ghost" data-a="leave">離開</button>';
+  }
+  if (bh !== voyHBsig) { voyHBsig = bh; voyHB.innerHTML = bh; voyHud.classList.toggle('hasb', !!bh); }
   voyHud.hidden = false;
 }
 function voyTick() {
