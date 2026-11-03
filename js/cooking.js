@@ -28,8 +28,7 @@ const ckXpNow = () => (lv && +lv.xp_cook) || 0;
 function ckLv() { return lv && +lv.cook ? Math.min(12, +lv.cook) : 1; }
 /* 料理難度（1～5 星）：照售價由低到高分組，星數 = 需要的烹飪等級 */
 function ckTier(rc) {
-  if (/^hw_/.test(rc.key)) return HW_TIER[rc.key] || 2;   // 萬聖節料理（魔女鍋）：難度固定，不參與一般料理的排名
-  const s = recipes.filter(x => !/^hw_/.test(x.key)).sort((a, b) => (a.price - b.price) || (a.key < b.key ? -1 : 1));
+  const s = recipes.slice().sort((a, b) => (a.price - b.price) || (a.key < b.key ? -1 : 1));
   const i = Math.max(0, s.findIndex(x => x.key === rc.key));
   return Math.min(5, 1 + Math.floor(i * 5 / Math.max(1, s.length)));
 }
@@ -55,7 +54,7 @@ function renderKitchen() {
   const dis = ckBusy ? ' disabled' : '';
   const act_ = Object.keys(buffs).filter(buffOn).map(k => (BUFF_N[k] || k) + '（剩 ' + Math.ceil((buffs[k] - srvNow()) / 60000) + ' 分鐘）');
   const L = ckLv(), rec = ckRecent();
-  const all = recipes.filter(rc => !/^hw_/.test(rc.key)).map(rc => {
+  const all = recipes.map(rc => {
     const mx = maxCook(rc), T = ckTier(rc);
     return { rc, mx, T, lock: L < T, dn: have('dish:' + rc.key), cat: ckCatOf(rc) };
   });
@@ -127,7 +126,7 @@ function cookJudge(c, now) {
 }
 function cookTick() {
   const c = cooking; if (!c || c.phase === 'serve') return;
-  const it = c.hw ? (scene === 'plaza' && (hwOn() || !/^hw_/.test(c.rc.key)) ? true : null) : scene === 'house' && house ? house.items.find(x => x.id === c.itId) : null;
+  const it = scene === 'house' && house ? house.items.find(x => x.id === c.itId) : null;
   if (c.scene !== scene || !it || paused() || pressed.length) { cookCancel(); return; }
   const now = Date.now(), rd = c.plan[c.i], dt = Math.min(100, now - (c.lt || now)); c.lt = now;
   if (c.phase === 'wait') { if (now >= c.at) { c.phase = 'idle'; c.heat = 0; c.needRel = actHeld; } }
@@ -148,15 +147,15 @@ async function cookFinish(ok) {
   let made = false, errMsg = '', srvXp = 0;
   if (ok) {
     c.phase = 'serve'; ckBusy = true;
-    try { const r = await enqueue(() => c.hw ? (/^hw_/.test(rc.key) ? rpc('hw_cook', { p_key: rc.key, p_qty: 1 }) : rpc('cauldron_cook', { p_key: rc.key, p_qty: 1, p_perfect: perfect })) : rpc('cook', c.host ? { p_key: rc.key, p_qty: 1, p_perfect: perfect, p_at: c.host } : { p_key: rc.key, p_qty: 1, p_perfect: perfect })); if (r.inv) Object.assign(inv, r.inv); srvXp = +r.xp || 0; made = true; }
+    try { const r = await enqueue(() => rpc('cook', c.host ? { p_key: rc.key, p_qty: 1, p_perfect: perfect, p_at: c.host } : { p_key: rc.key, p_qty: 1, p_perfect: perfect })); if (r.inv) Object.assign(inv, r.inv); srvXp = +r.xp || 0; made = true; }
     catch (err) { errMsg = errText(err); await resync(); }
     ckBusy = false; refreshHud();
   }
   if (cooking === c) cooking = null;
   ckSend(made ? 'done' : 'fail', c);
   if (made && c.host && visiting) visitLog('cook', rc.name);   // 在朋友家煮菜：記給屋主看
-  if (made && !/^hw_/.test(rc.key)) ckRecentSet(rc.key);   // 記下最近煮的這一道
-  if (made && !(c.hw && /^hw_/.test(rc.key))) loadLevel();   // 伺服器已加經驗，重新抓等級（升級彈窗也在裡面）
+  if (made) ckRecentSet(rc.key);   // 記下最近煮的這一道
+  if (made) loadLevel();   // 伺服器已加經驗，重新抓等級（升級彈窗也在裡面）
   const xp = srvXp ? ' · 烹飪經驗 +' + srvXp : '';
   dishIcon(catchCv.getContext('2d'), rc.key);
   catchT.textContent = made ? rc.name + (perfect ? '　完美！' : '') : !ok ? '糊掉了…' : '做不出來';
@@ -182,10 +181,10 @@ function ckText(txt, x, y, col) {   // 帶白邊的小字，疊在牆上也看�
 function drawCooking(now) {
   const c = cooking;
   if (!c || c.scene !== scene) return;
-  const it = house ? house.items.find(x => x.id === c.itId) : null, rt = c.hw ? true : it && itemRect(it);
+  const it = house ? house.items.find(x => x.id === c.itId) : null, rt = it && itemRect(it);
   if (!rt) return;
   const rd = c.plan[Math.min(c.i, c.plan.length - 1)];
-  if (!c.hw) { const px0 = (RX + rt.x) * T, top = (RY + rt.y) * T; stoveFlames(px0, top, now, c.phase === 'heat'); }   // 魔女鍋的泡泡由 halloween.js 畫
+  { const px0 = (RX + rt.x) * T, top = (RY + rt.y) * T; stoveFlames(px0, top, now, c.phase === 'heat'); }
   const R = 10, lw = 3.5, ppx = Math.round(pl.x * T), ppy = Math.round(pl.y * T);
   let rx = clamp(ppx + 8, R + 3, ctx.canvas.width - R - 3), ry = ppy - 11 - R - 3, below = false;   // 頭頂：名牌（約 ppy-11）之上
   if (ry - R - 9 < 1) { ry = ppy + 17 + R + 3; below = true; }                                       // 上面沒空間 → 放腳下

@@ -114,7 +114,7 @@ function trackSelf() {
   if (!net || !net.ok) return;
   trackLimited('self', () => {
     if (!net || !net.ok) return;
-    try { net.ch.track({ n: me.name, c: me.look, h: hwBits(), w: worldKey(), x: pl.x, y: pl.y, f: FACEIDX[pl.face], s: sitCode() }); } catch (e) { /* 略過 */ }
+    try { net.ch.track({ n: me.name, c: me.look, w: worldKey(), x: pl.x, y: pl.y, f: FACEIDX[pl.face], s: sitCode() }); } catch (e) { /* 略過 */ }
   });
 }
 function onSync(ch) {
@@ -136,7 +136,6 @@ function onSync(ch) {
     } else {
       rp.heard = performance.now();
       rp.name = name; rp.char = toChar(name, m.c);
-      if (performance.now() - (rp.posAt || 0) > 12000) rp.hw = intIn(m.h, 0, 3, rp.hw | 0);   // 心跳比較新，太久沒收到才用 presence 的
       if (performance.now() - (rp.posAt || 0) > 12000) {   // presence 現在更新較慢，位置可能是舊的：只要最近收過他的 pos 廣播就以廣播為準，12 秒都沒收到才改用 presence 的位置
 
         if (rp.w !== wk) { rp.w = wk; rp.x = x; rp.y = y; }       // 換了世界（進出塔羅屋）：直接放到新位置，不要從舊位置滑過去
@@ -167,7 +166,6 @@ function onPos(p) {
     renderVillage();
   } else if (typeof p.n === 'string') { rp.name = clean(p.n, 8) || rp.name; rp.char = toChar(rp.name, p.c); }
   rp.heard = performance.now();
-  if ('h' in p) rp.hw = intIn(p.h, 0, 3, 0);   // 萬聖節 buff 位元（只有心跳帶，沒帶就維持原樣）
   if (nx !== rp.tx || ny !== rp.ty) rp.fish = null;
   if (rp.w !== wk) { rp.w = wk; rp.x = nx; rp.y = ny; rp.fish = null; rp.bubble = null; rp.typing = 0; }   // 換了世界：直接放到新位置
   rp.tx = nx; rp.ty = ny; rp.f = intIn(p.f, 0, 3, rp.f); rp.posAt = performance.now();
@@ -229,7 +227,6 @@ let netGate = Promise.resolve(), netTok = 0;
 const dropChannel = ch => { try { return Promise.resolve(sb.removeChannel(ch)).catch(() => {}); } catch (e) { return Promise.resolve(); } };
 function stopNet() {
   netTok++; myTyping = false;
-  try { snLeaveMe(); snReset(); } catch (e) { /* 略過 */ }   // 離開廣場／換房：蛇梯棋的座位先讓出來
   if (!net) return;
   const n = net; net = null;
   netGate = netGate.then(() => dropChannel(n.ch));
@@ -257,7 +254,6 @@ function startNet(rm, priv, tries) {
       .on('broadcast', { event: 'ate' }, m => onAte(m && m.payload))
       .on('broadcast', { event: 'tv' }, m => onTv(m && m.payload))
       .on('broadcast', { event: 'pno' }, m => onPno(m && m.payload))
-      .on('broadcast', { event: 'snl' }, m => onSnl(m && m.payload))
       .on('broadcast', { event: 'fx' }, m => onFx(m && m.payload))
       .on('broadcast', { event: 'hrf' }, m => onHouseRefresh(m && m.payload))
       .subscribe(status => {
@@ -326,7 +322,7 @@ function sendPos(dt) {
   if ((moved || beat) && net && net.ok) {
     posAcc = 0; lastPosKey = key; lastSendAt = now;
     if (moved) lastMoveAt = now;
-    try { net.ch.send({ type: 'broadcast', event: 'pos', payload: beat ? { i: myUid, w: worldKey(), x: pl.x, y: pl.y, f: FACEIDX[pl.face], s: sitCode(), n: me.name, c: me.look, h: hwBits() } : { i: myUid, w: worldKey(), x: pl.x, y: pl.y, f: FACEIDX[pl.face], s: sitCode() } }); } catch (e) { /* 略過 */ }
+    try { net.ch.send({ type: 'broadcast', event: 'pos', payload: beat ? { i: myUid, w: worldKey(), x: pl.x, y: pl.y, f: FACEIDX[pl.face], s: sitCode(), n: me.name, c: me.look } : { i: myUid, w: worldKey(), x: pl.x, y: pl.y, f: FACEIDX[pl.face], s: sitCode() } }); } catch (e) { /* 略過 */ }
     if (moved && now - lastTrackAt > 4000) { lastTrackAt = now; trackSelf(); }   // presence 只當備援，降低頻率以免超過 Realtime 的訊息上限
   }
   if (lastMoveAt && now - lastMoveAt > 500) { lastMoveAt = 0; trackSelf(); }

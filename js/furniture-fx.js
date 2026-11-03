@@ -19,9 +19,8 @@ const fxDay = () => Math.floor((srvNow() + 8 * 3600000) / 86400000);   // 以 GM
    以前澆水累積 7 天以上開過花的盆栽，維持開花的樣子；其他一律是長葉的樣子。 ---------- */
 const plantStage = it => { const v = fxGet(it); return v && (v.n | 0) >= 7 ? 2 : 1; };
 
-/* 節慶：萬聖節（沿用 halloween.js 的開關）、聖誕（12 月，GMT+8）；花圈在節慶的夜晚亮小燈 */
+/* 節慶：聖誕（12 月，GMT+8）；花圈在節慶的夜晚亮小燈 */
 function fxFest() {
-  if (typeof hwOn === 'function' && hwOn()) return 'hw';
   return new Date(srvNow() + 8 * 3600000).getUTCMonth() === 11 ? 'xmas' : null;
 }
 
@@ -144,7 +143,7 @@ FURN.wreath = (px, py) => {                          // 花圈：一圈小燈一
   rr('#7fd08a', px + 2, py + 2, 12, 3); rr('#7fd08a', px + 2, py + 11, 12, 3); rr('#7fd08a', px + 2, py + 2, 3, 12); rr('#7fd08a', px + 11, py + 2, 3, 12);
   r('#ff8fa8', px + 4, py + 3, 2, 2); r('#ffd27a', px + 10, py + 11, 2, 2); r('#ff8fa8', px + 11, py + 5, 2, 2); r('#ffffff', px + 3, py + 10, 2, 2);
   r('#ff8fa8', px + 7, py + 13, 2, 3);
-  const cs = { hw: ['#ff9a3c', '#c9a8f5', '#7ae04a'], xmas: ['#ff6b6b', '#8fe09a', '#ffe08a', '#8fe0ff'] }[fest] || ['#ffd27a', '#ff8fa8', '#8fe09a', '#8fc8f4'];
+  const cs = { xmas: ['#ff6b6b', '#8fe09a', '#ffe08a', '#8fe0ff'] }[fest] || ['#ffd27a', '#ff8fa8', '#8fe09a', '#8fc8f4'];
   [[2, 2], [7, 1], [12, 2], [14, 7], [12, 12], [7, 14], [2, 12], [1, 7]].forEach(([dx, dy], i) => {
     if ((Math.floor(t / 450) + i) % 3 === 0) return;
     const c = cs[(i + Math.floor(t / 1350)) % cs.length];
@@ -242,7 +241,7 @@ function fxAct(hit, x, y) {
     sparkle(x, y, '#8fd3ff');
   } else if (k === 'wreath') {
     const f = fxFest();
-    toast(f === 'hw' ? '萬聖節快樂！花圈的小燈換成了萬聖節的顏色。' : f === 'xmas' ? '聖誕快樂！花圈的小燈換成了聖誕的顏色。' : '一圈小小的花圈，小燈輪流閃著。', 3200);
+    toast(f === 'xmas' ? '聖誕快樂！花圈的小燈換成了聖誕的顏色。' : '一圈小小的花圈，小燈輪流閃著。', 3200);
     sparkle(x, y, '#8fe09a');
   } else if (k === 'fireplace') {
     const on = !fxOn(hit, true); fxSet(hit, Object.assign({}, fxGet(hit), { on }));

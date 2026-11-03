@@ -72,7 +72,8 @@ function updateClock() {
   const h = Math.floor(w.min / 60), m = Math.floor(w.min % 60);
   const s = String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
   const sea = seasonAt(srvNow());
-  const sig = s + '|' + w.wet + w.snow + sea;
+  const sl = seaNow().left, nx = SEA_SHORT[seaNext(sea)];
+  const sig = s + '|' + w.wet + w.snow + sea + '|' + sl;
   if (sig === lastClock) return;
   lastClock = sig;
   $('clock').textContent = s;
@@ -80,10 +81,13 @@ function updateClock() {
   const wx = $('wx');
   wx.textContent = w.snow ? '雪天' : w.wet ? '雨天' : '晴天';
   wx.classList.toggle('rain', w.wet);
-  $('sn').textContent = SEASON_N[sea];
+  $('sn').textContent = SEASON_N[sea] + (sl === 1 ? '　明天換' + nx : '　剩 ' + sl + ' 天');
+  $('sn').classList.toggle('late', sl === 1);
+  $('sn').title = $('wxs').title = '點一下看四季日曆';
   const ws = $('wxs');   // 手機（沉浸／橫屏）把 #wx、#sn 藏起來，改顯示這一個合併的小標籤
-  ws.textContent = (w.snow ? '❄️ 雪' : w.wet ? '🌧️ 雨' : '☀️ 晴') + '・' + SEASON_N[sea].replace(' ', '').replace('天', '');
+  ws.textContent = (w.snow ? '❄️ 雪' : w.wet ? '🌧️ 雨' : '☀️ 晴') + '・' + SEASON_N[sea].replace(' ', '').replace('天', '') + (sl === 1 ? '→' + nx : ' ' + sl + '天');
   ws.classList.toggle('rain', w.wet);
+  seaTick();   // 換季通知／前一天預告（js/seasons.js）
 }
 function refreshHud() {
   $('gold').textContent = (me ? me.coins : 0) + ' G';
@@ -128,11 +132,9 @@ function updateTip() {
       if (K[y][x] === GT) s = '出口：按動作鍵回農場。';
       else if (rp) s = '這是 ' + rp.name + '。';
       else if (K[y][x] === WA) s = curTool().id === 'rod' ? '池塘：按動作鍵拋竿釣魚。' : '池塘。（換成釣竿就能釣魚）';
-      else if (hwHint(x, y)) s = hwHint(x, y);
       else if (K[y][x] === FR) s = '噴水池。';
       else if (K[y][x] === BN) s = '長椅：按動作鍵坐下。';
       else if (K[y][x] === MB) s = '碼頭留言板：按動作鍵看大家的便利貼，也能貼一張（每天 3 次）。';
-      else if (K[y][x] === SB) s = '蛇梯棋：按動作鍵開桌或加入（1～4 人，一個人也能玩）。';
       else if (K[y][x] === TS) s = '塔羅小攤：按動作鍵走進去，找 Lekcus 抽今天的運勢牌。';
     }
   } else if (scene === 'barn') {

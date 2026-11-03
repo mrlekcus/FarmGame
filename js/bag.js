@@ -72,7 +72,7 @@ function bagDetail(it) {
   } else if (it.t === 'qcrop') info = '品質好的作物，賣價比普通的高（銀星 +25%、金星 +50%）。到雜貨攤賣，也可以做料理、交委託。每個 ' + miscPrice(it.k) + ' G。';
   else if (it.t === 'misc') {
     const m = itemMeta[it.k] || {};
-    info = /^h:/.test(it.k) ? '萬聖節料理的材料：到廣場的魔女鍋旁煮活動料理。' : it.k === 'a:hay' ? '拿去穀倉餵動物，每隻餓著的動物吃 1 把。' : /^x:/.test(it.k) ? '裝備後面向有作物的田地按動作鍵，這一輪收成更容易出現銀星和金星（每格一次）。' : (m.price ? '到雜貨攤賣，每個 ' + m.price + ' G。也能做料理、交委託。' : '');
+    info = it.k === 'a:hay' ? '拿去穀倉餵動物，每隻餓著的動物吃 1 把。' : /^x:/.test(it.k) ? '裝備後面向有作物的田地按動作鍵，這一輪收成更容易出現銀星和金星（每格一次）。' : (m.price ? '到雜貨攤賣，每個 ' + m.price + ' G。也能做料理、交委託。' : '');
     if (/^x:/.test(it.k)) a.push(equipRow(it));
   } else if (it.t === 'crop') info = '到雜貨攤可以賣掉，每個 ' + cropPrice(it.k) + ' G' + seasonTag(it.k) + '。也能拿去做料理或交委託。';
   else if (it.t === 'fish') {

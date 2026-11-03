@@ -6,7 +6,7 @@ let musicOn = true, musicVol = 50;
 try { const m = JSON.parse(localStorage.getItem('dewfarm_music') || 'null'); if (m) { musicOn = m.on !== false; musicVol = clamp(+m.vol || 0, 0, 100); } } catch (e) { /* 用預設值 */ }
 /* ---- 場景音檔 BGM：農場、小村、廣場、塔羅屋各有自己的音檔（bgm 資料夾）；
         屋子沿用農場那首（從農場走進屋子不會斷掉重放）；其他地方（穀倉）或音檔讀不到時，改用程式合成的音樂。換場景時淡出舊的、淡入新的。 ---- */
-const BGM_FILES = { farm: 'bgm/bgm-farm.mp3', town: 'bgm/bgm-town.mp3', plaza: 'bgm/bgm-plaza.mp3', tarot: 'bgm/bgm-tarot.mp3', plaza_hw: 'bgm/bgm-plaza-halloween.mp3', boat: 'bgm/bgm-boat.mp3' };   // plaza_hw：萬聖節期間廣場的夜晚音樂
+const BGM_FILES = { farm: 'bgm/bgm-farm.mp3', town: 'bgm/bgm-town.mp3', plaza: 'bgm/bgm-plaza.mp3', tarot: 'bgm/bgm-tarot.mp3', boat: 'bgm/bgm-boat.mp3' };
 const SCENE_BGM = { farm: 'farm', house: 'farm', forest: 'farm', cave: 'farm', town: 'town', plaza: 'plaza', tarot: 'tarot', boat: 'boat' };   // 場景 -> 用哪一首（沒列的場景用合成音樂）
 function createSceneBgm(win, urls) {
   const AC = win.AudioContext || win.webkitAudioContext;
@@ -48,8 +48,7 @@ function createSceneBgm(win, urls) {
 const Bgm = createSceneBgm(window, BGM_FILES);
 let bgmGesture = false, bgmSig = '';
 /* 決定現在該放哪一種：有音檔的場景 → 音檔；其他 → 程式合成。使用者關掉音樂就都不放。 */
-function bgmName() {   // 萬聖節期間（hwOn）廣場天黑後換成萬聖節那首；音檔讀不到就照原本的廣場音樂
-  if (scene === 'plaza' && hwOn() && Bgm && Bgm.has('plaza_hw') && darkness(world().min) > 0.35) return 'plaza_hw';
+function bgmName() {
   return SCENE_BGM[scene];
 }
 function syncBgm() {

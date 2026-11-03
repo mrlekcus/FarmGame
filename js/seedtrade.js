@@ -28,7 +28,7 @@ const seMax = o => {   // 這一筆現在最多能換幾次（材料夠、今天
   for (const k in o.need) m = Math.min(m, Math.floor(have(k) / o.need[k]));
   return Math.max(0, m);
 };
-const seDishes = crop => recipes.filter(rc => rc.ing && rc.ing['c:' + crop] && !/^hw_/.test(rc.key)).map(rc => rc.name);
+const seDishes = crop => recipes.filter(rc => rc.ing && rc.ing['c:' + crop]).map(rc => rc.name);
 function seNeedHtml(o, times) {
   return Object.keys(o.need).map(k => esc(itemName(k)) + ' ' + have(k) + '/' + o.need[k] * (times || 1)).join('、');
 }
