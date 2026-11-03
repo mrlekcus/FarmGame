@@ -179,6 +179,7 @@ function update(dt) {
   fishTick();
   if (vfOn) { pressed.length = 0; vfTick(dt); }
   cookTick();
+  buffFxTick(dt);
   if (paused()) { actQueued = false; autoPath = null; return; }
   if (anim && (pressed.length || pose || pl.prog < 1)) anim = null;   // 走動或坐下就中斷動作
   if (pose) {                                   // 坐著或躺著：家具被搬走、離開屋子或按方向鍵就起身

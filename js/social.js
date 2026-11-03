@@ -55,7 +55,7 @@ function drawPlayerFx(px, py, face, moving, phase, ch, fx) {
   }
   if (fx.eat) drawEatFx(px + fx.dx, py + Math.round(fx.dy), fx.eat);
 }
-const EAT_AURA = { swift: '#5fb8e6', fish: '#4fd0d8', bug: '#7fd08a' };   // 光環顏色跟 buff 走
+const EAT_AURA = { swift: '#5fb8e6', fish: '#4fd0d8', bug: '#7fd08a', lamp: '#ffd36a', spark: '#ffe98a', heart: '#ff8fb8', music: '#9fb4ff', petal: '#ffb3cf', moon: '#b8c4ff' };   // 光環顏色跟 buff 走
 function drawEatFx(px, py, e) {
   const t = e.t;
   g.save();

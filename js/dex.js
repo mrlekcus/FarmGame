@@ -27,6 +27,7 @@ function dexMini(f, isBug) {
   const ic = (DEX_PH[c.phase] ? DEX_PH[c.phase][1] : '') + (c.weather === 'rain' ? '🌧' : c.weather === 'clear' ? '☀' : '');
   return sq || ic ? '<span class="dxmini">' + sq + (ic ? '<i>' + ic + '</i>' : '') + '</span>' : '';
 }
+const dexN = n => n >= 999 ? '999+' : n;   // 圖鑑上的數量最多顯示 999+（伺服器也只記到 999）
 const dexdEl = document.createElement('div');
 dexdEl.className = 'maker dexd'; dexdEl.hidden = true; dexdEl.innerHTML = '<div class="card maker-card dexdc" tabindex="-1"></div>';
 dexEl.after(dexdEl);
@@ -41,7 +42,7 @@ function openDexDetail(key, isBug) {
   const c = dexCond(f, isBug), rec = !isBug && fishRec[key] ? fishRec[key].best : 0;
   const cm = !isBug && f.min_cm !== undefined ? f.min_cm + '～' + f.max_cm + ' cm' : (!isBug && FISH_SZ[key] ? FISH_SZ[key] : '');
   const head = '<div class="dxh"><canvas width="16" height="16" ' + (isBug ? 'data-bug' : 'data-fish') + '="' + esc(key) + '"></canvas><div><div class="dxn">' + esc(f.name) +
-    '<span class="dxt" style="color:' + rc[1] + ';border-color:' + rc[1] + '">' + rc[0] + '</span></div><small>' + f.price + ' G' + (cm ? ' · ' + cm : '') + ' · ' + (isBug ? '抓到' : '釣到') + ' ×' + n + (rec ? ' · 最大 ' + rec + ' cm' : '') + '</small></div></div>';
+    '<span class="dxt" style="color:' + rc[1] + ';border-color:' + rc[1] + '">' + rc[0] + '</span></div><small>' + f.price + ' G' + (cm ? ' · ' + cm : '') + ' · ' + (isBug ? '抓到' : '釣到') + ' ×' + dexN(n) + (rec ? ' · 最大 ' + rec + ' cm' : '') + '</small></div></div>';
   let rows = '';
   if (sea) {
     rows = '<div class="dxr"><span>地點</span><span class="dxch">' + (habitatOf(f) === 'mystery' ? '神秘路線限定' : '出海團的海釣') + '</span></div>';
@@ -60,7 +61,45 @@ function openDexDetail(key, isBug) {
   dexdCard.querySelectorAll('canvas[data-fish]').forEach(cv => drawFish(cv.getContext('2d'), cv.dataset.fish, false));
   dexdCard.querySelectorAll('canvas[data-bug]').forEach(cv => drawBug(cv.getContext('2d'), cv.dataset.bug, false));
 }
+/* ---------- 料理圖鑑：煮過的料理才看得到名字和效果（煮過的次數存在伺服器 cook_log） ---------- */
+const dishDone = k => (cookLog[k] | 0) > 0 || have('dish:' + k) > 0;
+function dexTabsHtml() {
+  return '<div class="v-quick" style="margin:6px 0">' + [['fish', '淡水'], ['sea', '海釣'], ['bug', '蟲與蝴蝶'], ['dish', '料理']].map(([k, n]) =>
+    '<button type="button" class="chipbtn" data-a="tab" data-c="' + k + '" aria-pressed="' + (dexTab === k ? 'true' : 'false') + '">' + n + '</button>').join('') + '</div>';
+}
+function renderDishDex() {
+  const list = recipes.slice().sort((a, b) => (a.price - b.price) || (a.key < b.key ? -1 : 1));
+  const found = list.filter(rc => dishDone(rc.key)).length, total = list.reduce((t, rc) => t + (cookLog[rc.key] | 0), 0);
+  const cells = list.map(rc => {
+    const n = cookLog[rc.key] | 0, ok = dishDone(rc.key), T_ = ckTier(rc);
+    return '<div class="dexc ' + (ok ? 'yes' : 'no') + '"' + (ok ? ' role="button" tabindex="0" data-d="' + esc(rc.key) + '" data-r="1"' : '') + ' style="' + (ok ? 'border-color:#f0b27a' : '') + '">' +
+      '<canvas width="16" height="16" data-dish="' + esc(rc.key) + '"' + (ok ? '' : ' data-dim="1"') + '></canvas>' +
+      '<small><b>' + (ok ? esc(rc.name) : '？？？') + '</b></small>' +
+      (ok ? '<small style="color:#a8744a">' + rc.price + ' G' + (rc.buff ? ' · ' + (BUFF_I[rc.buff] || '') + ' ' + (rc.min | 0) + '分' : '') + '</small><small>煮過 ×' + dexN(Math.max(n, 1)) + '</small>'
+          : '<small style="color:#bdada5">還沒煮過</small><small style="color:#bdada5">烹飪 Lv.' + T_ + '</small>') + '</div>';
+  }).join('');
+  dexCard.innerHTML = '<div class="shop-h"><h2>料理圖鑑</h2><span class="chip">' + found + '/' + list.length + '</span></div>' + dexTabsHtml() +
+    '<div class="row"><div class="meta" style="min-width:0"><b>我的料理紀錄</b><small>累計煮出 ' + total + ' 份 · 煮過一次就會解鎖名字、材料和 buff</small></div></div>' +
+    (list.length ? '<div class="dex" style="grid-template-columns:repeat(auto-fill,minmax(92px,1fr))">' + cells + '</div>' : '<p class="empty">還沒有食譜。</p>') +
+    '<button type="button" class="btn ghost wide" data-a="close">關閉</button>';
+  dexCard.querySelectorAll('canvas[data-dish]').forEach(cv => { dishIcon(cv.getContext('2d'), cv.dataset.dish); if (cv.dataset.dim) cv.style.filter = 'brightness(0) opacity(.3)'; });
+}
+function openDishDetail(key) {
+  const rc = recipes.find(x => x.key === key); if (!rc || !dishDone(key)) return;
+  dexSel = { dish: true, key };
+  const n = Math.max(cookLog[key] | 0, 1), ing = Object.keys(rc.ing || {}).map(k => esc(itemName(k)) + ' ×' + rc.ing[k]).join('、');
+  const bf = rc.buff ? '<div class="dxr"><span>效果</span><span class="dxch">' + (BUFF_I[rc.buff] || '') + ' ' + esc(BUFF_N[rc.buff] || rc.buff) + ' · ' + (rc.min | 0) + ' 分鐘</span></div>' +
+    '<div class="dxr"><span></span><span style="font-size:12px;color:#8a7468">' + esc(BUFF_D[rc.buff] || '') + '</span></div>' : '';
+  dexdCard.innerHTML = '<div class="dxh"><canvas width="16" height="16" data-dish="' + esc(key) + '"></canvas><div><div class="dxn">' + esc(rc.name) + '</div><small>' + rc.price + ' G · 煮過 ×' + dexN(n) + '</small></div></div>' +
+    '<div class="dxr"><span>材料</span><span class="dxch">' + ing + '</span></div>' + bf +
+    '<div class="dxr"><span>難度</span><span class="dxch">烹飪 Lv.' + ckTier(rc) + '</span></div>' +
+    (rc.descr ? '<p class="empty" style="margin:6px 0">' + esc(rc.descr) + '</p>' : '') +
+    '<button type="button" class="btn ghost wide" data-a="dclose">關閉</button>';
+  dexdEl.hidden = false; dexdCard.focus();
+  dexdCard.querySelectorAll('canvas[data-dish]').forEach(cv => dishIcon(cv.getContext('2d'), cv.dataset.dish));
+}
 function renderDex() {
+  if (dexTab === 'dish') { renderDishDex(); return; }
   const isBug = dexTab === 'bug', isSea = dexTab === 'sea';
   const cat = isBug ? bugCat : fishCat.filter(f => (habitatOf(f) !== 'fresh') === isSea), log = isBug ? bugLog : fishLog;   // 淡水／海釣兩個分頁（海釣 = 出海團的魚）
   const found = cat.filter(f => (log[f.key] | 0) > 0).length;
@@ -74,9 +113,9 @@ function renderDex() {
     const when = !n && (isBug || sn) ? '<small style="color:#bdada5">' + (isBug ? ({ any: '', dawn: '清晨', day: '白天', dusk: '黃昏', night: '夜晚' }[f.phase] || '') + ({ any: '', rain: ' 雨天', clear: ' 晴天' }[f.weather] || '') : '') + sn + '</small>' : '';
     return '<div class="dexc' + (n ? ' yes' : ' no') + '"' + (n ? ' role="button" tabindex="0" data-d="' + esc(f.key) + '" data-b="' + (isBug ? 1 : 0) + '"' : '') + ' style="' + (n ? 'border-color:' + rc[1] : '') + '"><canvas width="16" height="16" ' + dat + '="' + esc(f.key) + '"' + (n ? '' : ' data-dim="1"') + '></canvas>' +
       '<small><b>' + (n ? esc(f.name) : '？？？') + '</b></small><small style="color:' + (n ? rc[1] : '#bdada5') + '">' + (n ? rc[0] + ' · ' + f.price + 'G' : (isBug ? '還沒抓到' : habitatOf(f) === 'mystery' ? '神秘路線限定' : '還沒釣到')) + '</small>' +
-      (n ? '<small>' + (isBug ? '抓到' : '釣到') + ' ×' + n + (!isBug && fishRec[f.key] ? ' · 最大 ' + fishRec[f.key].best + ' cm' : '') + '</small>' + dexMini(f, isBug) : when) + '</div>';
+      (n ? '<small>' + (isBug ? '抓到' : '釣到') + ' ×' + dexN(n) + (!isBug && fishRec[f.key] ? ' · 最大 ' + fishRec[f.key].best + ' cm' : '') + '</small>' + dexMini(f, isBug) : when) + '</div>';
   }).join('');
-  const tabs = '<div class="v-quick" style="margin:6px 0">' + [['fish', '淡水'], ['sea', '海釣'], ['bug', '蟲與蝴蝶']].map(([k, n]) =>
+  const tabs = '<div class="v-quick" style="margin:6px 0">' + [['fish', '淡水'], ['sea', '海釣'], ['bug', '蟲與蝴蝶'], ['dish', '料理']].map(([k, n]) =>
     '<button type="button" class="chipbtn" data-a="tab" data-c="' + k + '" aria-pressed="' + (dexTab === k ? 'true' : 'false') + '">' + n + '</button>').join('') + '</div>';
   /* 收集獎勵：集滿 30% / 60% / 100% 各領一次（要和 SQL 的 dex_claim 一致） */
   const tot = cat.length, thr = [Math.ceil(tot * 0.3), Math.ceil(tot * 0.6), tot], REW = [150, 400, 1500];
@@ -101,7 +140,7 @@ function renderDex() {
 }
 function openDex() { if (!ready || !me || authOpen || paused()) return; dexOpen = true; pressed.length = 0; renderDex(); dexEl.hidden = false; dexCard.focus(); }
 function closeDex() { dexOpen = false; dexEl.hidden = true; closeDexDetail(); }
-function dexOpenFrom(el) { if (el) openDexDetail(el.dataset.d, el.dataset.b === '1'); }
+function dexOpenFrom(el) { if (!el) return; if (el.dataset.r) openDishDetail(el.dataset.d); else openDexDetail(el.dataset.d, el.dataset.b === '1'); }
 dexCard.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { const el = e.target.closest('.dexc[data-d]'); if (el) { e.preventDefault(); dexOpenFrom(el); } } });
 dexdEl.addEventListener('click', e => { if (e.target === dexdEl || e.target.closest('button[data-a=dclose]')) closeDexDetail(); });
 dexCard.addEventListener('click', e => {

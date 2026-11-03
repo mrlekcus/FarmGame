@@ -61,7 +61,7 @@ function applyState(d) {
   fishCat = d.fish || []; fishLog = d.fishlog || {}; rods = d.rods || [];
   bugCat = d.bugs || []; bugLog = d.buglog || {};
   soldToday = d.soldtoday || {}; soldDay = d.sell_day | 0;
-  recipes = d.recipes || []; buffs = d.buffs || {}; toolLv = { hoe: 1, can: 1, ...(d.tools || {}) }; toolCost = d.toolcost || {};
+  cookLog = d.cooklog || {}; recipes = d.recipes || []; buffs = d.buffs || {}; toolLv = { hoe: 1, can: 1, ...(d.tools || {}) }; toolCost = d.toolcost || {};
   bugTaken = new Set(d.bugtaken || []); dexClaims = d.dexclaims || {};
   itemMeta = {}; (d.items || []).forEach(m => { itemMeta[m.key] = m; });
   Object.keys(MINE_FALLBACK).forEach(k => { if (!itemMeta[k]) itemMeta[k] = { key: k, price: 0, buy: 0, ...MINE_FALLBACK[k] }; });

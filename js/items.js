@@ -138,6 +138,25 @@ function drawStall(px, py, now) {
 
 /* ---------- 採集：農場草地每 30 分鐘長出 3 樣當季野外採集物（和 SQL _slot_forage 一致） ---------- */
 const FSLOT_MS = 1800000;
+/* 採集物只長在走得到的草地：池塘邊被水和邊界樹圍住的角落（例如右下角）挖不到，不長在那裡。
+   從小路 (4,4) 出發，沿著草地／小路／鋪面一格格往外找，找不到的格子就是走不到。
+   注意：只改這邊「擺在哪一格」，不改 slot／i 和採集物種類，所以和 SQL 的 _slot_forage 與 forage_take 照樣一致。 */
+let fgReach = null;
+function forageReach(x, y) {
+  if (!fgReach) {
+    fgReach = new Set(); const q = [[4, 4]]; fgReach.add(4 + ',' + 4);
+    while (q.length) {
+      const c = q.shift();
+      for (const d of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const nx = c[0] + d[0], ny = c[1] + d[1], k = nx + ',' + ny;
+        if (nx < 1 || ny < 1 || nx >= BW - 1 || ny >= BH - 1 || fgReach.has(k)) continue;
+        const t = kind[ny][nx]; if (t !== G && t !== P && t !== PR) continue;
+        fgReach.add(k); q.push([nx, ny]);
+      }
+    }
+  }
+  return fgReach.has(x + ',' + y);
+}
 function forageSlot(sl) {
   const sea = seasonAt(sl * FSLOT_MS), pool = forPool.filter(q => q.season === sea).sort((a, b) => a.key < b.key ? -1 : a.key > b.key ? 1 : 0);
   const tot = pool.reduce((t, q) => t + q.weight, 0), out = [];
@@ -146,7 +165,7 @@ function forageSlot(sl) {
     const rr_ = hash(sl, i, 61) * tot; let cs = 0, key = pool[pool.length - 1].key;
     for (const q of pool) { cs += q.weight; if (cs >= rr_) { key = q.key; break; } }
     let x = 1 + Math.floor(hash(sl, i, 63) * (W - 2)), y = 1 + Math.floor(hash(sl, i, 64) * (H - 2));
-    for (let n = 0; n < W * H && !(grassTile(x, y) && !farmable(x, y)); n++) { x++; if (x >= W - 1) { x = 1; y = y >= H - 2 ? 1 : y + 1; } }
+    for (let n = 0; n < W * H && !(grassTile(x, y) && !farmable(x, y) && forageReach(x, y)); n++) { x++; if (x >= W - 1) { x = 1; y = y >= H - 2 ? 1 : y + 1; } }
     out.push({ slot: sl, i, key, x, y });
   }
   return out;

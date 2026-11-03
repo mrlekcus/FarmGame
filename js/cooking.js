@@ -2,7 +2,7 @@
 /* 料理與烹飪小遊戲 —— 雷克斯農場。所有檔案共用同一個全域範圍，載入順序見 index.html。 */
 /* ---------- 料理：廚房灶台（家裡擺了才能用） ---------- */
 const DISHC = { rcake: '#f3d79a', stew: '#e8a05a', pie: '#f0a64a', grilled: '#c98f62', soup: '#e8c97a', escargot: '#b98a62',
-  berryjam: '#d6455d', herbtea: '#b9d86a', hollydrink: '#e8786a', berrypie: '#7a86e0', lotussoup: '#f0d9c0', frostsoup: '#b8e8f0', lotuscake: '#f2b6cc' };
+  berryjam: '#d6455d', herbtea: '#b9d86a', hollydrink: '#e8786a', berrypie: '#7a86e0', lotussoup: '#f0d9c0', frostsoup: '#b8e8f0', lotuscake: '#f2b6cc', omelet: '#f5d04a', pudding: '#f2c987' };
 function drawDish(x, y, k) {   // 盤子上的料理（像素）；直接畫在目前的畫布上
   ob('#fffaf0', '#c9b79a', x + 2, y + 9, 12, 5);
   ob(DISHC[k] || '#f3c77a', 'rgba(90,60,40,.5)', x + 3, y + 5, 10, 6);
@@ -13,9 +13,11 @@ function dishIcon(c2d, k) {
   drawDish(0, 0, k);
   g = ctx;
 }
-const BUFF_N = { swift: '走路變快', fish: '釣魚運氣變好', bug: '捕蟲網變大' };
-const BUFF_I = { swift: '👟', fish: '🎣', bug: '🦋' };   // 圖示
-const BUFF_D = { swift: '移動速度變快（約 +25%）', fish: '釣魚時運氣更好', bug: '捕蟲網的範圍變大' };   // 點開後的說明
+const BUFF_N = { swift: '走路變快', fish: '釣魚運氣變好', bug: '捕蟲網變大', lamp: '身邊亮著暖燈', spark: '走過的路閃閃發光', heart: '頭上飄愛心', music: '哼著歌', petal: '身邊飄著季節小物', moon: '月光步' };
+const BUFF_I = { swift: '👟', fish: '🎣', bug: '🦋', lamp: '💡', spark: '✨', heart: '💕', music: '🎵', petal: '🌸', moon: '🌙' };   // 圖示
+const BUFF_D = { swift: '移動速度變快（約 +25%）', fish: '釣魚時運氣更好', bug: '捕蟲網的範圍變大',
+  lamp: '身邊一圈暖暖的光，夜晚和室內更明顯', spark: '走過的路會留下一小串閃亮的星星', heart: '頭上不時飄出愛心泡泡', music: '不時飄出音符，走路時更頻繁',
+  petal: '身邊飄著小東西：春天花瓣、夏天螢火蟲、秋天落葉、冬天雪花', moon: '夜晚走路變快，身邊有月光（白天沒有速度效果）' };   // 點開後的說明
 const BUFF_MAX = 60 * 60000;   // 單一效果最多累積 60 分鐘，圓環以此為滿
 const ckEl = $('ckm'), ckCard = $('ckcard');
 let ckBusy = false;
@@ -147,7 +149,7 @@ async function cookFinish(ok) {
   let made = false, errMsg = '', srvXp = 0;
   if (ok) {
     c.phase = 'serve'; ckBusy = true;
-    try { const r = await enqueue(() => rpc('cook', c.host ? { p_key: rc.key, p_qty: 1, p_perfect: perfect, p_at: c.host } : { p_key: rc.key, p_qty: 1, p_perfect: perfect })); if (r.inv) Object.assign(inv, r.inv); srvXp = +r.xp || 0; made = true; }
+    try { const r = await enqueue(() => rpc('cook', c.host ? { p_key: rc.key, p_qty: 1, p_perfect: perfect, p_at: c.host } : { p_key: rc.key, p_qty: 1, p_perfect: perfect })); if (r.inv) Object.assign(inv, r.inv); srvXp = +r.xp || 0; made = true; if (r.cooked) cookLog[rc.key] = +r.cooked; }
     catch (err) { errMsg = errText(err); await resync(); }
     ckBusy = false; refreshHud();
   }
@@ -342,3 +344,74 @@ $('buff').addEventListener('click', e => {
 document.addEventListener('click', e => {
   if (buffOpen && !e.target.closest('#buff')) { buffOpen = false; lastBuffSig = ''; updateBuffChip(); }
 });
+
+/* ---------- 料理煮過的紀錄（伺服器 cook_log，get_state 的 cooklog；圖鑑「料理」分頁用） ---------- */
+let cookLog = {};
+
+/* ---------- 外觀型 buff 特效：提燈、閃閃發光、愛心、音符、季節小物、月光步（只有自己看得到，不疊層）----------
+   bfx 放飄動的 emoji／小光點；update() 每幀呼叫 buffFxTick，sky.js 在夜色濾鏡之後呼叫 drawBuffFx（才不會被壓暗） */
+const bfx = [], bfxAcc = {};
+let moonFast = false, moonChk = 1000;
+const BF_FONT = '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
+const BF_SEA = { spring: '🌸', autumn: '🍂', winter: '❄️' };   // 夏天用螢火蟲光點
+const bfRnd = (a, b) => a + Math.random() * (b - a);
+function buffFxTick(dt) {
+  for (let i = bfx.length - 1; i >= 0; i--) {
+    const p = bfx[i];
+    p.l += dt; p.x += p.vx * dt / 16; p.y += p.vy * dt / 16;
+    if (p.sw) p.x += Math.sin(p.l / p.sw) * 0.1 * dt / 16;
+    if (p.l > p.max) bfx.splice(i, 1);
+  }
+  if (!ready || !me) return;
+  moonChk += dt;
+  if (moonChk >= 1000) {   // 月光步：只有夜晚、在戶外才加速（每秒算一次就好）
+    moonChk = 0;
+    const out = !(scene === 'house' || scene === 'barn' || scene === 'tarot' || scene === 'stylist' || scene === 'cave');
+    moonFast = buffOn('moon') && out && darkness(world().min) > 0.5;
+  }
+  if (bfx.length > 70) return;
+  const px = (pl.sx + (pl.x - pl.sx) * pl.prog) * T, py = (pl.sy + (pl.y - pl.sy) * pl.prog) * T, moving = pl.prog < 1;
+  const every = (k, ms) => { bfxAcc[k] = (bfxAcc[k] || 0) + dt; if (bfxAcc[k] < ms) return false; bfxAcc[k] = 0; return true; };
+  const add = o => bfx.push(Object.assign({ l: 0, vx: 0, vy: -0.3, max: 1800, sc: scene }, o));
+  if (buffOn('heart') && every('heart', 2200)) add({ x: px + 8 + bfRnd(-5, 5), y: py - 2, vx: bfRnd(-0.1, 0.1), e: Math.random() < 0.5 ? '💕' : '💗', sz: 9, sw: 260 });
+  if (buffOn('music') && every('music', moving ? 900 : 2600)) add({ x: px + 8 + bfRnd(-6, 6), y: py - 1, vx: bfRnd(0.05, 0.2), e: Math.random() < 0.5 ? '🎵' : '🎶', sz: 9, sw: 200 });
+  if (buffOn('spark') && moving && every('spark', 140)) add({ x: px + 8 + bfRnd(-4, 4), y: py + 11 + bfRnd(0, 3), vx: 0, vy: 0, e: '✨', sz: 7, max: 900 });
+  if (buffOn('petal') && every('petal', 650)) {
+    const sea = seasonAt(srvNow()), x = px + 8 + bfRnd(-15, 15), y = py - 6 + bfRnd(-4, 10);
+    if (sea === 'summer') add({ x, y, vx: bfRnd(-0.08, 0.08), vy: bfRnd(-0.08, 0.04), c: '#fff7a0', max: 2200, sw: 300 });
+    else add({ x, y: py - 10 + bfRnd(-3, 3), vx: bfRnd(-0.05, 0.05), vy: 0.1, e: BF_SEA[sea] || '🌸', sz: 7, max: 2200, sw: 240 });
+  }
+  if (buffOn('moon') && every('moon', 3200)) add({ x: px + 8 + bfRnd(-4, 4), y: py - 3, vx: bfRnd(-0.05, 0.05), e: '🌙', sz: 8, max: 1900, sw: 300 });
+}
+function drawBuffFx(now, dark) {
+  if (!ready || !me) return;
+  const px = Math.round((pl.sx + (pl.x - pl.sx) * pl.prog) * T), py = Math.round((pl.sy + (pl.y - pl.sy) * pl.prog) * T), cx = px + 8, cy = py + 9;
+  const indoors = scene === 'house' || scene === 'barn' || scene === 'tarot' || scene === 'stylist' || scene === 'cave';
+  const glow = (rad, rgb, a) => {
+    const gr = ctx.createRadialGradient(cx, cy, 2, cx, cy, rad);
+    gr.addColorStop(0, 'rgba(' + rgb + ',' + a.toFixed(3) + ')'); gr.addColorStop(1, 'rgba(' + rgb + ',0)');
+    ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = gr; ctx.fillRect(cx - rad, cy - rad, rad * 2, rad * 2); ctx.restore();
+  };
+  if (buffOn('lamp')) {
+    glow(28 + Math.sin(now / 420) * 1.5, '255,214,120', indoors ? 0.5 : 0.3 + dark * 0.4);
+    const bob = Math.round(Math.sin(now / 350)); r('#ffe9a0', cx + 10, cy - 9 + bob, 3, 3); r('#fff6d0', cx + 11, cy - 8 + bob, 1, 1);   // 肩旁的小燈
+  }
+  if (buffOn('moon') && !indoors) glow(26, '175,195,255', 0.14 + dark * 0.34);
+  ctx.save();
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#000';
+  bfx.forEach(p => {
+    if (p.sc !== scene) return;
+    const a = Math.min(1, p.l / 150, (p.max - p.l) / 450);
+    if (a <= 0) return;
+    if (p.c) {   // 螢火蟲：一閃一閃的小光點
+      ctx.globalAlpha = a * (0.45 + 0.55 * Math.sin(p.l / 120 + p.x));
+      ctx.fillStyle = 'rgba(255,247,160,.35)'; ctx.fillRect((p.x | 0) - 1, (p.y | 0) - 1, 4, 4);
+      ctx.fillStyle = p.c; ctx.fillRect(p.x | 0, p.y | 0, 2, 2); ctx.fillStyle = '#000';
+      return;
+    }
+    ctx.globalAlpha = a;
+    ctx.font = (p.sz || 9) + 'px ' + BF_FONT;
+    ctx.fillText(p.e, Math.round(p.x), Math.round(p.y));
+  });
+  ctx.restore();
+}

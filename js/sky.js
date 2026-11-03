@@ -341,6 +341,7 @@ function draw(now) {
   if (scene === 'house') drawHouseLight(now, w, dark);   // 室內夜色與檯燈、壁爐的光暈（js/furniture-fx.js）
   if (!indoors && dark > 0.15) nightGlows(dark);   // 夜晚窗戶光暈：畫在夜色濾鏡之後才不會被壓暗
   if (scene === 'plaza') drawPlazaLight(now, w, dark);
+  drawBuffFx(now, dark);   // 外觀型 buff：提燈／月光的光暈、愛心音符星星花瓣（js/cooking.js）
   // 廣場早晚光影（方案 B）：霧、斜光、路燈、螢火蟲
   if (w.wet && !indoors) {
     if (w.snow) {

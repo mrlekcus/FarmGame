@@ -120,7 +120,7 @@ function renderShop() {
   let sheet = '';
   if (shopCat !== 'up' && cur) {
     const q = shopQ[cur.id], mx = shopView.max, tot = shopTotal(cur, q);
-    const chips = [1, 10, 50].map(n => '<button type="button" class="shch" data-sq="+' + n + '">+' + n + '</button>').concat(['<button type="button" class="shch" data-sq="=' + mx + '">' + (cur.buy ? '最大 ' : '全賣 ') + mx + '</button>']).join('');
+    const chips = [1, 5, 10].map(n => '<button type="button" class="shch" data-sq="+' + n + '">+' + n + '</button>').concat(['<button type="button" class="shch" data-sq="=' + mx + '">' + (cur.buy ? '最大 ' : '全賣 ') + mx + '</button>']).join('');
     sheet = '<div class="shsheet"><div class="shsh-h">' + shopIcon(cur) + '<b>' + esc(cur.name) + '</b><small>' + (cur.buy ? '每個 ' + cur.price + ' G · 持有 ' + have(cur.id) + ' / ' + INV_CAP + ' · 這次最多 ' + mx : '有 ' + cur.stock + ' 個') + '</small></div>' +
       '<div class="shsh-row"><div class="shsh-q"><button type="button" class="shsb" data-sq="-1">−</button><input type="number" id="shin" min="1" max="' + mx + '" value="' + q + '" inputmode="numeric" aria-label="數量"><button type="button" class="shsb" data-sq="+1">＋</button></div>' +
       '<button type="button" class="btn" id="shgo" data-a="' + cur.a + '" data-c="' + esc(cur.c) + '" data-n="' + q + '"' + (shopBusy || cur.lock || shopFull(cur) || (cur.buy && tot > coins) ? ' disabled' : '') + '>' + shopActLabel(shopView, q, tot) + '</button></div>' +
@@ -154,7 +154,7 @@ shopCard.addEventListener('click', e => {
   const q = e.target.closest('[data-sq]');
   if (q && shopView) {
     const d = q.dataset.sq, cur = shopQ[shopView.it.id] | 0 || 1;
-    shopSetQty(d === '-1' ? cur - 1 : d[0] === '+' ? cur + (+d.slice(1) || 0) : +d.slice(1));   // +1 / +10 / +50 每按一次就加；= 是直接設成最大
+    shopSetQty(d === '-1' ? cur - 1 : d[0] === '+' ? cur + (+d.slice(1) || 0) : +d.slice(1));   // +1 / +5 / +10 每按一次就加；= 是直接設成最大
   }
 });
 shopCard.addEventListener('input', e => {
