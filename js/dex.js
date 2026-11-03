@@ -80,6 +80,7 @@ function renderDishDex() {
   }).join('');
   dexCard.innerHTML = '<div class="shop-h"><h2>料理圖鑑</h2><span class="chip">' + found + '/' + list.length + '</span></div>' + dexTabsHtml() +
     '<div class="row"><div class="meta" style="min-width:0"><b>我的料理紀錄</b><small>累計煮出 ' + total + ' 份 · 煮過一次就會解鎖名字、材料和 buff</small></div></div>' +
+    '<div class="row"><div class="meta" style="min-width:0"><b>圖鑑成就</b><small>集滿一半、全收集、所有甜點烘焙都煮過、累計 100 份，都有名片成就</small></div></div>' +
     (list.length ? '<div class="dex" style="grid-template-columns:repeat(auto-fill,minmax(92px,1fr))">' + cells + '</div>' : '<p class="empty">還沒有食譜。</p>') +
     '<button type="button" class="btn ghost wide" data-a="close">關閉</button>';
   dexCard.querySelectorAll('canvas[data-dish]').forEach(cv => { dishIcon(cv.getContext('2d'), cv.dataset.dish); if (cv.dataset.dim) cv.style.filter = 'brightness(0) opacity(.3)'; });

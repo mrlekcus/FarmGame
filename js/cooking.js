@@ -348,13 +348,33 @@ document.addEventListener('click', e => {
 /* ---------- 料理煮過的紀錄（伺服器 cook_log，get_state 的 cooklog；圖鑑「料理」分頁用） ---------- */
 let cookLog = {};
 
-/* ---------- 外觀型 buff 特效：提燈、閃閃發光、愛心、音符、季節小物、月光步（只有自己看得到，不疊層）----------
+/* ---------- 外觀型 buff 特效：提燈、閃閃發光、愛心、音符、季節小物、月光步（不疊層）----------
+   自己和同一個地方的其他玩家都看得到：每個人的 buff 種類跟著位置訊息（pos／presence 的 v 欄位）一起送，不另外多送訊息。
    bfx 放飄動的 emoji／小光點；update() 每幀呼叫 buffFxTick，sky.js 在夜色濾鏡之後呼叫 drawBuffFx（才不會被壓暗） */
 const bfx = [], bfxAcc = {};
-let moonFast = false, moonChk = 1000;
+const VIS_BUFFS = ['lamp', 'spark', 'heart', 'music', 'petal', 'moon'];
+let moonFast = false, moonChk = 1000, lastVis = '';
 const BF_FONT = '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
 const BF_SEA = { spring: '🌸', autumn: '🍂', winter: '❄️' };   // 夏天用螢火蟲光點
 const bfRnd = (a, b) => a + Math.random() * (b - a);
+const myVisList = () => VIS_BUFFS.filter(k => buffOn(k));
+const myVisBuffs = () => myVisList().join(',');   // 送給別人的 buff 種類，例如 "lamp,heart"
+const parseVis = v => typeof v === 'string' ? VIS_BUFFS.filter(k => v.split(',').includes(k)) : [];   // 收到的資料只認得清單裡的種類
+const bfIndoors = () => scene === 'house' || scene === 'barn' || scene === 'tarot' || scene === 'stylist' || scene === 'cave';
+function bfEmit(kinds, px, py, moving, acc, dt) {
+  const every = (k, ms) => { acc[k] = (acc[k] || 0) + dt; if (acc[k] < ms) return false; acc[k] = 0; return true; };
+  const add = o => bfx.push(Object.assign({ l: 0, vx: 0, vy: -0.3, max: 1800, sc: scene }, o));
+  const has = k => kinds.includes(k);
+  if (has('heart') && every('heart', 2200)) add({ x: px + 8 + bfRnd(-5, 5), y: py - 2, vx: bfRnd(-0.1, 0.1), e: Math.random() < 0.5 ? '💕' : '💗', sz: 9, sw: 260 });
+  if (has('music') && every('music', moving ? 900 : 2600)) add({ x: px + 8 + bfRnd(-6, 6), y: py - 1, vx: bfRnd(0.05, 0.2), e: Math.random() < 0.5 ? '🎵' : '🎶', sz: 9, sw: 200 });
+  if (has('spark') && moving && every('spark', 140)) add({ x: px + 8 + bfRnd(-4, 4), y: py + 11 + bfRnd(0, 3), vx: 0, vy: 0, e: '✨', sz: 7, max: 900 });
+  if (has('petal') && every('petal', 650)) {
+    const sea = seasonAt(srvNow()), x = px + 8 + bfRnd(-15, 15), y = py - 6 + bfRnd(-4, 10);
+    if (sea === 'summer') add({ x, y, vx: bfRnd(-0.08, 0.08), vy: bfRnd(-0.08, 0.04), c: '#fff7a0', max: 2200, sw: 300 });
+    else add({ x, y: py - 10 + bfRnd(-3, 3), vx: bfRnd(-0.05, 0.05), vy: 0.1, e: BF_SEA[sea] || '🌸', sz: 7, max: 2200, sw: 240 });
+  }
+  if (has('moon') && every('moon', 3200)) add({ x: px + 8 + bfRnd(-4, 4), y: py - 3, vx: bfRnd(-0.05, 0.05), e: '🌙', sz: 8, max: 1900, sw: 300 });
+}
 function buffFxTick(dt) {
   for (let i = bfx.length - 1; i >= 0; i--) {
     const p = bfx[i];
@@ -363,40 +383,39 @@ function buffFxTick(dt) {
     if (p.l > p.max) bfx.splice(i, 1);
   }
   if (!ready || !me) return;
+  const vis = myVisList(), vs = vis.join(',');
+  if (vs !== lastVis) { lastVis = vs; lastSendAt = 0; }   // buff 一變（吃了／到期）就馬上補送一次位置，別人才會立刻看到
   moonChk += dt;
   if (moonChk >= 1000) {   // 月光步：只有夜晚、在戶外才加速（每秒算一次就好）
     moonChk = 0;
-    const out = !(scene === 'house' || scene === 'barn' || scene === 'tarot' || scene === 'stylist' || scene === 'cave');
-    moonFast = buffOn('moon') && out && darkness(world().min) > 0.5;
+    moonFast = buffOn('moon') && !bfIndoors() && darkness(world().min) > 0.5;
   }
-  if (bfx.length > 70) return;
-  const px = (pl.sx + (pl.x - pl.sx) * pl.prog) * T, py = (pl.sy + (pl.y - pl.sy) * pl.prog) * T, moving = pl.prog < 1;
-  const every = (k, ms) => { bfxAcc[k] = (bfxAcc[k] || 0) + dt; if (bfxAcc[k] < ms) return false; bfxAcc[k] = 0; return true; };
-  const add = o => bfx.push(Object.assign({ l: 0, vx: 0, vy: -0.3, max: 1800, sc: scene }, o));
-  if (buffOn('heart') && every('heart', 2200)) add({ x: px + 8 + bfRnd(-5, 5), y: py - 2, vx: bfRnd(-0.1, 0.1), e: Math.random() < 0.5 ? '💕' : '💗', sz: 9, sw: 260 });
-  if (buffOn('music') && every('music', moving ? 900 : 2600)) add({ x: px + 8 + bfRnd(-6, 6), y: py - 1, vx: bfRnd(0.05, 0.2), e: Math.random() < 0.5 ? '🎵' : '🎶', sz: 9, sw: 200 });
-  if (buffOn('spark') && moving && every('spark', 140)) add({ x: px + 8 + bfRnd(-4, 4), y: py + 11 + bfRnd(0, 3), vx: 0, vy: 0, e: '✨', sz: 7, max: 900 });
-  if (buffOn('petal') && every('petal', 650)) {
-    const sea = seasonAt(srvNow()), x = px + 8 + bfRnd(-15, 15), y = py - 6 + bfRnd(-4, 10);
-    if (sea === 'summer') add({ x, y, vx: bfRnd(-0.08, 0.08), vy: bfRnd(-0.08, 0.04), c: '#fff7a0', max: 2200, sw: 300 });
-    else add({ x, y: py - 10 + bfRnd(-3, 3), vx: bfRnd(-0.05, 0.05), vy: 0.1, e: BF_SEA[sea] || '🌸', sz: 7, max: 2200, sw: 240 });
-  }
-  if (buffOn('moon') && every('moon', 3200)) add({ x: px + 8 + bfRnd(-4, 4), y: py - 3, vx: bfRnd(-0.05, 0.05), e: '🌙', sz: 8, max: 1900, sw: 300 });
+  if (bfx.length > 120) return;
+  if (vis.length) bfEmit(vis, (pl.sx + (pl.x - pl.sx) * pl.prog) * T, (pl.sy + (pl.y - pl.sy) * pl.prog) * T, pl.prog < 1, bfxAcc, dt);
+  if (syncScene()) remotes.forEach(rp => {
+    if (!rp.bv || !rp.bv.length || !hereRp(rp)) return;
+    bfEmit(rp.bv, rp.x * T, rp.y * T, Math.abs(rp.tx - rp.x) + Math.abs(rp.ty - rp.y) > 0.05, rp.bfa || (rp.bfa = {}), dt);
+  });
 }
 function drawBuffFx(now, dark) {
   if (!ready || !me) return;
-  const px = Math.round((pl.sx + (pl.x - pl.sx) * pl.prog) * T), py = Math.round((pl.sy + (pl.y - pl.sy) * pl.prog) * T), cx = px + 8, cy = py + 9;
-  const indoors = scene === 'house' || scene === 'barn' || scene === 'tarot' || scene === 'stylist' || scene === 'cave';
-  const glow = (rad, rgb, a) => {
-    const gr = ctx.createRadialGradient(cx, cy, 2, cx, cy, rad);
-    gr.addColorStop(0, 'rgba(' + rgb + ',' + a.toFixed(3) + ')'); gr.addColorStop(1, 'rgba(' + rgb + ',0)');
-    ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = gr; ctx.fillRect(cx - rad, cy - rad, rad * 2, rad * 2); ctx.restore();
+  const indoors = bfIndoors();
+  const glows = (kinds, px, py) => {
+    const cx = px + 8, cy = py + 9;
+    const glow = (rad, rgb, a) => {
+      const gr = ctx.createRadialGradient(cx, cy, 2, cx, cy, rad);
+      gr.addColorStop(0, 'rgba(' + rgb + ',' + a.toFixed(3) + ')'); gr.addColorStop(1, 'rgba(' + rgb + ',0)');
+      ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = gr; ctx.fillRect(cx - rad, cy - rad, rad * 2, rad * 2); ctx.restore();
+    };
+    if (kinds.includes('lamp')) {
+      glow(28 + Math.sin(now / 420) * 1.5, '255,214,120', indoors ? 0.5 : 0.3 + dark * 0.4);
+      const bob = Math.round(Math.sin(now / 350)); r('#ffe9a0', cx + 10, cy - 9 + bob, 3, 3); r('#fff6d0', cx + 11, cy - 8 + bob, 1, 1);   // 肩旁的小燈
+    }
+    if (kinds.includes('moon') && !indoors) glow(26, '175,195,255', 0.14 + dark * 0.34);
   };
-  if (buffOn('lamp')) {
-    glow(28 + Math.sin(now / 420) * 1.5, '255,214,120', indoors ? 0.5 : 0.3 + dark * 0.4);
-    const bob = Math.round(Math.sin(now / 350)); r('#ffe9a0', cx + 10, cy - 9 + bob, 3, 3); r('#fff6d0', cx + 11, cy - 8 + bob, 1, 1);   // 肩旁的小燈
-  }
-  if (buffOn('moon') && !indoors) glow(26, '175,195,255', 0.14 + dark * 0.34);
+  const mine = myVisList();
+  if (mine.length) glows(mine, Math.round((pl.sx + (pl.x - pl.sx) * pl.prog) * T), Math.round((pl.sy + (pl.y - pl.sy) * pl.prog) * T));
+  if (syncScene()) remotes.forEach(rp => { if (rp.bv && rp.bv.length && hereRp(rp)) glows(rp.bv, Math.round(rp.x * T), Math.round(rp.y * T)); });
   ctx.save();
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#000';
   bfx.forEach(p => {

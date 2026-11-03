@@ -114,7 +114,7 @@ function trackSelf() {
   if (!net || !net.ok) return;
   trackLimited('self', () => {
     if (!net || !net.ok) return;
-    try { net.ch.track({ n: me.name, c: me.look, w: worldKey(), x: pl.x, y: pl.y, f: FACEIDX[pl.face], s: sitCode() }); } catch (e) { /* 略過 */ }
+    try { net.ch.track({ n: me.name, c: me.look, w: worldKey(), x: pl.x, y: pl.y, f: FACEIDX[pl.face], s: sitCode(), v: myVisBuffs() }); } catch (e) { /* 略過 */ }
   });
 }
 function onSync(ch) {
@@ -139,7 +139,7 @@ function onSync(ch) {
       if (performance.now() - (rp.posAt || 0) > 12000) {   // presence 現在更新較慢，位置可能是舊的：只要最近收過他的 pos 廣播就以廣播為準，12 秒都沒收到才改用 presence 的位置
 
         if (rp.w !== wk) { rp.w = wk; rp.x = x; rp.y = y; }       // 換了世界（進出塔羅屋）：直接放到新位置，不要從舊位置滑過去
-        rp.tx = x; rp.ty = y; rp.f = f; rp.sit = wk === 'p' && m.s === 1 && pkind[y][x] === BN; rp.gsit = m.s === 2; rp.fs = wk === 'h' && (m.s === 3 || m.s === 4) ? m.s : 0;
+        rp.bv = parseVis(m.v); rp.tx = x; rp.ty = y; rp.f = f; rp.sit = wk === 'p' && m.s === 1 && pkind[y][x] === BN; rp.gsit = m.s === 2; rp.fs = wk === 'h' && (m.s === 3 || m.s === 4) ? m.s : 0;
       }   // 剛收到更新的走動訊息就不要被舊位置蓋回去
     }
   });
@@ -165,7 +165,7 @@ function onPos(p) {
     if (net && net.synced) addSys(name + ' ' + WORLD_IN[wk]);
     renderVillage();
   } else if (typeof p.n === 'string') { rp.name = clean(p.n, 8) || rp.name; rp.char = toChar(rp.name, p.c); }
-  rp.heard = performance.now();
+  rp.heard = performance.now(); rp.bv = parseVis(p.v);   // 別人身上的外觀 buff（只認得清單裡的種類）
   if (nx !== rp.tx || ny !== rp.ty) rp.fish = null;
   if (rp.w !== wk) { rp.w = wk; rp.x = nx; rp.y = ny; rp.fish = null; rp.bubble = null; rp.typing = 0; }   // 換了世界：直接放到新位置
   rp.tx = nx; rp.ty = ny; rp.f = intIn(p.f, 0, 3, rp.f); rp.posAt = performance.now();
@@ -322,7 +322,7 @@ function sendPos(dt) {
   if ((moved || beat) && net && net.ok) {
     posAcc = 0; lastPosKey = key; lastSendAt = now;
     if (moved) lastMoveAt = now;
-    try { net.ch.send({ type: 'broadcast', event: 'pos', payload: beat ? { i: myUid, w: worldKey(), x: pl.x, y: pl.y, f: FACEIDX[pl.face], s: sitCode(), n: me.name, c: me.look } : { i: myUid, w: worldKey(), x: pl.x, y: pl.y, f: FACEIDX[pl.face], s: sitCode() } }); } catch (e) { /* 略過 */ }
+    try { net.ch.send({ type: 'broadcast', event: 'pos', payload: beat ? { i: myUid, w: worldKey(), x: pl.x, y: pl.y, f: FACEIDX[pl.face], s: sitCode(), n: me.name, c: me.look, v: myVisBuffs() } : { i: myUid, w: worldKey(), x: pl.x, y: pl.y, f: FACEIDX[pl.face], s: sitCode(), v: myVisBuffs() } }); } catch (e) { /* 略過 */ }
     if (moved && now - lastTrackAt > 4000) { lastTrackAt = now; trackSelf(); }   // presence 只當備援，降低頻率以免超過 Realtime 的訊息上限
   }
   if (lastMoveAt && now - lastMoveAt > 500) { lastMoveAt = 0; trackSelf(); }
