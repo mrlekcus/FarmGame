@@ -76,10 +76,10 @@ function houseExpandRow(coins) {
   if (!house) return '<div class="row"><div class="meta"><small>房屋資料載入中…</small></div></div>';
   const t = house.tier | 0, cur = { w: house.w, h: house.h }, nx = (house.tiers || []).find(x => (x.tier | 0) === t + 1);
   if (!nx) return '<div class="row"><div class="meta"><b>目前 ' + cur.w + '×' + cur.h + ' 格</b><small>房子已經是最大的了</small></div></div>';
-  const open = nx.cost_item != null || nx.cost_item2 != null || nx.cost_coins != null;
+  const open = nx.cost_item != null || nx.cost_item2 != null || nx.cost_item3 != null || nx.cost_coins != null;
   if (!open) return '<div class="row"><div class="meta"><b>目前 ' + cur.w + '×' + cur.h + ' 格 → ' + nx.w + '×' + nx.h + ' 格</b><small>擴建任務即將開放</small></div></div>';
   const need = nx.need_pl | 0, cc = nx.cost_coins | 0;
-  const mat = [[nx.cost_item, nx.cost_qty | 0], [nx.cost_item2, nx.cost_qty2 | 0]].filter(m => m[0] && m[1] > 0);
+  const mat = [[nx.cost_item, nx.cost_qty | 0], [nx.cost_item2, nx.cost_qty2 | 0], [nx.cost_item3, nx.cost_qty3 | 0]].filter(m => m[0] && m[1] > 0);   // 最多三種材料；伺服器還沒有第三種時 cost_item3 是 undefined，會被濾掉
   const lvLock = plv() < need, okMat = mat.every(m => have(m[0]) >= m[1]), okCoin = coins >= cc;
   const mats = mat.map(m => esc(itemName(m[0])) + ' ×' + m[1] + '（有 ' + have(m[0]) + '）').concat(cc ? [cc + ' G'] : []).join(' ＋ ');
   return '<div class="row"><div class="meta"><b>' + cur.w + '×' + cur.h + ' → ' + nx.w + '×' + nx.h + ' 格</b><small>往右和往下變大，家具位置不變。需要：' + mats + (need > 1 ? ' · 玩家 Lv.' + need : '') + '</small></div>' +

@@ -2,7 +2,7 @@
 /* 與伺服器溝通 —— 雷克斯農場。所有檔案共用同一個全域範圍，載入順序見 index.html。 */
 /* ---------- 與伺服器溝通 ---------- */
 const ERR = {
-  mb_limit: '今天的 3 張便利貼已經貼完了，明天再來', mb_lv: '玩家等級還不夠，升級後就能留言', mb_empty: '先寫點內容再貼', mb_long: '一張便利貼最多 20 個字', mb_mine_max: '板上你已經有 2 張了，先撕掉一張再貼', mb_bad_text: '這段話不能貼，換個說法吧', mb_dup: '這句話剛剛已經有人貼過了', mb_muted: '你暫時不能留言', mb_gone: '這張便利貼已經不在了', mb_self: '不能檢舉自己的便利貼', mb_reported: '你已經檢舉過這張了', mb_color: '沒有這個顏色',
+  mb_limit: '今天的 3 張便利貼已經貼完了，明天再來', mb_lv: '玩家等級還不夠，升級後就能留言', mb_empty: '先寫點內容再貼', mb_long: '一張便利貼最多 20 個字', mb_mine_max: '板上你已經有 3 張了，先撕掉一張再貼', mb_bad_text: '這段話不能貼，換個說法吧', mb_dup: '這句話剛剛已經有人貼過了', mb_muted: '你暫時不能留言', mb_gone: '這張便利貼已經不在了', mb_cempty: '先寫點內容再留言', mb_clong: '一則留言最多 30 個字', mb_climit: '今天的 3 次留言已經用完了，明天再來', mb_cfull: '這張便利貼的留言已經滿了', mb_color: '沒有這個顏色',
   level_locked: '等級還不夠，還沒解鎖', gift_self: '不能送給自己', bad_gift: '這個東西不能送', gift_limit: '今天送出的禮物已經 3 份了，明天再送吧', claim_first: '先領取附的禮物才能刪除', gift_empty: '背包裡已經沒有這個了',
   quest_not_done: '任務還沒完成', quest_claimed: '這個獎勵已經領過了', bad_quest: '沒有這個任務',
   not_authenticated: '登入已過期，請重新登入', no_profile: '還沒建立角色',
@@ -17,7 +17,7 @@ const ERR = {
   no_kitchen: '家裡要先擺一台廚房灶台才能做料理', host_no_kitchen: '這個家沒有廚房灶台', visitor_limit: '你已經在這張桌上放了一份，先收回才能再放', not_enough_items: '材料不夠', bad_recipe: '沒有這道料理', not_edible: '這道菜不能吃，拿去賣或交委託吧', no_dish: '背包裡沒有這道料理了',
   order_done: '這張委託已經完成了', bad_order: '沒有這張委託', max_tool: '已經是最高等級了', bad_tool: '沒有這種工具',
   no_hay: '沒有乾草了，到村裡的牧場小屋買', nothing_to_feed: '動物都吃飽了', nothing_to_collect: '現在沒有可以收的', barn_full: '穀倉住滿了（玩家升級會變大）', rock_busy: '這顆礦石還在恢復', sold_out: '今天已經買過或賣滿了', not_on_sale: '這件家具今天沒有上架', merchant_away: '旅行商人今天不在', already_fert: '已經施過肥了', story_end: '故事暫時告一段落，之後還會有新章節', yard_full: '庭院已經擺滿 60 件了', cannot_sell: '這個不能賣', visit_closed: '現在不方便拜訪', block_full: '黑名單最多 20 人', table_full: '桌上放不下了（一格最多 10 份）', eat_limit: '今天吃了太多份了，明天再來吧', buff_full: '這個效果已經滿 60 分鐘了，晚點再吃', item_cap: '這種東西已經有 999 個了，先賣掉或用掉一些吧',
-  bad_kind: '種類不對', already_owned: '這個花紋已經買過了', not_owned: '這個花紋還沒買', bad_line: '牆和門只能畫成橫線或直線', bad_pos: '座標不對', tier_locked: '這個階段的擴建任務還沒開放', max_tier: '房子已經是最大的了',
+  bad_kind: '種類不對', already_owned: '這個花紋已經買過了', not_owned: '這個花紋還沒買', bad_line: '牆和門只能畫成橫線或直線', bad_pos: '座標不對', tier_locked: '這個階段的擴建任務還沒開放', tier_wait: '房子剛擴建完，工人還在整理，時間到了才能再擴建', max_tier: '房子已經是最大的了',
   no_coins: '金幣不足', daily_max: '今天的出海次數用完了', already_aboard: '你已經在一趟出海裡了', voyage_full: '船上已經滿 8 人了', voyage_closed: '這個出海團已經出發或取消了', kicked: '船長請你下船了', not_host: '只有船長可以這樣做', crew_unready: '還有人沒按準備', not_member: '你不在這趟出海裡', not_sailing: '現在沒有在航行', cooldown: '等一下再拋竿', catch_cap: '這趟已經釣到上限了', no_cast: '魚線已經失效，再拋一次', reel_early: '太快了，這條魚不算'
 };
 const errText = e => {
