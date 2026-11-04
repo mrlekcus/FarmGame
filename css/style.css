@@ -879,6 +879,9 @@ body.imm.modal .buffbar{visibility:hidden!important;pointer-events:none!importan
 .cheer:active{transform:translateX(-50%) translateY(2px);box-shadow:0 1px 0 var(--edge)}
 body.imm .cheer{position:fixed;z-index:6;top:max(12px,env(safe-area-inset-top,0px))}
 body.imm.modal .cheer{visibility:hidden!important;pointer-events:none!important}
+/* 船上頂端中間是出海計時列（z-index 30），拍手鍵要放在它下面，不然會被蓋住 */
+.cheer.onboat{top:48px;z-index:31}
+body.imm .cheer.onboat{top:calc(max(12px,env(safe-area-inset-top,0px)) + 40px);z-index:31}
 
 /* 浮動搖桿：按下去才出現，位置在手指下方 */
 #fstick{position:fixed;z-index:40;width:128px;height:128px;margin:-64px 0 0 -64px;pointer-events:none;opacity:.92}

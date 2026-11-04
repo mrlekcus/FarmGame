@@ -182,3 +182,43 @@ function drawShop(lit, now) {   // 柴犬雜貨攤：藍白洋傘、綠色櫃檯
   rr('#ff8fa8', ox + 11, oy + 24, 3, 2); rr('#ffd34d', ox + 18, oy + 24, 3, 2);
   if (lit) { g.globalAlpha = 0.5; rr('#ffe28a', ox + 8, oy + 14, 16, 10); g.globalAlpha = 1; }
 }
+
+/* 作物成熟進度條：每株作物下面一條細條（綠＝還在長，金＝熟了） */
+function drawCropBar(px, py, pr) {
+  const ripe = pr >= 1, w = ripe ? 12 : Math.max(0, Math.min(12, Math.round(12 * pr)));
+  r('#3b2a1f', px + 1, py + 14, 14, 2);
+  if (w > 0) r(ripe ? '#ffd23f' : '#7fe08a', px + 2, py + 14, w, 2);
+}
+/* 面向一株還在長的作物時，上方跳出小卡：名稱、進度、還要多久、預計幾點成熟、水夠不夠 */
+const cropClk = ms => {
+  const d = new Date(ms), n = new Date(srvNow()), hm = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+  return d.toDateString() === n.toDateString() ? hm : (d.getMonth() + 1) + '/' + d.getDate() + ' ' + hm;
+};
+function drawCropCard(now) {
+  if (scene !== 'farm' || !ready || cooking || fishing || pressed.length) return;
+  const f = facing(), p = plots.get(pk(f[0], f[1]));
+  if (!p || !p.crop || !CROPS[p.crop] || ripeNow(p)) return;
+  const need = growSec(p.crop) - grownNow(p); if (need <= 0) return;
+  const pr = progress(p), wnow = world(), wl = p.wet && p.wet > srvNow() ? (p.wet - srvNow()) / 1000 : 0;
+  const lines = [];
+  if (wnow.wet) { lines.push('還要約 ' + fmtDur(need)); lines.push('預計 ' + cropClk(srvNow() + need * 1000) + ' 成熟'); lines.push((wnow.snow ? '下雪' : '下雨') + '中，免澆水'); }
+  else if (wl <= 0) { lines.push('土是乾的'); lines.push('澆水才會繼續長'); }
+  else if (wl + 8 >= need) { lines.push('還要約 ' + fmtDur(need)); lines.push('預計 ' + cropClk(srvNow() + need * 1000) + ' 成熟'); lines.push('水分夠'); }
+  else { lines.push('水還夠長 ' + fmtDur(wl)); lines.push('記得再澆水'); }
+  const head = CROPS[p.crop].n + '  ' + Math.floor(pr * 100) + '%';
+  ctx.save();
+  ctx.font = '800 6px "Chiron GoRound TC", "Noto Sans TC", sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  const tw = Math.max(ctx.measureText(head).width, ...lines.map(t => ctx.measureText(t).width));
+  const w = Math.round(tw + 10), h = 3 + 8 + 5 + lines.length * 8 + 2;
+  const cx = f[0] * T + 8, bx = Math.round(Math.max(1, Math.min(W * T - w - 1, cx - w / 2)));
+  let by = f[1] * T - h - 4, down = false; if (by < 1) { by = f[1] * T + T + 4; down = true; }
+  by = Math.round(by);
+  ob('#fffcf0', '#785a46', bx, by, w, h);
+  if (down) { r('#785a46', Math.round(cx) - 1, by - 1, 3, 1); r('#fffcf0', Math.round(cx), by, 1, 1); }
+  else { r('#785a46', Math.round(cx) - 1, by + h, 3, 1); r('#fffcf0', Math.round(cx), by + h - 1, 1, 1); }
+  ctx.fillStyle = '#50382c'; ctx.fillText(head, bx + 5, by + 7);
+  r('#dcd2c3', bx + 5, by + 12, w - 10, 3); r('#7fe08a', bx + 5, by + 12, Math.max(1, Math.round((w - 10) * pr)), 3);
+  ctx.fillStyle = '#78604e';
+  lines.forEach((t, i) => ctx.fillText(t, bx + 5, by + 20 + i * 8));
+  ctx.restore();
+}

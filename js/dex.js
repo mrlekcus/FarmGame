@@ -156,10 +156,11 @@ function updateCheer5() {
   if (syncScene() && !cooking && !busyFish) remotes.forEach(rp => {
     const s = rp.s5;
     if (!s || s.clapped || !hereRp(rp) || now - s.at > S5_CLAP_MS) return;
-    if (Math.abs(rp.tx - pl.x) + Math.abs(rp.ty - pl.y) > 14) return;
+    if (scene !== 'boat' && Math.abs(rp.tx - pl.x) + Math.abs(rp.ty - pl.y) > 14) return;   // 船很小，船上不限距離
     if (!hit || s.at > hit.s5.at) hit = rp;
   });
   cheer5Rp = hit;
+  cheer5El.classList.toggle('onboat', scene === 'boat');
   cheer5El.hidden = !hit;
   if (hit) cheer5El.textContent = '👏 為 ' + clean(hit.name || '', 8) + ' 拍手';
 }

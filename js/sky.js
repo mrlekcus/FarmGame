@@ -213,7 +213,7 @@ function draw(now) {
         if (p) {
           drawSoil(px, py, isWet(p) || w.wet);
           if (p.fert) { r(p.fert === 2 ? '#f0c040' : '#8c6a44', px + 2, py + 13, 2, 1); r(p.fert === 2 ? '#f0c040' : '#8c6a44', px + 12, py + 12, 2, 1); r(p.fert === 2 ? '#f0c040' : '#8c6a44', px + 7, py + 14, 2, 1); }
-          if (p.crop) drawCrop(px, py, { t: p.crop, p: progress(p) }, now);
+          if (p.crop) { drawCrop(px, py, { t: p.crop, p: progress(p) }, now); if (typeof drawCropBar === "function") drawCropBar(px, py, progress(p)); }
         } else if (farmable(tx, ty)) r('rgba(255,255,255,.07)', px, py, T, T);
       }
     }
@@ -305,6 +305,7 @@ function draw(now) {
   if (scene === 'boat') voyDrawReady(now, rx, ry);
   if (scene === 'town' || scene === 'forest') NPCS.forEach(q => (q.sc || 'town') === scene && drawNpcMark(q.x * T, q.y * T, q.k, now));   // 任務「！」畫在最上層，不被房子遮住
   try { drawStar5(now, rx, ry); } catch (e) { /* 略過 */ }
+  try { drawCropCard(now); } catch (e) { /* 略過 */ }
   if (ready && myEmo) emoteBubble(myEmo, Math.round(rx * T) + 13, Math.round(ry * T) - 6, now);
   if (syncScene()) remotes.forEach(rp => { if (rp.emo && hereRp(rp)) emoteBubble(rp.emo, Math.round(rp.x * T) + 13, Math.round(rp.y * T) - 6, now); });
   if (!syncScene() && myShow) showCard(myShow, Math.round(rx * T) + 8, Math.round(ry * T) - 11, now);
