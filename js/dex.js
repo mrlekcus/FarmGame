@@ -46,6 +46,8 @@ async function starRoll(kind, key, opt) {
     return res;
   } catch (e) { return null; }
 }
+/* 釣到／抓到：星級已經補在捕獲卡片上了，不要再跳第二個提示；卡片已經被點掉才用提示補上 */
+function catchStarDone(name, s) { catchStarShow(s); if (!catchShown) starToast(name, s); }
 const starToast = (name, s) => { if (s) toast(name + ' ' + starsText(s.star) + '（' + STAR_N[s.star] + '）' + (s.up && s.star > 1 ? ' 圖鑑新高！' : '')); };
 /* 圖鑑某一類裡，集到幾種 ★5、幾種有星級紀錄 */
 function starCount(kind, keys) { let five = 0, any = 0; keys.forEach(k => { const b = starBest(kind, k); if (b > 0) any++; if (b >= 5) five++; }); return { five, any, tot: keys.length }; }
@@ -55,13 +57,15 @@ function starFive(kind, key) {
   if (star5El) closeStarFive();
   const name = kind === 'crop' ? (CROPS[key] ? CROPS[key].n : key) : (typeof itemName === 'function' ? itemName(kind + ':' + key) : key);
   const el = document.createElement('div'); el.className = 'star5'; el.setAttribute('role', 'dialog');
-  el.innerHTML = '<div class="s5rays"></div><div class="s5glow"></div><div class="s5stars">★★★★★</div>' +
-    '<div class="s5box"><canvas width="16" height="16"></canvas></div><div class="s5name">' + esc(name) + '　傳說！</div><div class="s5sub">圖鑑第一次達到 ★5　點一下繼續</div>';
+  let fall = '';
+  for (let k = 0; k < 16; k++) fall += '<i class="s5fall" style="left:' + Math.round(4 + Math.random() * 92) + '%;font-size:' + (10 + Math.floor(Math.random() * 12)) + 'px;animation-duration:' + (2.2 + Math.random() * 2).toFixed(1) + 's;animation-delay:-' + (Math.random() * 3).toFixed(1) + 's">★</i>';
+  el.innerHTML = '<div class="s5glow"></div>' + fall +
+    '<div class="s5card"><div class="s5stars">★★★★★</div><div class="s5box"><canvas width="16" height="16"></canvas></div><div class="s5name">' + esc(name) + '　傳說！</div><div class="s5sub">圖鑑第一次達到 ★5　點一下繼續</div></div>';
   document.body.appendChild(el); star5El = el;
   const cv = el.querySelector('canvas'), g = cv.getContext('2d');
   if (kind === 'fish') drawFish(g, key, false); else if (kind === 'bug') drawBug(g, key, false); else if (kind === 'crop') cropIcon(g, key); else dishIcon(g, key);
   el.addEventListener('pointerdown', e => { e.stopPropagation(); closeStarFive(); });
-  clearTimeout(star5T); star5T = setTimeout(closeStarFive, 4000);
+  clearTimeout(star5T); star5T = setTimeout(closeStarFive, 3500);
   try { if (navigator.vibrate) navigator.vibrate([40, 50, 40, 50, 80]); } catch (_) {}
 }
 function closeStarFive() { clearTimeout(star5T); if (star5El) { star5El.remove(); star5El = null; } }
@@ -90,6 +94,7 @@ function onStar5(p) {
     if (!['fish', 'bug', 'dish', 'crop'].includes(p.d) || typeof p.e !== 'string') return;
     const label = s5Label(p.d, p.e); if (!label) return;
     rp.s5 = { at: performance.now(), label, clapped: false };
+    try { updateCheer5(); } catch (_) { /* 略過 */ }   // 馬上顯示拍手鍵，不用等每秒一次的更新
   } else if (p.k === 'c' && p.to === myUid && myS5 && performance.now() - myS5.at < 60000) {   // 有人幫我拍手
     claps5++;
     const t = Date.now();
@@ -147,7 +152,8 @@ function updateCheer5() {
     });
   }
   const now = performance.now(); let hit = null;
-  if (syncScene() && !cooking && !fishing) remotes.forEach(rp => {
+  const busyFish = vfOn || (fishing && (fishing.phase === 'fight' || fishing.phase === 'reel'));   // 船上大多在釣魚（等待中），只有搏鬥／收線時才先藏起來
+  if (syncScene() && !cooking && !busyFish) remotes.forEach(rp => {
     const s = rp.s5;
     if (!s || s.clapped || !hereRp(rp) || now - s.at > S5_CLAP_MS) return;
     if (Math.abs(rp.tx - pl.x) + Math.abs(rp.ty - pl.y) > 14) return;

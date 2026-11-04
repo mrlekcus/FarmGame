@@ -96,7 +96,7 @@ function swingNet(x, y) {
     bugLog[r.bug.key] = r.n;
     showCatch(r.bug, r.first, true);
     qAdd('bug'); refreshHud(); loadLevelSoon();
-    starRoll('bug', r.bug.key).then(s => { catchStarShow(s); starToast(r.bug.name, s); if (dexOpen) renderDex(); });
+    starRoll('bug', r.bug.key).then(s => { catchStarDone(r.bug.name, s); if (dexOpen) renderDex(); });
   }).catch(e => toast(errText(e)));
 }
 function startFish(x, y) {
@@ -126,7 +126,7 @@ async function fishReel(f) {
       Object.assign(inv, r.inv); fishLog[r.fish.key] = +r.n || 1;
       splash(f.x, f.y); sparkle(f.x, f.y, (RARITY[r.fish.rarity] || [0, '#8fd3ff'])[1]);
       showCatch(r.fish, !!r.first); qAdd('fish'); refreshHud(); loadLevelSoon();
-      starRoll('fish', r.fish.key).then(s => { catchStarShow(s); starToast(r.fish.name, s); if (dexOpen) renderDex(); });
+      starRoll('fish', r.fish.key).then(s => { catchStarDone(r.fish.name, s); if (dexOpen) renderDex(); });
       const prevBest = (fishRec[r.fish.key] || {}).best | 0;
       rpc('fish_rec').then(m => {
         fishRec = {}; Object.keys(m || {}).forEach(k => { fishRec[k] = m[k]; });
