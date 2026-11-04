@@ -64,7 +64,7 @@ function bagDetail(it) {
     const tid = TOOLS[+it.k].id;
     if (tid === 'hoe' || tid === 'can') info += ' 目前 Lv.' + toolLv[tid] + '：一次處理 ' + toolN(toolLv[tid]) + ' 格（面向的方向排成一直線）。到小村的村長家（園藝工坊）可以升級。';
   } else if (it.t === 'seed') {
-    info = fmtDur(growSec(it.k)) + '成熟（晴天要澆水，雨雪天免澆），收成後每個賣 ' + cropPrice(it.k) + ' G' + seasonTag(it.k) + '。';
+    info = fmtDur(growSec(it.k)) + '成熟（晴天要澆水，雨雪天免澆），收成後每個賣 ' + cropPrice(it.k) + ' G' + seasonTag(it.k) + '。撒種子 Lv.' + (toolLv.seed | 0 || 1) + '：一次種 ' + toolN(toolLv.seed | 0 || 1) + ' 格（面向的方向排成一直線，需要先翻好土）。到小村的村長家（園藝工坊）可以升級。';
     a.push(equipRow(it));
   } else if (it.t === 'yard') {
     info = '按右側功能列的「🏡 庭院」進入佈置模式，面向農場空草地按動作鍵擺放。' + ((ycat.find(q => q.key === it.k) || {}).walk ? '可以走上去。' : '會擋住路。') + (yardSel === it.k ? '（目前選用這個）' : '');

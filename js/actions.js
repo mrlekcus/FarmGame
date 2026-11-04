@@ -27,6 +27,38 @@ function canOne(x, y) {
   settleLocal(p); p.wet = srvNow() + cfg.wet_s * 1000; drops(x, y);
   act2('water', { p_x: x, p_y: y }); qAdd('water'); return true;
 }
+/* 種一格：回傳 true 代表真的種下去了；多格時只有第一格(loud)會跳出錯誤提示 */
+function plantOne(x, y, kk, loud) {
+  if (x < 0 || y < 0 || x >= W || y >= H || K[y][x] !== G) return false;
+  const p = plots.get(pk(x, y));
+  if (!p) { if (loud) pop(x, y, '先用鋤頭翻土', '#ffffff'); return false; }
+  if (p.crop) { if (loud) pop(x, y, '這裡已經有作物', '#ffffff'); return false; }
+  if (have('s:' + kk) <= 0) { if (loud) pop(x, y, '沒有種子了，去雜貨攤買', '#ffb3a8'); return false; }
+  inv['s:' + kk] = have('s:' + kk) - 1;
+  p.crop = kk; p.grown = 0; p.tick = srvNow(); p.fert = 0;
+  dust(x, y); pop(x, y, '種下' + CROPS[kk].n, '#c9f0a8');
+  act2('plant', { p_x: x, p_y: y, p_crop: kk }); qAdd('plant'); return true;
+}
+/* 收一格：熟了才收，回傳 true 代表有收成（收成升級後一次沿面向方向收多格） */
+function harvestOne(x, y, p) {
+  if (!ripeNow(p)) return false;
+    const c = p.crop, fertUsed = (p.fert | 0) > 0;
+    p.crop = null; p.grown = 0; p.tick = srvNow(); p.fert = 0;
+    sparkle(x, y, CROPS[c].c);
+    act2('harvest', { p_x: x, p_y: y }, r => {
+      pop(x, y, '+1 ' + CROPS[c].n, '#fff3b0');
+      if (typeof cropMarkSeen === 'function') cropMarkSeen(c);
+      starRoll('crop', c, { perfect: fertUsed }).then(s => {   // 圖鑑品質 ★1～★5（農耕等級＋施肥加成）
+        if (!s) return;
+        pop(x, y - 0.7, '★'.repeat(s.star), s.star >= 5 ? '#ffd23a' : '#f0a020');
+        if (s.up && s.star > 1) toast(CROPS[c].n + ' ' + starsText(s.star) + '（' + STAR_N[s.star] + '）圖鑑新高！', 2200);
+        if (dexOpen) renderDex();
+      });
+      if (r && r.drop && CROPS[r.drop]) { toast('相鄰的作物雜交了！得到「' + CROPS[r.drop].n + '」種子'); sparkle(x, y, CROPS[r.drop].c); }
+    }, e => {
+      if (e && /not_ready/.test(String(e.message || e.code || e))) { noPrecip = true; return true; }   // 悄悄以伺服器為準，不再顯示矛盾的提示
+    }); qAdd('harvest'); return true;
+}
 function act() {
   if (vfOn) { vfPress(); return; }                 // 出海團拉扯小遊戲：動作鍵＝切換收線
   if (fpOpen()) { closeFriendPop(); return; }   // 互動浮窗開著時再按動作鍵＝收起來
@@ -96,22 +128,8 @@ function act() {
   if (k !== G) { if (t.id === 'net') swingNet(x, y); return; }
   if (t.id === 'net' && !ripeNow(p)) { swingNet(x, y); return; }
   if (ripeNow(p)) {
-    const c = p.crop, fertUsed = (p.fert | 0) > 0;
-    p.crop = null; p.grown = 0; p.tick = srvNow(); p.fert = 0;
-    sparkle(x, y, CROPS[c].c);
-    act2('harvest', { p_x: x, p_y: y }, r => {
-      pop(x, y, '+1 ' + CROPS[c].n, '#fff3b0');
-      if (typeof cropMarkSeen === 'function') cropMarkSeen(c);
-      starRoll('crop', c, { perfect: fertUsed }).then(s => {   // 圖鑑品質 ★1～★5（農耕等級＋施肥加成）
-        if (!s) return;
-        pop(x, y - 0.7, '★'.repeat(s.star), s.star >= 5 ? '#ffd23a' : '#f0a020');
-        if (s.up && s.star > 1) toast(CROPS[c].n + ' ' + starsText(s.star) + '（' + STAR_N[s.star] + '）圖鑑新高！', 2200);
-        if (dexOpen) renderDex();
-      });
-      if (r && r.drop && CROPS[r.drop]) { toast('相鄰的作物雜交了！得到「' + CROPS[r.drop].n + '」種子'); sparkle(x, y, CROPS[r.drop].c); }
-    }, e => {
-      if (e && /not_ready/.test(String(e.message || e.code || e))) { noPrecip = true; return true; }   // 悄悄以伺服器為準，不再顯示矛盾的提示
-    }); qAdd('harvest'); refreshHud(); return;
+    lineTiles(x, y, toolN(toolLv.harvest | 0 || 1)).forEach(([tx, ty]) => { const q = plots.get(pk(tx, ty)); if (q && K[ty][tx] === G) harvestOne(tx, ty, q); });
+    refreshHud(); return;
   }
   if (t.id === 'none') { pop(x, y, '這格是空的，到背包裝備物品', '#ffffff'); return; }
   if (t.id === 'rod') { pop(x, y, '面向池塘才能釣魚', '#cfe8f7'); return; }
@@ -137,10 +155,10 @@ function act() {
     else if (cropLocked(kk)) pop(x, y, CROPS[kk].n + '需要農耕 Lv.' + CROP_NEED[kk], '#ffb3a8');
     else if (have('s:' + kk) <= 0) pop(x, y, '沒有種子了，去雜貨攤買', '#ffb3a8');
     else {
-      inv['s:' + kk] = have('s:' + kk) - 1;
-      p.crop = kk; p.grown = 0; p.tick = srvNow(); p.fert = 0;
-      dust(x, y); pop(x, y, '種下' + CROPS[kk].n, '#c9f0a8');
-      act2('plant', { p_x: x, p_y: y, p_crop: kk }); qAdd('plant'); loadLevelSoon();
+      /* 撒種子升級：沿面向方向一排種 toolN(toolLv.seed) 格，種子不夠就種到用完為止 */
+      let n = 0;
+      lineTiles(x, y, toolN(toolLv.seed | 0 || 1)).forEach(([tx, ty], i) => { if (plantOne(tx, ty, kk, i === 0)) n++; });
+      if (n) loadLevelSoon();
     }
   }
   refreshHud();

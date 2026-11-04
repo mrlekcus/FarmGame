@@ -17,7 +17,7 @@ let hot = hotSets[0];
 const curTool = () => TOOLS[hot[tool]] || { id: 'none', n: '空格' };
 let fishCat = [], fishLog = {}, rods = [], bugCat = [], bugLog = {};
 let starLog = {};   // 圖鑑品質：'fish:key' / 'bug:key' / 'dish:key' -> 最高星（1～5），伺服器 star_log
-let recipes = [], buffs = {}, toolLv = { hoe: 1, can: 1 }, toolCost = {};   // 料理食譜、buff（種類 -> 結束毫秒）、鋤頭／水壺等級
+let recipes = [], buffs = {}, toolLv = { hoe: 1, can: 1, seed: 1, harvest: 1 }, toolCost = {};   // 料理食譜、buff（種類 -> 結束毫秒）、鋤頭／水壺等級
 let featNeed = { ranch: 2, forage: 2, yard: 2, mine: 4, cave: 4, town: 1, forest: 3 };
 const FEAT_N = { ranch: '動物牧場', forage: '採集', yard: '庭院佈置', mine: '採礦', cave: '山洞', town: '雷克斯小村', forest: '西邊森林' };
 let fishRec = {}, yardMap = new Map(), ycat = [], storyDone = 0, yardSel = '', stData = null, bdTab = 'order', stBusy = false;

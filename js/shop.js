@@ -92,8 +92,8 @@ function renderShop() {
   const rodRow = '<div class="row"><div class="meta"><b>' + esc(rod.name) + '（Lv.' + rod.lv + '）</b><small>' +
     (nx ? '升級：' + esc(nx.name) + '，魚更快上鉤、拉竿時間更長、稀有魚更多' : '已經是最高級的釣竿了') + '</small></div>' +
     (nx ? '<button type="button" class="btn" data-a="rod"' + (shopBusy || coins < nx.cost || rodLocked(nx.lv) ? ' disabled' : '') + '>' + (rodLocked(nx.lv) ? '釣魚 Lv.' + ROD_NEED[nx.lv] + ' 解鎖' : nx.cost + ' G') + '</button>' : '') + '</div>';
-  const toolRows = ['hoe', 'can'].map(t => {
-    const lvn = toolLv[t] | 0 || 1, nm = t === 'hoe' ? '鋤頭' : '水壺', cst = toolCost[t + (lvn + 1)];
+  const toolRows = ['hoe', 'can', 'seed', 'harvest'].map(t => {
+    const lvn = toolLv[t] | 0 || 1, nm = t === 'hoe' ? '鋤頭' : t === 'can' ? '水壺' : t === 'seed' ? '撒種子' : '收成', cst = toolCost[t + (lvn + 1)];
     const mats = cst ? Object.keys(cst.items || {}).map(k => esc(itemName(k)) + ' ×' + cst.items[k] + '（有 ' + have(k) + '）').join('、') : '';
     const okMats = cst && Object.keys(cst.items || {}).every(k => have(k) >= cst.items[k]);
     const locked = cst && plv() < cst.need;
@@ -188,7 +188,7 @@ shopCard.addEventListener('click', async e => {
     if (r.sold) { if (r.sell_day !== soldDay) { soldToday = {}; soldDay = r.sell_day | 0; } Object.assign(soldToday, r.sold); }
     if (typeof r.coins === 'number') me.coins = r.coins;
     if (typeof r.rod === 'number') { me.rod = r.rod; const rd = rods.find(x => x.lv === r.rod); toast('升級成 ' + (rd ? rd.name : '新釣竿') + '！'); }
-    if (r.tool) { toolLv[r.tool] = r.lv | 0; toast('升級成 ' + (r.tool === 'hoe' ? '鋤頭' : '水壺') + ' Lv.' + r.lv + '，一次處理 ' + toolN(r.lv) + ' 格！'); }
+    if (r.tool) { toolLv[r.tool] = r.lv | 0; toast('升級成 ' + (r.tool === 'hoe' ? '鋤頭' : r.tool === 'can' ? '水壺' : r.tool === 'seed' ? '撒種子' : '收成') + ' Lv.' + r.lv + '，一次處理 ' + toolN(r.lv) + ' 格！'); }
     if (a === 'hexpand') { await loadHouse(); if (r.size) toast('房子擴建成 ' + r.size.w + '×' + r.size.h + ' 格了！', 3000); }
     if (r.earned) toast('賣出得到 ' + r.earned + ' G');
     if (a === 'buy' && CROPS[k]) toast('買了 ' + buyN + ' 個' + CROPS[k].n + '種子');

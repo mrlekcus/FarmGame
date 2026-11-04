@@ -61,7 +61,7 @@ function applyState(d) {
   fishCat = d.fish || []; fishLog = d.fishlog || {}; rods = d.rods || [];
   bugCat = d.bugs || []; bugLog = d.buglog || {};
   soldToday = d.soldtoday || {}; soldDay = d.sell_day | 0;
-  cookLog = d.cooklog || {}; recipes = d.recipes || []; buffs = d.buffs || {}; toolLv = { hoe: 1, can: 1, ...(d.tools || {}) }; toolCost = d.toolcost || {};
+  cookLog = d.cooklog || {}; recipes = d.recipes || []; buffs = d.buffs || {}; toolLv = { hoe: 1, can: 1, seed: 1, harvest: 1, ...(d.tools || {}) }; toolCost = d.toolcost || {};
   starLog = d.starlog || starLog || {};
   if (d.profile) rpc('star_log').then(m => { if (m && typeof m === 'object') { starLog = m; if (typeof dexOpen !== 'undefined' && dexOpen) renderDex(); } }).catch(() => {});   // 圖鑑品質；伺服器還沒升級就維持沒有星級
   bugTaken = new Set(d.bugtaken || []); dexClaims = d.dexclaims || {};
