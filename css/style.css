@@ -1210,3 +1210,24 @@ body.imm .camhint{display:block}
 .sea-row em{font-style:normal;font-size:11px;font-weight:800;padding:1px 6px;border-radius:6px;color:#fff}
 .sea-row em.up{background:#5aa84a}
 .sea-row em.dn{background:#a8a0a0}
+
+/* 圖鑑品質星星 */
+.stars{display:inline-flex;gap:1px;line-height:1;font-size:11px;justify-content:center}
+.stars s{text-decoration:none;color:#e3d9cf}
+.stars s.on{color:#f0a020;text-shadow:0 1px 0 #fff}
+.stars.none{color:#e3d9cf;letter-spacing:1px}
+.dxr .stars{font-size:16px}
+
+/* 第一次達到 ★5 的全螢幕驚喜 */
+.star5{position:fixed;inset:0;z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:#000;animation:s5in .35s ease-out;touch-action:manipulation;cursor:pointer}
+.star5 .s5rays{position:absolute;inset:-50%;background:repeating-conic-gradient(from 0deg at 50% 50%,#ffe48a 0 8deg,#fff6cf 8deg 16deg);opacity:.92;animation:s5spin 14s linear infinite}
+.star5 .s5glow{position:absolute;inset:0;background:radial-gradient(circle at 50% 50%,rgba(255,255,255,.95) 0 20%,transparent 62%)}
+.star5 .s5stars{position:relative;font-size:clamp(28px,8vw,44px);color:#f0a020;letter-spacing:6px;text-shadow:0 2px 0 #fff;animation:s5pop .6s .1s both cubic-bezier(.2,1.6,.4,1)}
+.star5 .s5box{position:relative;width:min(46vw,190px);aspect-ratio:3/2;background:#fff;border:3px solid #f0a020;border-radius:16px;display:flex;align-items:center;justify-content:center;box-shadow:0 0 30px #ffd34d;animation:s5pop .6s .25s both cubic-bezier(.2,1.6,.4,1)}
+.star5 .s5box canvas{width:96px;height:96px;image-rendering:pixelated}
+.star5 .s5name{position:relative;font:800 clamp(18px,5vw,24px)/1.2 var(--f-display,inherit);color:#8e5bd0;background:#fff;border:2px solid #f0a020;border-radius:10px;padding:4px 16px;animation:s5pop .6s .4s both cubic-bezier(.2,1.6,.4,1)}
+.star5 .s5sub{position:relative;font-size:12px;color:#7a5a48;background:rgba(255,255,255,.8);border-radius:999px;padding:2px 12px}
+@keyframes s5in{from{opacity:0}to{opacity:1}}
+@keyframes s5spin{to{transform:rotate(360deg)}}
+@keyframes s5pop{from{opacity:0;transform:scale(.3)}to{opacity:1;transform:scale(1)}}
+@media (prefers-reduced-motion:reduce){.star5 .s5rays{animation:none}.star5 *{animation-duration:.01s!important}}

@@ -6,6 +6,8 @@ let fishing = null, fishSeq = 0, fishCool = 0, catchTimer = 0, catchShown = fals
 $('catch-show').addEventListener('click', () => { showItem(catchKind, catchKey); hideCatch(); });
 function hideCatch() { catchShown = false; catchEl.hidden = true; clearTimeout(catchTimer); }
 let catchKey = '', catchKind = 'fish';
+/* 這次的星級：伺服器擲完才知道，所以先顯示魚／蟲，星星稍後補在副標題後面 */
+function catchStarShow(s) { if (!s) return; catchS.textContent = (catchS.dataset.base || catchS.textContent) + '　' + starsText(s.star) + (s.up && s.star > 1 ? ' 新高！' : ''); }   // 星級不改變物品原本的顏色
 function showCatch(f, first, isBug) {
   catchKey = f.key; catchKind = isBug ? 'bug' : 'fish';
   if (isBug) drawBug(catchCv.getContext('2d'), f.key, false); else drawFish(catchCv.getContext('2d'), f.key, false);
@@ -13,6 +15,7 @@ function showCatch(f, first, isBug) {
   catchT.textContent = f.name;
   catchS.textContent = rc[0] + ' · ' + f.price + ' G' + (first ? ' · 新發現！' : '');
   catchEl.style.setProperty('--rc', rc[1]);
+  catchS.dataset.base = catchS.textContent;
   const canShow = true;
   $('catch-show').hidden = !canShow;
   catchShown = true; catchEl.hidden = false; clearTimeout(catchTimer); catchTimer = setTimeout(hideCatch, canShow ? 6000 : 3200);
@@ -93,6 +96,7 @@ function swingNet(x, y) {
     bugLog[r.bug.key] = r.n;
     showCatch(r.bug, r.first, true);
     qAdd('bug'); refreshHud(); loadLevelSoon();
+    starRoll('bug', r.bug.key).then(s => { catchStarShow(s); starToast(r.bug.name, s); if (dexOpen) renderDex(); });
   }).catch(e => toast(errText(e)));
 }
 function startFish(x, y) {
@@ -122,6 +126,7 @@ async function fishReel(f) {
       Object.assign(inv, r.inv); fishLog[r.fish.key] = +r.n || 1;
       splash(f.x, f.y); sparkle(f.x, f.y, (RARITY[r.fish.rarity] || [0, '#8fd3ff'])[1]);
       showCatch(r.fish, !!r.first); qAdd('fish'); refreshHud(); loadLevelSoon();
+      starRoll('fish', r.fish.key).then(s => { catchStarShow(s); starToast(r.fish.name, s); if (dexOpen) renderDex(); });
       const prevBest = (fishRec[r.fish.key] || {}).best | 0;
       rpc('fish_rec').then(m => {
         fishRec = {}; Object.keys(m || {}).forEach(k => { fishRec[k] = m[k]; });

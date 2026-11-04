@@ -19,6 +19,8 @@ const ACH = [
   { id: 'sea_all', ic: '🐙', n: '海釣圖鑑全收集', d: '海釣圖鑑全部集滿' },
   { id: 'pier', ic: '🏗️', n: '碼頭建設者', d: '替全服的出海碼頭捐過材料' },
   { id: 'dish_half', ic: '📒', n: '料理圖鑑過半', d: '料理圖鑑集滿一半' }, { id: 'dish_all', ic: '📔', n: '料理圖鑑全收集', d: '料理圖鑑全部集滿' },
+  { id: 'star_fish', ic: '✨', n: '五星釣手', d: '5 種魚（淡水＋海釣）的圖鑑品質達到 ★5' }, { id: 'star_bug', ic: '🌟', n: '五星捕蟲手', d: '5 種蟲蝶的圖鑑品質達到 ★5' },
+  { id: 'star_dish', ic: '💫', n: '五星廚師', d: '5 道料理的圖鑑品質達到 ★5' }, { id: 'star_all', ic: '👑', n: '星光圖鑑王', d: '魚、蟲、料理圖鑑全部達到 ★5' },
   { id: 'sweet_all', ic: '🧁', n: '烘焙名師', d: '所有甜點、烘焙類料理都煮過' }, { id: 'dish100', ic: '🍽️', n: '百份料理', d: '累計煮出 100 份料理' }
 ];
 FITS.forEach((nm, i) => { if (i >= FREE_N.fits) ACH.push({ id: 'fit' + i, ic: FIT_IC[i] || '👗', n: nm + '收藏家', d: '集齊「' + nm + '」的 ' + OUTFITS.length + ' 種顏色' }); });
@@ -26,7 +28,7 @@ FITS.forEach((nm, i) => { if (i >= FREE_N.fits) ACH.push({ id: 'fit' + i, ic: FI
 const ACH_CATS = [
   { k: 'g', ic: '🌱', n: '成長', ids: ['days7', 'days30', 'pl5', 'pl10'] },
   { k: 's', ic: '🌾', n: '技能', ids: ['farm5', 'farm10', 'fish5', 'bug5', 'cook5', 'cook10'] },
-  { k: 'c', ic: '📚', n: '收集', ids: ['fish100', 'bug100', 'fish_half', 'fish_all', 'bug_half', 'bug_all', 'dish_half', 'dish_all', 'sweet_all', 'dish100'] },
+  { k: 'c', ic: '📚', n: '收集', ids: ['fish100', 'bug100', 'fish_half', 'fish_all', 'bug_half', 'bug_all', 'dish_half', 'dish_all', 'sweet_all', 'dish100', 'star_fish', 'star_bug', 'star_dish', 'star_all'] },
   { k: 'l', ic: '🏡', n: '生活', ids: ['plots10', 'home15', 'friend3', 'photo'] },
   { k: 'v', ic: '⛵', n: '出海', ids: ['voy1', 'voy10', 'voy50', 'sea_all', 'pier'] },
   { k: 'f', ic: '👗', n: '服裝', ids: ACH.filter(x => /^fit\d+$/.test(x.id)).map(x => x.id) }
@@ -68,7 +70,17 @@ function cdDishSelf() {
   } catch (e) { /* 略過 */ }
   return out;
 }
-function cdGot() { return new Set((cd.ach || []).concat(voyAchSelf(), cdCookSelf(), cdDishSelf())); }
+/* 圖鑑品質成就：從本機的星級紀錄（starLog）算，只有自己的名片看得到（置頂要伺服器認得這些成就才行） */
+function cdStarSelf() {
+  const out = [];
+  try {
+    const f = starCount('fish', fishCat.map(x => x.key)), b = starCount('bug', bugCat.map(x => x.key)), d = starCount('dish', recipes.map(x => x.key));
+    if (f.five >= 5) out.push('star_fish'); if (b.five >= 5) out.push('star_bug'); if (d.five >= 5) out.push('star_dish');
+    if (f.tot && b.tot && d.tot && f.five >= f.tot && b.five >= b.tot && d.five >= d.tot) out.push('star_all');
+  } catch (e) { /* 略過 */ }
+  return out;
+}
+function cdGot() { return new Set((cd.ach || []).concat(voyAchSelf(), cdCookSelf(), cdDishSelf(), cdStarSelf())); }
 function cdPins() { return (cd.badges || []).filter(x => ACH.some(a => a.id === x)); }   // 不用「已獲得」過濾，避免出海成就還沒載入時，存檔把它們洗掉
 /* 記下每個成就第一次被看到的時間，當作「最近獲得」；第一次使用時舊成就都算舊的 */
 function cdSeenInit() {
@@ -149,7 +161,7 @@ function renderCard() {
     h += '<p class="empty">選一樣送給 ' + esc(cd.name) + '（每天最多送 3 份，一次送 1 個）</p>' + (cdMsg ? '<p class="mk-msg">' + esc(cdMsg) + '</p>' : '') +
       (items.length ? items.map(k => '<div class="giftrow"><span>' + esc(itemName(k)) + ' ×' + have(k) + '</span><button type="button" class="btn small" data-a="give" data-k="' + esc(k) + '">送出</button></div>').join('') : '<p class="empty">背包裡沒有可以送的作物、魚或蟲蝶。</p>');
   } else {
-    const st = cd.stats || {}, got = new Set((cd.ach || []).concat(cd.self ? voyAchSelf().concat(cdCookSelf(), cdDishSelf()) : [])), pins = (cd.badges || []).filter(x => ACH.some(a => a.id === x));   // 置頂已經由伺服器檢查過，出海成就是遊戲端算的，不能再用 got 過濾
+    const st = cd.stats || {}, got = new Set((cd.ach || []).concat(cd.self ? voyAchSelf().concat(cdCookSelf(), cdDishSelf(), cdStarSelf()) : [])), pins = (cd.badges || []).filter(x => ACH.some(a => a.id === x));   // 置頂已經由伺服器檢查過，出海成就是遊戲端算的，不能再用 got 過濾
     h += '<div class="cdav"><canvas id="cd-av" width="16" height="22"></canvas><div class="offer" style="flex:1"><p><b>' + esc(cd.name) + '</b>　<small>@' + esc(cd.username) + '</small></p>' +
       '<p>' + (pins.length ? pins.map(id => { const a = ACH.find(x => x.id === id); return a ? '<span title="' + esc(a.n) + '" style="font-size:22px">' + a.ic + '</span>' : ''; }).join(' ') : '<small style="opacity:.5">' + (cd.self ? '下面的格子可以放置頂成就（最多 3 個）' : '還沒有置頂成就') + '</small>') + '</p></div></div>';
     if (cd.self) {

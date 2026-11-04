@@ -62,6 +62,8 @@ function applyState(d) {
   bugCat = d.bugs || []; bugLog = d.buglog || {};
   soldToday = d.soldtoday || {}; soldDay = d.sell_day | 0;
   cookLog = d.cooklog || {}; recipes = d.recipes || []; buffs = d.buffs || {}; toolLv = { hoe: 1, can: 1, ...(d.tools || {}) }; toolCost = d.toolcost || {};
+  starLog = d.starlog || starLog || {};
+  if (d.profile) rpc('star_log').then(m => { if (m && typeof m === 'object') { starLog = m; if (typeof dexOpen !== 'undefined' && dexOpen) renderDex(); } }).catch(() => {});   // 圖鑑品質；伺服器還沒升級就維持沒有星級
   bugTaken = new Set(d.bugtaken || []); dexClaims = d.dexclaims || {};
   itemMeta = {}; (d.items || []).forEach(m => { itemMeta[m.key] = m; });
   Object.keys(MINE_FALLBACK).forEach(k => { if (!itemMeta[k]) itemMeta[k] = { key: k, price: 0, buy: 0, ...MINE_FALLBACK[k] }; });

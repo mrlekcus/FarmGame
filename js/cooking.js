@@ -158,10 +158,12 @@ async function cookFinish(ok) {
   if (made && c.host && visiting) visitLog('cook', rc.name);   // 在朋友家煮菜：記給屋主看
   if (made) ckRecentSet(rc.key);   // 記下最近煮的這一道
   if (made) loadLevel();   // 伺服器已加經驗，重新抓等級（升級彈窗也在裡面）
+  let cstar = null;
+  if (made) cstar = await starRoll('dish', rc.key, { perfect });   // 圖鑑品質（零失誤加成）
   const xp = srvXp ? ' · 烹飪經驗 +' + srvXp : '';
   dishIcon(catchCv.getContext('2d'), rc.key);
-  catchT.textContent = made ? rc.name + (perfect ? '　完美！' : '') : !ok ? '糊掉了…' : '做不出來';
-  catchS.textContent = (made ? '已放進背包，現在持有 ' + have('dish:' + rc.key) + ' 份' + (perfect ? '（零失誤，經驗加成）' : '') : errMsg ? errMsg : '失誤太多了，材料沒有消耗，再試一次吧') + xp;
+  catchT.textContent = made ? rc.name + (perfect ? '　完美！' : '') + (cstar ? '　' + starsText(cstar.star) : '') : !ok ? '糊掉了…' : '做不出來';
+  catchS.textContent = (made ? '已放進背包，現在持有 ' + have('dish:' + rc.key) + ' 份' + (perfect ? '（零失誤，經驗加成）' : '') + (cstar && cstar.up && cstar.star > 1 ? '　圖鑑品質新高！' : '') : errMsg ? errMsg : '失誤太多了，材料沒有消耗，再試一次吧') + xp;
   catchEl.style.setProperty('--rc', DISHC[rc.key] || '#f3c77a');
   $('catch-show').hidden = true;
   catchShown = true; catchEl.hidden = false; clearTimeout(catchTimer); catchTimer = setTimeout(hideCatch, 4500);

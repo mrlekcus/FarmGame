@@ -175,7 +175,7 @@ function update(dt) {
   if (syncScene()) sendPos(dt);
   if (scene === 'barn') barnTick(dt);
   moodAcc += dt;
-  if (moodAcc > 1000) { moodAcc = 0; if (Music) { Music.setMood(darkness(world().min), scene === 'plaza'); syncBgm(); } updateBuffChip(); updateCheer(); }
+  if (moodAcc > 1000) { moodAcc = 0; if (Music) { Music.setMood(darkness(world().min), scene === 'plaza'); syncBgm(); } updateBuffChip(); updateCheer(); updateCheer5(); }
   fishTick();
   if (vfOn) { pressed.length = 0; vfTick(dt); }
   cookTick();

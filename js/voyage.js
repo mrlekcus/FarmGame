@@ -439,6 +439,7 @@ async function boatReel(f, res) {
       fishLog[fi.key] = +r_.n || 1;
       splash(f.x, f.y); sparkle(f.x, f.y, (RARITY[fi.rarity] || [0, '#8fd3ff'])[1]);
       showCatch(fi, !!r_.first); qAdd('fish'); refreshHud(); loadLevelSoon();
+      starRoll('fish', fi.key).then(s => { catchStarShow(s); starToast(fi.name, s); if (dexOpen) renderDex(); });
       if (r_.size_cm != null) {
         const prevBest = (fishRec[fi.key] || {}).best | 0, sz = +r_.size_cm;
         fishRec[fi.key] = { best: Math.max(prevBest, sz), last: sz };
