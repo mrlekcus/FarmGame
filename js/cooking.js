@@ -67,7 +67,7 @@ function renderKitchen() {
     .sort((a, b) => (isRec(b.x) - isRec(a.x)) || (rank(a.x) - rank(b.x)) || (a.i - b.i)).map(o => o.x);
   const cards = list.map(({ rc, mx, T, lock, dn }) => {
     const ing = Object.keys(rc.ing).map(k => '<span class="' + (have(k) >= rc.ing[k] ? 'ck-ok' : 'ck-no') + '">' + esc(itemName(k)) + ' ' + have(k) + '/' + rc.ing[k] + '</span>').join('、');
-    return '<div class="ck-item' + (lock ? ' lock' : '') + '"><div class="ck-top"><canvas class="ck-ic" width="16" height="16" data-k="' + esc(rc.key) + '"></canvas><div class="meta"><b>' + esc(rc.name) + '</b><span class="cg-star">' + '★'.repeat(T) + '</span>' + (rec === rc.key ? '<small class="ck-rec">最近煮的</small>' : '') + (dn ? '<small>持有 ' + dn + '</small>' : '') + '</div></div>' +
+    return '<div class="ck-item' + (lock ? ' lock' : '') + '"><div class="ck-top"><canvas class="ck-ic" width="16" height="16" data-k="' + esc(rc.key) + '"></canvas><div class="meta"><b>' + esc(rc.name) + '</b><span class="ck-stars" title="圖鑑記錄的最高品質">' + (typeof starsHtml === 'function' ? starsHtml(typeof starBest === 'function' ? starBest('dish', rc.key) : 0) : '') + '</span>' + (rec === rc.key ? '<small class="ck-rec">最近煮的</small>' : '') + (dn ? '<small>持有 ' + dn + '</small>' : '') + '</div></div>' +
       '<small class="ck-ing">' + ing + '</small><small class="ck-d">' + esc(rc.descr) + '　賣 ' + rc.price + ' G</small><div class="ck-btns">' +
       (lock ? '<button type="button" class="btn small" disabled>烹飪 Lv.' + T + ' 解鎖</button>' :
         '<button type="button" class="btn small" data-a="cook" data-c="' + esc(rc.key) + '"' + (ckBusy || mx < 1 ? ' disabled' : '') + '>開始烹飪</button>') +
@@ -76,7 +76,7 @@ function renderKitchen() {
   const side = '<div class="ck-side">' + CK_CATS.map(([k, n]) => '<button type="button" class="chipbtn" data-a="cat" data-c="' + k + '" aria-pressed="' + (ckCat === k) + '">' + n + ' ' + cnt(k) + '</button>').join('') +
     '<button type="button" class="chipbtn ck-only" data-a="only" aria-pressed="' + ckOnly + '">只看能煮的</button></div>';
   ckCard.innerHTML = '<div class="shop-h"><h2>廚房</h2><span class="chip gold">' + (me ? me.coins : 0) + ' G</span></div>' + ckSkillHtml() +
-    (visiting ? '<p class="empty">你在 ' + esc(visiting.name) + ' 的廚房：用的是你自己的材料，做好的料理和烹飪經驗都是你的。</p>' : '') + '<p class="empty">選一道料理開始烹飪：會回到灶台前，鍋子上方有火候條。按住動作鍵加熱，指針進到綠區就放開定火，一共三段；太生、太大或燒焦都算失誤。失誤太多會失敗（失敗或中途走開都不會浪費材料）。做出來的料理可以賣錢、交委託，有些吃下去還有 buff（最多累積 60 分鐘）。' + (act_.length ? '<br>目前效果：' + esc(act_.join('、')) : '') + '</p>' +
+    (visiting ? '<p class="empty">你在 ' + esc(visiting.name) + ' 的廚房：用的是你自己的材料，做好的料理和烹飪經驗都是你的。</p>' : '') + '<p class="empty">選一道料理開始烹飪：會回到灶台前，鍋子上方有火候條。按住動作鍵加熱，指針進到綠區就放開定火，一共三段；太生、太大或燒焦都算失誤。失誤太多會失敗（失敗或中途走開都不會浪費材料）。料理名稱下方的星星是圖鑑記錄到的最高品質（灰星＝還沒煮出來過），想集滿 ★5 就多煮幾次。做出來的料理可以賣錢、交委託，有些吃下去還有 buff（最多累積 60 分鐘）。' + (act_.length ? '<br>目前效果：' + esc(act_.join('、')) : '') + '</p>' +
     '<div class="ck-wrap">' + side + '<div class="ck-grid">' + (cards || '<p class="empty">' + (ckOnly ? '這個分類現在沒有材料夠、又已解鎖的料理。' : ckCat === 'recent' ? '還沒煮過料理，煮好一道就會記在這裡。' : recipes.length ? '這個分類還沒有食譜。' : '還沒有食譜。') + '</p>') + '</div></div>' +
     '<button type="button" class="btn ghost wide" data-a="close">離開</button>';
   ckCard.querySelectorAll('canvas.ck-ic').forEach(cv => dishIcon(cv.getContext('2d'), cv.dataset.k));

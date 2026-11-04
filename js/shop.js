@@ -29,7 +29,7 @@ function shopItems(cat) {
   else if (cat === 'sup') ['x:fert'].filter(k => itemMeta[k] && itemMeta[k].buy > 0).forEach(k => {
     const m = itemMeta[k];
     out.push({ id: k, a: 'buym', c: k, name: m.name, price: m.buy, misc: k, buy: 1, lock: '',
-      sub: (k === 'a:hay' ? '餵動物用' : '裝備後對作物施肥，更容易出銀星金星') + ' · 持有 ' + have(k) });
+      sub: (k === 'a:hay' ? '餵動物用' : '裝備後對作物施肥，收成更容易出高星') + ' · 持有 ' + have(k) });
   });
   else if (cat === 'yard') (ycat.length ? ycat : []).forEach(c => {
     const need = Math.max(c.need, featNeed.yard);

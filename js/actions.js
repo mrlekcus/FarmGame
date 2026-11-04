@@ -96,12 +96,18 @@ function act() {
   if (k !== G) { if (t.id === 'net') swingNet(x, y); return; }
   if (t.id === 'net' && !ripeNow(p)) { swingNet(x, y); return; }
   if (ripeNow(p)) {
-    const c = p.crop;
+    const c = p.crop, fertUsed = (p.fert | 0) > 0;
     p.crop = null; p.grown = 0; p.tick = srvNow(); p.fert = 0;
     sparkle(x, y, CROPS[c].c);
     act2('harvest', { p_x: x, p_y: y }, r => {
-      const q = r ? r.q | 0 : 0;
-      pop(x, y, '+1 ' + (q === 2 ? '金星' : q === 1 ? '銀星' : '') + CROPS[c].n, q === 2 ? '#ffe27a' : q === 1 ? '#e6f0ff' : '#fff3b0');
+      pop(x, y, '+1 ' + CROPS[c].n, '#fff3b0');
+      if (typeof cropMarkSeen === 'function') cropMarkSeen(c);
+      starRoll('crop', c, { perfect: fertUsed }).then(s => {   // 圖鑑品質 ★1～★5（農耕等級＋施肥加成）
+        if (!s) return;
+        pop(x, y - 0.7, '★'.repeat(s.star), s.star >= 5 ? '#ffd23a' : '#f0a020');
+        if (s.up && s.star > 1) toast(CROPS[c].n + ' ' + starsText(s.star) + '（' + STAR_N[s.star] + '）圖鑑新高！', 2200);
+        if (dexOpen) renderDex();
+      });
       if (r && r.drop && CROPS[r.drop]) { toast('相鄰的作物雜交了！得到「' + CROPS[r.drop].n + '」種子'); sparkle(x, y, CROPS[r.drop].c); }
     }, e => {
       if (e && /not_ready/.test(String(e.message || e.code || e))) { noPrecip = true; return true; }   // 悄悄以伺服器為準，不再顯示矛盾的提示

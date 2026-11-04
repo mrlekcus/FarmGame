@@ -536,6 +536,7 @@ body{-webkit-tap-highlight-color:transparent;touch-action:manipulation}
 .qbar{display:block;height:6px;margin-top:4px;border-radius:3px;background:#f3e1d4;overflow:hidden}
 .qbar i{display:block;height:100%;background:var(--leaf);border-radius:3px}
 .cg-star{color:#e8a23a;font-size:11px;letter-spacing:1px}
+.ck-stars{display:block;line-height:1;margin-top:2px}.ck-stars .stars{justify-content:flex-start;font-size:12px}
 
 /* ---- 沉浸模式（觸控裝置：手機、iPad）：農場鋪滿、介面半透明、選單上拉 ---- */
 .grab,.immgrid{display:none}

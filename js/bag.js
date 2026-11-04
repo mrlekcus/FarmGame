@@ -69,10 +69,10 @@ function bagDetail(it) {
   } else if (it.t === 'yard') {
     info = '按右側功能列的「🏡 庭院」進入佈置模式，面向農場空草地按動作鍵擺放。' + ((ycat.find(q => q.key === it.k) || {}).walk ? '可以走上去。' : '會擋住路。') + (yardSel === it.k ? '（目前選用這個）' : '');
     a.push('<button type="button" class="btn small" data-b="ysel">擺放時用這個</button>');
-  } else if (it.t === 'qcrop') info = '品質好的作物，賣價比普通的高（銀星 +25%、金星 +50%）。到雜貨攤賣，也可以做料理、交委託。每個 ' + miscPrice(it.k) + ' G。';
+  } else if (it.t === 'qcrop') info = '舊版的銀星／金星作物（賣價比普通的高）。到雜貨攤賣，也可以做料理、交委託。每個 ' + miscPrice(it.k) + ' G。';
   else if (it.t === 'misc') {
     const m = itemMeta[it.k] || {};
-    info = it.k === 'a:hay' ? '拿去穀倉餵動物，每隻餓著的動物吃 1 把。' : /^x:/.test(it.k) ? '裝備後面向有作物的田地按動作鍵，這一輪收成更容易出現銀星和金星（每格一次）。' : (m.price ? '到雜貨攤賣，每個 ' + m.price + ' G。也能做料理、交委託。' : '');
+    info = it.k === 'a:hay' ? '拿去穀倉餵動物，每隻餓著的動物吃 1 把。' : /^x:/.test(it.k) ? '裝備後面向有作物的田地按動作鍵，這一輪收成更容易出高星（圖鑑品質 ★1～★5，每格一次）。' : (m.price ? '到雜貨攤賣，每個 ' + m.price + ' G。也能做料理、交委託。' : '');
     if (/^x:/.test(it.k)) a.push(equipRow(it));
   } else if (it.t === 'crop') info = '到雜貨攤可以賣掉，每個 ' + cropPrice(it.k) + ' G' + seasonTag(it.k) + '。也能拿去做料理或交委託。';
   else if (it.t === 'fish') {

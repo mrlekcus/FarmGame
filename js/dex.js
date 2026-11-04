@@ -35,7 +35,7 @@ const starsHtml = (n, tot) => { n = Math.max(0, Math.min(5, n | 0)); tot = tot |
 const starsText = n => '★'.repeat(Math.max(0, Math.min(5, n | 0))) + '☆'.repeat(5 - Math.max(0, Math.min(5, n | 0)));
 /* 釣到／抓到／煮出後，請伺服器擲這一次的星級（伺服器擲骰，只收等級當加成），回傳 { star, best, up }；舊伺服器沒有這個函式就當作沒有星級 */
 async function starRoll(kind, key, opt) {
-  const o = opt || {}, L = kind === 'fish' ? (lv && +lv.fish) : kind === 'bug' ? (lv && +lv.bug) : (lv && +lv.cook);
+  const o = opt || {}, L = kind === 'fish' ? (lv && +lv.fish) : kind === 'bug' ? (lv && +lv.bug) : kind === 'crop' ? (lv && +lv.farm) : (lv && +lv.cook);
   try {
     const r = await rpc('star_roll', { p_kind: kind, p_key: key, p_lv: Math.max(1, Math.min(12, L | 0 || 1)), p_perfect: !!o.perfect });
     if (!r || !r.star) return null;
@@ -53,13 +53,13 @@ function starCount(kind, keys) { let five = 0, any = 0; keys.forEach(k => { cons
 let star5El = null, star5T = 0;
 function starFive(kind, key) {
   if (star5El) closeStarFive();
-  const name = (typeof itemName === 'function' ? itemName(kind + ':' + key) : key);
+  const name = kind === 'crop' ? (CROPS[key] ? CROPS[key].n : key) : (typeof itemName === 'function' ? itemName(kind + ':' + key) : key);
   const el = document.createElement('div'); el.className = 'star5'; el.setAttribute('role', 'dialog');
   el.innerHTML = '<div class="s5rays"></div><div class="s5glow"></div><div class="s5stars">★★★★★</div>' +
     '<div class="s5box"><canvas width="16" height="16"></canvas></div><div class="s5name">' + esc(name) + '　傳說！</div><div class="s5sub">圖鑑第一次達到 ★5　點一下繼續</div>';
   document.body.appendChild(el); star5El = el;
   const cv = el.querySelector('canvas'), g = cv.getContext('2d');
-  if (kind === 'fish') drawFish(g, key, false); else if (kind === 'bug') drawBug(g, key, false); else dishIcon(g, key);
+  if (kind === 'fish') drawFish(g, key, false); else if (kind === 'bug') drawBug(g, key, false); else if (kind === 'crop') cropIcon(g, key); else dishIcon(g, key);
   el.addEventListener('pointerdown', e => { e.stopPropagation(); closeStarFive(); });
   clearTimeout(star5T); star5T = setTimeout(closeStarFive, 4000);
   try { if (navigator.vibrate) navigator.vibrate([40, 50, 40, 50, 80]); } catch (_) {}
@@ -71,7 +71,7 @@ function closeStarFive() { clearTimeout(star5T); if (star5El) { star5El.remove()
 const S5_MS = 4500, S5_CLAP_MS = 8000;
 let myS5 = null;
 const s5Label = (kind, key) => {
-  const c = kind === 'fish' ? fishCat.find(x => x.key === key) : kind === 'bug' ? bugCat.find(x => x.key === key) : recipes.find(x => x.key === key);
+  const c = kind === 'crop' ? (CROPS[key] ? { name: CROPS[key].n } : null) : kind === 'fish' ? fishCat.find(x => x.key === key) : kind === 'bug' ? bugCat.find(x => x.key === key) : recipes.find(x => x.key === key);
   return c ? String(c.name || '').slice(0, 6) : '';
 };
 function sendStar5(kind, key) {
@@ -87,7 +87,7 @@ function onStar5(p) {
   const rp = typeof p.i === 'string' ? remotes.get(p.i) : null;
   if (!rp || !hereRp(rp)) return;
   if (p.k === 's') {   // 有人第一次 ★5：只認得圖鑑裡有的東西
-    if (!['fish', 'bug', 'dish'].includes(p.d) || typeof p.e !== 'string') return;
+    if (!['fish', 'bug', 'dish', 'crop'].includes(p.d) || typeof p.e !== 'string') return;
     const label = s5Label(p.d, p.e); if (!label) return;
     rp.s5 = { at: performance.now(), label, clapped: false };
   } else if (p.k === 'c' && p.to === myUid && myS5 && performance.now() - myS5.at < 60000) {   // 有人幫我拍手
@@ -196,7 +196,7 @@ function openDexDetail(key, isBug) {
 /* ---------- 料理圖鑑：煮過的料理才看得到名字和效果（煮過的次數存在伺服器 cook_log） ---------- */
 const dishDone = k => (cookLog[k] | 0) > 0 || have('dish:' + k) > 0;
 function dexTabsHtml() {
-  return '<div class="v-quick" style="margin:6px 0">' + [['fish', '淡水'], ['sea', '海釣'], ['bug', '蟲與蝴蝶'], ['dish', '料理']].map(([k, n]) =>
+  return '<div class="v-quick" style="margin:6px 0">' + [['fish', '淡水'], ['sea', '海釣'], ['bug', '蟲與蝴蝶'], ['dish', '料理'], ['crop', '作物']].map(([k, n]) =>
     '<button type="button" class="chipbtn" data-a="tab" data-c="' + k + '" aria-pressed="' + (dexTab === k ? 'true' : 'false') + '">' + n + '</button>').join('') + '</div>';
 }
 function renderDishDex() {
@@ -233,8 +233,46 @@ function openDishDetail(key) {
   dexdEl.hidden = false; dexdCard.focus();
   dexdCard.querySelectorAll('canvas[data-dish]').forEach(cv => dishIcon(cv.getContext('2d'), cv.dataset.dish));
 }
+/* ---------- 作物圖鑑：收成過（或手上有）的作物才看得到名字；收成時抽出品質 ★1～★5，圖鑑記下每一種的最高星 ---------- */
+const CROP_SEEN_KEY = 'rexCropSeen';
+let cropSeen = {};
+try { cropSeen = JSON.parse(localStorage.getItem(CROP_SEEN_KEY) || '{}') || {}; } catch (e) { cropSeen = {}; }
+function cropMarkSeen(k) { if (cropSeen[k]) return; cropSeen[k] = 1; try { localStorage.setItem(CROP_SEEN_KEY, JSON.stringify(cropSeen)); } catch (e) { /* 略過 */ } }
+const cropFound = k => starBest('crop', k) > 0 || have('c:' + k) > 0 || !!cropSeen[k];
+function renderCropDex() {
+  const list = ALLK.filter(k => CROPS[k]);
+  const found = list.filter(cropFound).length;
+  const cells = list.map(k => {
+    const ok = cropFound(k), c = CROPS[k], sb = starBest('crop', k);
+    return '<div class="dexc ' + (ok ? 'yes' : 'no') + '"' + (ok ? ' role="button" tabindex="0" data-d="' + esc(k) + '" data-r="2"' : '') + ' style="' + (ok ? 'border-color:' + c.c : '') + '">' +
+      '<canvas width="16" height="16" data-crop="' + esc(k) + '"' + (ok ? '' : ' data-dim="1"') + '></canvas>' +
+      '<small><b>' + (ok ? esc(c.n) : '？？？') + '</b></small>' +
+      (ok ? '<small style="color:#a8744a">' + cropPrice(k) + ' G · ' + fmtDur(growSec(k)) + '</small>' + (sb ? starsHtml(sb) : '<span class="stars none">☆☆☆☆☆</span>')
+          : '<small style="color:#bdada5">還沒收成過</small><small style="color:#bdada5">' + (c.hy ? '雜交作物' : '雜貨攤有種子') + '</small>') + '</div>';
+  }).join('');
+  const c_ = starCount('crop', list);
+  dexCard.innerHTML = '<div class="shop-h"><h2>作物圖鑑</h2><span class="chip">' + found + '/' + list.length + '</span></div>' + dexTabsHtml() +
+    '<div class="row"><div class="meta" style="min-width:0"><b>作物品質</b><small>★5 收集 ' + c_.five + '/' + c_.tot + ' · 有星級紀錄 ' + c_.any + '/' + c_.tot + '（農耕等級越高、收成前施過肥，越容易收到高星）</small></div></div>' +
+    '<div class="dex" style="grid-template-columns:repeat(auto-fill,minmax(92px,1fr))">' + cells + '</div>' +
+    '<button type="button" class="btn ghost wide" data-a="close">關閉</button>';
+  dexCard.querySelectorAll('canvas[data-crop]').forEach(cv => { cropIcon(cv.getContext('2d'), cv.dataset.crop); if (cv.dataset.dim) cv.style.filter = 'brightness(0) opacity(.3)'; });
+}
+function openCropDetail(key) {
+  const c = CROPS[key]; if (!c || !cropFound(key)) return;
+  dexSel = { crop: true, key };
+  const sb = starBest('crop', key);
+  dexdCard.innerHTML = '<div class="dxh"><canvas width="16" height="16" data-crop="' + esc(key) + '"></canvas><div><div class="dxn">' + esc(c.n) + '</div><small>' + cropPrice(key) + ' G · ' + fmtDur(growSec(key)) + '成熟</small></div></div>' +
+    '<div class="dxr"><span>品質</span><div style="flex:1">' + (sb ? starsHtml(sb) + ' <small>最高 ★' + sb + '・' + STAR_N[sb] + '</small>' : '<small>還沒有品質紀錄（再收成一次就會記下）</small>') + '</div></div>' +
+    '<div class="dxr"><span>成熟</span><span class="dxch">' + fmtDur(growSec(key)) + '（晴天要澆水，雨雪天免澆）</span></div>' +
+    '<div class="dxr"><span>種子</span><span class="dxch">' + (c.hy ? '雜交或和村民交換' : '雜貨攤 ' + c.buy + ' G') + '</span></div>' +
+    '<p class="empty" style="margin:6px 0">農耕等級越高、收成前先施肥，越容易收到高星。星級只記在圖鑑，背包裡的作物不分星級、賣價不變。</p>' +
+    '<button type="button" class="btn ghost wide" data-a="dclose">關閉</button>';
+  dexdEl.hidden = false; dexdCard.focus();
+  dexdCard.querySelectorAll('canvas[data-crop]').forEach(cv => cropIcon(cv.getContext('2d'), cv.dataset.crop));
+}
 function renderDex() {
   if (dexTab === 'dish') { renderDishDex(); return; }
+  if (dexTab === 'crop') { renderCropDex(); return; }
   const isBug = dexTab === 'bug', isSea = dexTab === 'sea';
   const cat = isBug ? bugCat : fishCat.filter(f => (habitatOf(f) !== 'fresh') === isSea), log = isBug ? bugLog : fishLog;   // 淡水／海釣兩個分頁（海釣 = 出海團的魚）
   const found = cat.filter(f => (log[f.key] | 0) > 0).length;
@@ -250,7 +288,7 @@ function renderDex() {
       '<small><b>' + (n ? esc(f.name) : '？？？') + '</b></small><small style="color:' + (n ? rc[1] : '#bdada5') + '">' + (n ? rc[0] + ' · ' + f.price + 'G' : (isBug ? '還沒抓到' : habitatOf(f) === 'mystery' ? '神秘路線限定' : '還沒釣到')) + '</small>' +
       (n ? '<small>' + (isBug ? '抓到' : '釣到') + ' ×' + dexN(n) + (!isBug && fishRec[f.key] ? ' · 最大 ' + fishRec[f.key].best + ' cm' : '') + '</small>' + (starBest(isBug ? 'bug' : 'fish', f.key) ? starsHtml(starBest(isBug ? 'bug' : 'fish', f.key)) : '<span class="stars none">☆☆☆☆☆</span>') + dexMini(f, isBug) : when) + '</div>';
   }).join('');
-  const tabs = '<div class="v-quick" style="margin:6px 0">' + [['fish', '淡水'], ['sea', '海釣'], ['bug', '蟲與蝴蝶'], ['dish', '料理']].map(([k, n]) =>
+  const tabs = '<div class="v-quick" style="margin:6px 0">' + [['fish', '淡水'], ['sea', '海釣'], ['bug', '蟲與蝴蝶'], ['dish', '料理'], ['crop', '作物']].map(([k, n]) =>
     '<button type="button" class="chipbtn" data-a="tab" data-c="' + k + '" aria-pressed="' + (dexTab === k ? 'true' : 'false') + '">' + n + '</button>').join('') + '</div>';
   /* 收集獎勵：集滿 30% / 60% / 100% 各領一次（要和 SQL 的 dex_claim 一致） */
   const tot = cat.length, thr = [Math.ceil(tot * 0.3), Math.ceil(tot * 0.6), tot], REW = [150, 400, 1500];
@@ -276,7 +314,7 @@ function renderDex() {
 }
 function openDex() { if (!ready || !me || authOpen || paused()) return; dexOpen = true; pressed.length = 0; renderDex(); dexEl.hidden = false; dexCard.focus(); }
 function closeDex() { dexOpen = false; dexEl.hidden = true; closeDexDetail(); }
-function dexOpenFrom(el) { if (!el) return; if (el.dataset.r) openDishDetail(el.dataset.d); else openDexDetail(el.dataset.d, el.dataset.b === '1'); }
+function dexOpenFrom(el) { if (!el) return; if (el.dataset.r === '2') openCropDetail(el.dataset.d); else if (el.dataset.r) openDishDetail(el.dataset.d); else openDexDetail(el.dataset.d, el.dataset.b === '1'); }
 dexCard.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { const el = e.target.closest('.dexc[data-d]'); if (el) { e.preventDefault(); dexOpenFrom(el); } } });
 dexdEl.addEventListener('click', e => { if (e.target === dexdEl || e.target.closest('button[data-a=dclose]')) closeDexDetail(); });
 dexCard.addEventListener('click', e => {
