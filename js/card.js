@@ -58,11 +58,12 @@ function cdDishSelf() {
   const out = [];
   try {
     if (!recipes.length) return out;
-    const done = recipes.filter(rc => dishDone(rc.key)), sweet = recipes.filter(rc => ckCatOf(rc) === 'sweet');
+    const cooked = rc => (cookLog[rc.key] | 0) > 0;   // 伺服器判斷成就看的是 cook_log；圖鑑的 dishDone 連背包裡的料理也算，兩邊會對不上，置頂就被伺服器擋掉
+    const done = recipes.filter(cooked), sweet = recipes.filter(rc => ckCatOf(rc) === 'sweet');
     const total = recipes.reduce((t, rc) => t + (cookLog[rc.key] | 0), 0);
     if (done.length * 2 >= recipes.length) out.push('dish_half');
     if (done.length >= recipes.length) out.push('dish_all');
-    if (sweet.length && sweet.every(rc => dishDone(rc.key))) out.push('sweet_all');
+    if (sweet.length && sweet.every(cooked)) out.push('sweet_all');
     if (total >= 100) out.push('dish100');
   } catch (e) { /* 略過 */ }
   return out;
@@ -82,8 +83,16 @@ function cdSeenInit() {
   cdRecent = cdRecentReal ? real.slice(0, 4) : got.slice().reverse().slice(0, 4);
   return fresh.sort((a, b) => st[b] - st[a]);
 }
+function cdPinMiss(want, back) {                              // 伺服器沒收下的成就要說出來，不要默默放不上去
+  const miss = want.filter(id => !back.includes(id)).map(id => { const a = ACH.find(x => x.id === id); return a ? '「' + a.n + '」' : id; });
+  return miss.length ? '伺服器還沒確認你拿到' + miss.join('、') + '，所以先放不上去，過一下再試' : '';
+}
 async function cdSaveBadges(cur) {
-  try { const r = await rpc('badges_set', { p_ids: cur }); cd.badges = (r && r.badges) || cur; cdMsg = ''; }
+  try {
+    const r = await rpc('badges_set', { p_ids: cur });
+    if (r && r.badges) { const back = cdArr(r.badges); cd.badges = back; cdMsg = cdPinMiss(cur, back); } else { cd.badges = cur; cdMsg = ''; }
+    if (cdMsg) { try { toast(cdMsg); } catch (e) { /* 略過 */ } }
+  }
   catch (err) { cdMsg = errText(err); try { toast('置頂失敗：' + cdMsg); } catch (e) { /* 略過 */ } }
 }
 async function cdAutoPin(fresh) {                             // 新成就自動換上第 3 格
@@ -231,8 +240,7 @@ cdCard.addEventListener('click', async e => {
   else if (a === 'pin') {
     const id = b.dataset.id, cur = (cd.badges || []).slice(), i = cur.indexOf(id);
     if (i >= 0) cur.splice(i, 1); else if (cur.length < 3) cur.push(id); else { cdMsg = '最多置頂 3 個'; renderCard(); return; }
-    try { const r = await rpc('badges_set', { p_ids: cur }); cd.badges = r.badges || cur; cdMsg = ''; } catch (err) { cdMsg = errText(err); }
-    renderCard();
+    await cdSaveBadges(cur); renderCard();
   }
   else if (a === 'bio') {
     const v = ($('cd-bio').value || '').trim().slice(0, 80);
