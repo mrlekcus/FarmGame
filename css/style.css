@@ -1244,3 +1244,11 @@ body.imm .camhint{display:block}
 @keyframes s5breath{0%,100%{opacity:.8;transform:translate(-50%,-50%) scale(.96)}50%{opacity:1;transform:translate(-50%,-50%) scale(1.04)}}
 @keyframes s5fall{0%{transform:translateY(0) rotate(0);opacity:0}10%{opacity:1}100%{transform:translateY(112vh) rotate(200deg);opacity:.9}}
 @media (prefers-reduced-motion:reduce){.star5 .s5fall,.star5 .s5glow{animation:none}.star5 .s5fall{display:none}.star5 *{animation-duration:.01s!important}}
+
+/* 電腦版快捷列：平常一顆「選單」鈕，點開變成三欄的四方小窗 */
+.dock:not(.folded){display:grid;grid-template-columns:repeat(3,52px);gap:6px;padding:8px;background:rgba(255,250,240,.96);border:3px solid var(--edge);border-radius:18px;box-shadow:0 4px 0 var(--edge);right:8px;top:8px}
+.dock:not(.folded) .dockfold{grid-column:1/-1;flex-direction:row;justify-content:center;gap:6px;width:auto;padding:4px 0;opacity:1;box-shadow:none}
+.dock:not(.folded) .dockbtn.on,.dock .dockbtn[hidden]{}
+.dock.folded .dockfold{width:52px;padding:6px 0;border-radius:16px;opacity:1}
+.dock.folded .dockfold small{display:block}
+.dock .dockbtn[hidden]{display:none!important}

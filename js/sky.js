@@ -43,7 +43,7 @@ function nightGlows(dark) {
   const list = scene === 'town' ? TOWN_BLD : scene === 'forest' ? FOREST_BLD : null;
   if (!list) return;
   list.forEach(b => {
-    if (b.t === 'furn' || b.t === 'mine') return;   // 這兩種外觀沒有一般窗戶
+    if (b.t === 'furn' || b.t === 'mine' || b.t === 'pet') return;   // 這兩種外觀沒有一般窗戶
     const ox = b.x * T, oy = b.y * T, wd = b.w * T, wy = oy + ((b.h * T) >> 1) + 4;
     winGlow(ox + 8, wy, 9, 8, a); winGlow(ox + wd - 17, wy, 9, 8, a);
   });
@@ -263,6 +263,8 @@ function draw(now) {
       nameTag(ch.name, Math.round(rx * T) + 8, Math.round(ry * T) - 5, '#ffffff');
     } });
   }
+  if (typeof petFollowEnts === 'function') petFollowEnts(now, ents);
+  if (typeof petRemoteEnts === 'function') petRemoteEnts(now, ents);
   if (scene === 'house') houseEnts(now).forEach(en => ents.push(en));
   if (scene === 'barn') barnEnts(now, ents);
   if (scene === 'tarot') lekcusEnts(now, ents);

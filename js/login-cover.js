@@ -135,6 +135,7 @@ async function enter(u, uid) {
     view.snap = true; fitView();                     // 登入／換角色後畫布的版面才定下來，要重算一次縮放（否則整個地圖會縮小，進出小屋才恢復）
     pl.x = pl.sx = 4; pl.y = pl.sy = 4; pl.prog = 1; pl.face = 'down';
     refreshHud();
+    petWelSeen = false; petMine = null; petSync(true);   // 一上線就讀取寵物，進場時牠出來迎接
     if (!me) openMaker(true);
     else { toast('歡迎回來，' + me.name + '！', 2500); afterReady(); }
   } catch (err) {

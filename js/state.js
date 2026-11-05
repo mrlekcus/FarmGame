@@ -27,6 +27,7 @@ const MINE_FALLBACK = {
 };
 /* 伺服器的物品表沒列到的雜物，用內建的中文名稱和圖示當後備（不然商人、牧場、背包會直接顯示 hay、fert2、egg 這種英文代號）。價格交給伺服器，這裡只管名字和外觀。 */
 const ITEM_FALLBACK = {
+  'p:food': { name: '寵物飼料', shape: 'sack', color: '#d9a066' }, 'p:toy': { name: '寵物玩具', shape: 'round', color: '#ff8fa8' }, 'p:bowl': { name: '寵物飯碗', shape: 'round', color: '#7fb7e8' },
   'a:hay': { name: '乾草', shape: 'sack', color: '#e8c070' }, 'a:egg': { name: '雞蛋', shape: 'round', color: '#fff3d6' },
   'a:milk': { name: '牛奶', shape: 'bottle', color: '#ffffff' }, 'a:wool': { name: '羊毛', shape: 'cloud', color: '#f4f4f4' },
   'x:fert': { name: '肥料', shape: 'sack', color: '#8c6a44' }, 'm:wood': { name: '木頭', shape: 'log', color: '#b98a62' },
@@ -53,7 +54,8 @@ let frOpen = false;
 let lkOpen = false, bdOpen = false, ckOpen = false, rcOpen = false, mcOpen = false, dgOpen = false;
 let syOpen = false, lvOpen = false, cdOpen = false, dexOpen = false, qOpen = false, dsOpen = false, emOpen = false, stOpen = false, imm = false, sheetOpen = false, trOpen = false;
 let pnOpen = false, mnOpen = false, seOpen = false, mbOpen = false, seaOpen = false;   // seOpen：NPC 換種子視窗
-const paused = () => seOpen || mbOpen || seaOpen || anOpen || lkOpen || bdOpen || ckOpen || rcOpen || mcOpen || mnOpen || dgOpen || lvOpen || cdOpen || dexOpen || qOpen || dsOpen || pnOpen || stOpen || trOpen || (imm && sheetOpen) || frOpen || mlOpen || bagOpen || shopOpen || makerOpen || authOpen || vyOpen || vmOpen || gmOpen || fOpen || syOpen || !ready;
+let petOpen = false;
+const paused = () => seOpen || mbOpen || seaOpen || anOpen || lkOpen || bdOpen || ckOpen || rcOpen || mcOpen || mnOpen || dgOpen || lvOpen || cdOpen || dexOpen || qOpen || dsOpen || pnOpen || stOpen || trOpen || (imm && sheetOpen) || frOpen || mlOpen || bagOpen || shopOpen || makerOpen || authOpen || vyOpen || vmOpen || gmOpen || fOpen || syOpen || petOpen || !ready;
 
 /* ---------- 小提示與特效 ---------- */
 const toastEl = $('toast');

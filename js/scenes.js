@@ -3,7 +3,7 @@
 /* ---------- 雷克斯小村：場景切換、建築與水井的畫法 ---------- */
 function enterTown() {
   if (scene !== 'farm') return;
-  pose = null; scene = 'town'; K = tkind; W = TW; H = TH;
+  pose = null; scene = 'town'; K = tkind; W = TW; H = TH; if (typeof petSync === 'function') petSync();
   critters.length = 0; critSlot = -1;
   pl.x = pl.sx = TW - 2; pl.y = pl.sy = 11; pl.prog = 1; pl.face = 'left'; pressed.length = 0;
   view.snap = true; fitView(); toast('來到雷克斯小村');
@@ -24,6 +24,7 @@ function townAct(x, y) {
   if (k === CS) { enterStylist('fit'); return; }
   if (k === BS) { enterStylist('hair'); return; }
   if (k === FS) { enterStylist('furn'); return; }
+  if (k === PS) { if (petBuilt()) enterStylist('pet'); else openPetShop(); return; }
   if (k === RS) { enterStylist('ranch'); return; }
   if (k === WK) { enterStylist('work'); return; }
   if (k === NP) { openNpc(NPCS.indexOf(npcAt(x, y))); return; }
@@ -143,6 +144,7 @@ function drawBldg(b, now, lit) {
   r('rgba(107,72,72,.16)', ox + 2, oy + h - 2, w - 4, 3);
   if (b.t === 'furn') { drawFurnBldg(ox, oy, lit); return; }
   if (b.t === 'salon') { drawStyleBldg(ox, oy, lit); return; }
+  if (b.t === 'pet') { drawPetBldg(b, now, lit); return; }
   if (b.t === 'mine') {
     ob(P_.roof, P_.ro, ox, oy + 4, w, h - 4);
     for (let i = 0; i < 9; i++) r(P_.dot, ox + 6 + (i * 9) % (w - 12), oy + 8 + (i * 7) % (h - 24), 3, 2);

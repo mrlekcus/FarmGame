@@ -162,7 +162,7 @@ function updateTip() {
     if (x >= 0 && y >= 0 && x < W && y < H) {
       const k = K[y][x];
       if (k === BX) s = '門口：按動作鍵回小村。';
-      else if (k === SYK || k === SYC) s = (styRoom === 'ranch' ? '小茉' : styRoom === 'work' ? '橡果村長' : SHOP_STY[styRoom].clerk) + '：按動作鍵說話。';
+      else if (k === SYK || k === SYC) s = (styRoom === 'ranch' ? '小茉' : styRoom === 'work' ? '橡果村長' : styRoom === 'pet' ? '阿喵姊姊' : SHOP_STY[styRoom].clerk) + '：按動作鍵說話。';
     }
   } else if (scene === 'cave') {
     s = '山洞：礦石都在這裡，換成鎬子，面向礦石按動作鍵敲開。';
@@ -198,6 +198,7 @@ function updateTip() {
       else if (k === BS) s = '造型店：按動作鍵走進去（髮型、帽子、眼鏡）。';
       else if (k === RS) s = '牧場小屋：按動作鍵走進去（買雞、牛和乾草）。';
       else if (k === FS) s = '家具店：按動作鍵走進去（家具只在這裡買，每天上架不同的）。';
+      else if (k === PS) s = petBuilt() ? '寵物領養店：按動作鍵走進去（領養狗或貓）。' : '寵物領養店興建中：按動作鍵捐木頭、石頭和銅礦。';
       else if (k === WK) s = '園藝工坊（村長家）：按動作鍵走進去，庭院裝飾和工具升級都在這裡。';
       else if (k === HB) s = '村民的家。';
     }

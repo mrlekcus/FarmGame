@@ -14,8 +14,9 @@ function dockAct(k) {
   else if (k === 'yard') toggleYard();
   else if (k === 'set') openSettings();
   else if (k === 'tut') openManual();
+  else if (k === 'pet') petBarToggle();
 }
-$('dock').addEventListener('click', e => { const b = e.target.closest('button[data-k]'); if (b) dockAct(b.dataset.k); });
+$('dock').addEventListener('click', e => { const b = e.target.closest('button[data-k]'); if (b) { dockAct(b.dataset.k); setDockFold(true, false); } });
 $('dock').addEventListener('pointerdown', e => e.stopPropagation());
 /* 電腦版：快捷列可以收起來，只剩一顆小鈕，狀態會記住 */
 /* 快捷列收起（電腦）或選單關著（手機）時，把好友／信箱／任務的通知數字加總，顯示在收起鈕上 */
@@ -32,9 +33,9 @@ function setDockFold(on, save) {
   const d = $('dock'), b = $('dockfold');
   d.classList.toggle('folded', on);
   b.setAttribute('aria-expanded', on ? 'false' : 'true'); b.setAttribute('aria-label', on ? '展開快捷列' : '收起快捷列');
-  b.querySelector('.di').textContent = on ? '◂' : '▸'; b.querySelector('small').textContent = on ? '展開' : '收起';
+  b.querySelector('.di').textContent = on ? '☰' : '✕'; b.querySelector('small').textContent = on ? '選單' : '關閉';
   updateFoldBadge();
-  if (save) { try { localStorage.setItem('dw_dockfold', on ? '1' : '0'); } catch (e) { /* 略過 */ } }
+  
 }
 $('dockfold').addEventListener('click', () => setDockFold(!$('dock').classList.contains('folded'), true));
-try { if (localStorage.getItem('dw_dockfold') === '1') setDockFold(true, false); } catch (e) { /* 略過 */ }
+setDockFold(true, false);   // 電腦版：平常只有一顆「選單」鈕，點開才是四方小窗

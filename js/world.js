@@ -98,17 +98,18 @@ const TOWN_BLD = [
   { x: 11, y: 2, w: 5, h: 4, t: 'chief' },     // 村長家，門在 (13,5)
   { x: 18, y: 3, w: 5, h: 3, t: 'ranch' },     // 牧場小屋，門在 (20,5)
   { x: 19, y: 12, w: 5, h: 3, t: 'salon' },     // 造型店（髮型、帽子、眼鏡），門在 (21,14)，站在 (21,15) 面向上
-  { x: 25, y: 3, w: 5, h: 3, t: 'furn' }        // 家具店（森林木屋），門在 (27,5)，站在 (27,6) 面向上
+  { x: 25, y: 3, w: 5, h: 3, t: 'furn' },       // 家具店（森林木屋），門在 (27,5)，站在 (27,6) 面向上
+  { x: 25, y: 12, w: 5, h: 3, t: 'pet' }        // 寵物領養店（藍色小屋，造型店右邊的空草地），門在 (27,14)，站在 (27,15) 面向上；蓋好之前畫成工地
 ];
 TOWN_BLD.forEach(b => { for (let y = b.y; y < b.y + b.h; y++) for (let x = b.x; x < b.x + b.w; x++) tkind[y][x] = HB; });
-tkind[5][5] = CS; tkind[14][21] = BS; tkind[5][27] = FS; tkind[5][20] = RS; tkind[5][13] = WK;   // 三間店的門
+tkind[5][5] = CS; tkind[14][21] = BS; tkind[14][27] = PS; tkind[5][27] = FS; tkind[5][20] = RS; tkind[5][13] = WK;   // 各店的門（PS 領養店在 art/pet.js）
 for (let x = 1; x <= 30; x++) tkind[11][x] = P;                               // 東西向大路
 [5, 13, 20, 27].forEach(x => { for (let y = 6; y <= 10; y++) tkind[y][x] = P; }); // 各家門前的小路
 for (let y = 10; y <= 14; y++) for (let x = 13; x <= 17; x++) tkind[y][x] = P;   // 中央小廣場
 for (let y = 12; y <= 15; y++) tkind[y][11] = P;                              // 通往池塘的小路
 tkind[12][15] = WL;                                                           // 水井
 for (let y = 14; y <= 19; y++) for (let x = 3; x <= 9; x++) tkind[y][x] = WA; // 西南池塘
-[[2, 8], [2, 13], [10, 8], [11, 18], [12, 20], [19, 15], [21, 17], [24, 13], [26, 16], [28, 19], [22, 19], [17, 17], [8, 12], [29, 8], [23, 9], [6, 12], [15, 18], [28, 13]].forEach(([x, y]) => { tkind[y][x] = TR; });
+[[2, 8], [2, 13], [10, 8], [11, 18], [12, 20], [19, 15], [21, 17], [24, 13], [26, 16], [28, 19], [22, 19], [17, 17], [8, 12], [29, 8], [23, 9], [6, 12], [15, 18]].forEach(([x, y]) => { tkind[y][x] = TR; });
 tkind[10][9] = BD;                                                            // 委託布告欄
 tkind[11][TW - 1] = FG;                                                       // 村口：回農場
 tkind[11][0] = FW;                                                            // 村子最西邊：通往森林
@@ -314,6 +315,7 @@ function tapMove(e) {
     if (fishing.phase === 'bite') { actQueued = true; return; }
     if (fishing.phase !== 'wait' || (tx === fishing.x && ty === fishing.y)) return;
   }
+  if (typeof petTapped === 'function' && petTapped(tx, ty)) { if (typeof petEmote === 'function') petEmote('happy', 1800); return; }   // 點寵物只會讓牠開心一下
   const tg = tapTarget(tx, ty);
   if (tg) { tx = tg[0]; ty = tg[1]; }
   if (!tg && tx === pl.x && ty === pl.y) return;

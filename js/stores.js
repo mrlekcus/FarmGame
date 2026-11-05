@@ -282,17 +282,23 @@ for (let y = 0; y < SRH; y++) for (let x = 0; x < SRW; x++) if (y < 3 || y === S
 wkkind[SRH - 1][4] = BX; wkkind[SRH - 1][5] = BX;
 [3, 4, 5].forEach(x => { wkkind[4][x] = SYC; }); wkkind[3][4] = SYK;
 wkkind[5][1] = DEC; wkkind[5][8] = DEC;   // 鐵砧／庭院燈
+/* 寵物領養店室內（天空藍）：櫃檯、阿喵姊姊站 (4,3)；四個候選位置 (1,4)(1,6)(8,4)(8,6) 是 DEC，之後點它們開領養面板 */
+const pdkind = Array.from({ length: SRH }, () => Array(SRW).fill(G));
+for (let y = 0; y < SRH; y++) for (let x = 0; x < SRW; x++) if (y < 3 || y === SRH - 1 || x === 0 || x === SRW - 1) pdkind[y][x] = BWL;
+pdkind[SRH - 1][4] = BX; pdkind[SRH - 1][5] = BX;
+[3, 4, 5].forEach(x => { pdkind[4][x] = SYC; }); pdkind[3][4] = SYK;
+[[1, 4], [1, 6], [8, 4], [8, 6]].forEach(([x, y]) => { pdkind[y][x] = DEC; });
 function enterStylist(kind) {
   if (scene !== 'town' || !ready || !me || paused()) return;
-  styRoom = kind; pose = null; scene = 'stylist'; K = kind === 'ranch' ? rrkind : kind === 'work' ? wkkind : srkind; W = SRW; H = SRH;
+  styRoom = kind; pose = null; scene = 'stylist'; K = kind === 'ranch' ? rrkind : kind === 'work' ? wkkind : kind === 'pet' ? pdkind : srkind; W = SRW; H = SRH;
   pl.x = pl.sx = 4; pl.y = pl.sy = SRH - 2; pl.prog = 1; pl.face = 'up'; pressed.length = 0;
-  view.snap = true; fitView(); toast(kind === 'ranch' ? '歡迎光臨牧場小屋' : kind === 'fit' ? '歡迎光臨裁縫鋪' : kind === 'furn' ? '歡迎光臨家具店' : kind === 'work' ? '歡迎光臨園藝工坊' : '歡迎光臨造型店');
+  view.snap = true; fitView(); toast(kind === 'ranch' ? '歡迎光臨牧場小屋' : kind === 'fit' ? '歡迎光臨裁縫鋪' : kind === 'furn' ? '歡迎光臨家具店' : kind === 'work' ? '歡迎光臨園藝工坊' : kind === 'pet' ? '歡迎光臨領養店' : '歡迎光臨造型店');
 }
 function leaveStylist(silent) {
   if (scene !== 'stylist') return;
   closeSty();
   scene = 'town'; K = tkind; W = TW; H = TH;
-  const d = styRoom === 'ranch' ? [20, 6] : styRoom === 'fit' ? [5, 6] : styRoom === 'furn' ? [27, 6] : styRoom === 'work' ? [13, 6] : [21, 15];
+  const d = styRoom === 'ranch' ? [20, 6] : styRoom === 'fit' ? [5, 6] : styRoom === 'furn' ? [27, 6] : styRoom === 'work' ? [13, 6] : styRoom === 'pet' ? [27, 15] : [21, 15];
   pl.x = pl.sx = d[0]; pl.y = pl.sy = d[1]; pl.prog = 1; pl.face = 'down'; pressed.length = 0;
   view.snap = true; fitView(); if (!silent) toast('回到小村了');
 }
@@ -301,8 +307,8 @@ function stylistAct(x, y) {
   if (catchShown) { hideCatch(); return; }
   const k = K[y][x];
   if (k === BX) leaveStylist();
-  else if (k === SYK || k === SYC) { if (styRoom === 'ranch') openRanch(); else if (styRoom === 'work') openShop('work'); else openSty(styRoom); }
-  else if (k === DEC) pop(x, y, styRoom === 'ranch' ? (x === 8 ? '堆得高高的乾草' : '雞和牛的小欄，隔著欄杆看看牠們') : styRoom === 'fit' ? '試衣用的模特兒' : styRoom === 'furn' ? '店裡展示用的家具' : styRoom === 'work' ? (x === 1 ? '鐵砧，鋤頭和水壺都是在這裡敲出來的' : '庭院燈的樣品，晚上會亮') : '試戴用的模特兒，戴著店裡的新帽子和眼鏡', '#fff3b0');
+  else if (k === SYK || k === SYC) { if (styRoom === 'ranch') openRanch(); else if (styRoom === 'pet') openPetShop(); else if (styRoom === 'work') openShop('work'); else openSty(styRoom); }
+  else if (k === DEC) pop(x, y, styRoom === 'pet' ? '今天的候選寵物，和阿喵姊姊聊聊就能領養' : styRoom === 'ranch' ? (x === 8 ? '堆得高高的乾草' : '雞和牛的小欄，隔著欄杆看看牠們') : styRoom === 'fit' ? '試衣用的模特兒' : styRoom === 'furn' ? '店裡展示用的家具' : styRoom === 'work' ? (x === 1 ? '鐵砧，鋤頭和水壺都是在這裡敲出來的' : '庭院燈的樣品，晚上會亮') : '試戴用的模特兒，戴著店裡的新帽子和眼鏡', '#fff3b0');
 }
 function drawRanchRoom(now) {
   const bob = Math.floor(now / 600) % 2;
@@ -331,6 +337,7 @@ function drawStylistRoom(now) {
   ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = '#3b2a1e'; ctx.fillRect(0, 0, cv.width, cv.height); ctx.restore();
   r('#3b2a1e', 0, 0, W * T, H * T);
   if (styRoom === 'hair') { drawStyleRoom(now); return; }
+  if (styRoom === 'pet') { drawPetRoom(now); return; }
   for (let ty = 0; ty < H; ty++) for (let tx = 0; tx < W; tx++) {
     const px = tx * T, py = ty * T;
     if (ty < 3) { r(wall, px, py, T, T); if (ty === 2) { r(wallD, px, py + T - 2, T, 2); } }

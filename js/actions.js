@@ -90,6 +90,7 @@ function act() {
   if (cooking) { cookAct(); return; }
   const [x, y] = facing();
   if (x < 0 || y < 0 || x >= W || y >= H) return;
+  if (typeof petAtTile === 'function' && petAtTile(x, y)) { petEmote('happy', 1800); return; }   // 面向寵物按動作鍵只會讓牠開心一下
   if (scene === 'plaza') {
     const k2 = K[y][x], rp = remoteAt(x, y);
     if (catchShown) { hideCatch(); return; }
@@ -115,6 +116,8 @@ function act() {
     /* 在朋友家碰到任何家具都記給屋主（坐、躺、洗澡、彈琴、照鏡子另外有更詳細的記錄，這裡就不重複） */
     if (visiting && hit && !edit.on && hit.k !== 'piano' && hit.k !== 'mirror' && !BATH_ACT[hit.k] && !(SEAT[hit.k] && !FX_ACT[hit.k])) visitLog('touch', vlName(hit.k) || '家具');
     if (hit && hit.k === 'dtable') openDishTable(hit);
+    else if (hit && hit.k === 'petbowl' && !edit.on && !visiting) petBowlAct();   // 面向飯碗按動作鍵＝倒飼料進去
+    else if (hit && /^pettoy/.test(hit.k) && !edit.on && !visiting) petPlayAt(hit);   // 面向玩具按動作鍵＝叫寵物過去玩
     else if (hit && hit.k === 'tv' && !edit.on) openTv(hit);
     else if (hit && DISP[hit.k]) { if (visiting) visitShowList(hit); else openDisplay(hit.id); }
     else if (hit && hit.k === 'kitchen' && !edit.on) { ckAnchor = { id: hit.id, fx: x, fy: y, at: visiting ? visiting.uid : null }; openKitchen(); }

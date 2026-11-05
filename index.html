@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>雷克斯農場</title>
-<meta name="build" content="3a334ac15e">
+<meta name="build" content="af3a0edac0">
 <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="manifest" href="app/manifest.webmanifest">
@@ -14,7 +14,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chiron+GoRound+TC:wght@400;600;800&display=swap">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap">
-<link rel="stylesheet" href="css/style.css?v=0a5b16ac">
+<link rel="stylesheet" href="css/style.css?v=c84091af">
 </head><body>
 
 
@@ -61,6 +61,7 @@
       <button type="button" class="dockbtn" data-k="quest" aria-label="每日任務（Q）"><span class="di">📋</span><small>任務</small><i class="dbadge" id="questbadge" hidden></i></button>
       <button type="button" class="dockbtn" data-k="lv" aria-label="等級"><span class="di">⭐</span><small>等級</small></button>
       <button type="button" class="dockbtn" data-k="card" aria-label="我的名片"><span class="di">📇</span><small>名片</small></button>
+      <button type="button" class="dockbtn" data-k="pet" aria-label="寵物" hidden><span class="di">🐾</span><small>寵物</small></button>
       <button type="button" class="dockbtn" id="dockyard" data-k="yard" aria-label="庭院佈置" aria-pressed="false"><span class="di">🏡</span><small>庭院</small></button>
       <button type="button" class="dockbtn" data-k="set" aria-label="設定"><span class="di">⚙️</span><small>設定</small></button>
       <button type="button" class="dockbtn" data-k="tut" aria-label="遊戲手冊"><span class="di">📖</span><small>手冊</small></button>
@@ -85,6 +86,7 @@
     <button type="button" class="imi" data-k="quest"><span class="di">📋</span>任務<i class="dbadge" id="immqb" hidden></i></button>
     <button type="button" class="imi" data-k="lv"><span class="di">⭐</span>等級</button>
     <button type="button" class="imi" data-k="card"><span class="di">📇</span>名片</button>
+    <button type="button" class="imi" data-k="pet" hidden><span class="di">🐾</span>寵物</button>
     <button type="button" class="imi" data-k="yard"><span class="di">🏡</span>庭院佈置</button>
     <button type="button" class="imi" data-k="set"><span class="di">⚙️</span>設定</button>
     <button type="button" class="imi" data-k="emo"><span class="di">💬</span>聊天表情</button>
@@ -256,15 +258,16 @@
 <script src="js/art/tiles.js?v=c0edbc60"></script>
 <script src="js/art/character.js?v=89d0c526"></script>
 <script src="js/art/style-shop.js?v=471d814d"></script>
+<script src="js/art/pet.js?v=pet2"></script>
 <script src="js/art/icons.js?v=33736de8"></script>
 <script src="js/art/boat.js?v=75d5e127"></script>
-<script src="js/state.js?v=fdcc7b21"></script>
+<script src="js/state.js?v=a99905cd"></script>
 <script src="js/art/village-tiles.js?v=camp2"></script>
 <script src="js/world.js?v=camp2"></script>
 <script src="js/net.js?v=hw2"></script>
 <script src="js/actions.js?v=camp1"></script>
 <script src="js/shop.js?v=hw2"></script>
-<script src="js/scenes.js?v=a33d3d23"></script>
+<script src="js/scenes.js?v=a17e6b7d"></script>
 <script src="js/npc.js?v=769e2fef"></script>
 <script src="js/items.js?v=4ba63217"></script>
 <script src="js/barn.js?v=c8897aee"></script>
@@ -280,7 +283,7 @@
 <script src="js/progress.js?v=92fe33f7"></script>
 <script src="js/card.js?v=c03829bb"></script>
 <script src="js/manual.js?v=a016d290"></script>
-<script src="js/hotbar.js?v=03ab7dd0"></script>
+<script src="js/hotbar.js?v=7f2d72d8"></script>
 <script src="js/ui.js?v=camp2"></script>
 <script src="js/fishing.js?v=28eeff0c"></script>
 <script src="js/input.js?v=ffcfe747"></script>
@@ -291,7 +294,7 @@
 <script src="js/tarot.js?v=e0f226d1"></script>
 <script src="js/look.js?v=a5ec1ac5"></script>
 <script src="js/auth.js?v=15a3fb48"></script>
-<script src="js/login-cover.js?v=56c03aa9"></script>
+<script src="js/login-cover.js?v=58375758"></script>
 <script src="js/village.js?v=82ba24de"></script>
 <script src="js/announce.js?v=camp2"></script>
 <script src="js/voyage.js?v=6bd37572"></script>
@@ -314,7 +317,7 @@
 <script src="js/bath.js?v=80953761"></script>
 <script src="js/toilets.js?v=3b675ac4"></script>
 <script src="js/gym.js?v=762e5778"></script>
-<script src="js/stores.js?v=ea0b791f"></script>
+<script src="js/stores.js?v=84210986"></script>
 <script src="js/render.js?v=51e5b979"></script>
 <script src="js/sky.js?v=camp1"></script>
 <script src="js/immersive.js?v=b705009e"></script>
@@ -322,5 +325,8 @@
 <script src="js/furniture-fx.js?v=e37cd10a"></script>
 <script src="js/art.js?v=1cfcdad1"></script>
 <script src="js/visitlog.js?v=01ec1215"></script>
+<script src="js/art/pet-furn.js?v=pet3"></script>
+<script src="js/art/pet-emote.js?v=pet4"></script>
+<script src="js/pet-shop.js?v=pet13"></script>
 <script src="js/main.js?v=8be1c52f"></script>
 </body></html>
