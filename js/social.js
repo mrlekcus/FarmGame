@@ -427,6 +427,7 @@ function drawBenchSeated(px, py, ch) {
   g.save(); g.beginPath(); g.rect(px - 4, py - 14, 24, 24); g.clip();
   drawPlayer(px, py - 2, 'down', false, 0, ch);
   g.restore();
+  if (scene === 'plaza' && campStumpAt(Math.round(px / T), Math.round(py / T))) { drawCampStumpFront(px, py); return; }   // 露營木墩
   ob('#d9a066', '#9b6a44', px + 1, py + 10, 14, 3);
   r('#9b6a44', px + 2, py + 13, 2, 2); r('#9b6a44', px + 12, py + 13, 2, 2);
 }

@@ -39,25 +39,49 @@ function plantOne(x, y, kk, loud) {
   dust(x, y); pop(x, y, '種下' + CROPS[kk].n, '#c9f0a8');
   act2('plant', { p_x: x, p_y: y, p_crop: kk }); qAdd('plant'); return true;
 }
-/* 收一格：熟了才收，回傳 true 代表有收成（收成升級後一次沿面向方向收多格） */
-function harvestOne(x, y, p) {
+/* 收成升級：沿面向方向這一排裡「已經熟了」的格子（第一格不一定要熟） */
+function ripeLine(x, y) {
+  return lineTiles(x, y, toolN(toolLv.harvest | 0 || 1)).filter(([tx, ty]) => { const q = plots.get(pk(tx, ty)); return q && K[ty][tx] === G && ripeNow(q); });
+}
+/* 一次收一排：畫面上的 +N、★ 提示合併成一個，不會同時冒出一堆 */
+function harvestLine(x, y) {
+  const tiles = ripeLine(x, y); if (!tiles.length) return false;
+  const bt = { x: tiles[0][0], y: tiles[0][1], left: tiles.length, got: {}, rolls: [] };
+  tiles.forEach(([tx, ty]) => harvestOne(tx, ty, plots.get(pk(tx, ty)), bt));
+  return true;
+}
+function harvestSummary(bt) {
+  const keys = Object.keys(bt.got); if (!keys.length) return;
+  pop(bt.x, bt.y, keys.map(c => '+' + bt.got[c] + ' ' + CROPS[c].n).join('、'), '#fff3b0');
+  Promise.all(bt.rolls).then(rs => {
+    rs = rs.filter(o => o && o.s); if (!rs.length) return;
+    const best = rs.reduce((m, o) => o.s.star > m.s.star ? o : m);
+    pop(bt.x, bt.y - 0.7, (rs.length > 1 ? '最高 ' : '') + '★'.repeat(best.s.star), best.s.star >= 5 ? '#ffd23a' : '#f0a020');
+    const up = {};
+    rs.forEach(o => { if (o.s.up && o.s.star > 1 && (!up[o.c] || o.s.star > up[o.c])) up[o.c] = o.s.star; });
+    Object.keys(up).forEach(c => toast(CROPS[c].n + ' ' + starsText(up[c]) + '（' + STAR_N[up[c]] + '）圖鑑新高！', 2200));   // 每種作物只提示一次（取最高星）
+    if (dexOpen) renderDex();
+  });
+}
+/* 收一格：熟了才收，回傳 true 代表有收成。bt 是這一排共用的合併資料（單格也走同一條路） */
+function harvestOne(x, y, p, bt) {
   if (!ripeNow(p)) return false;
-    const c = p.crop, fertUsed = (p.fert | 0) > 0;
-    p.crop = null; p.grown = 0; p.tick = srvNow(); p.fert = 0;
-    sparkle(x, y, CROPS[c].c);
-    act2('harvest', { p_x: x, p_y: y }, r => {
-      pop(x, y, '+1 ' + CROPS[c].n, '#fff3b0');
-      if (typeof cropMarkSeen === 'function') cropMarkSeen(c);
-      starRoll('crop', c, { perfect: fertUsed }).then(s => {   // 圖鑑品質 ★1～★5（農耕等級＋施肥加成）
-        if (!s) return;
-        pop(x, y - 0.7, '★'.repeat(s.star), s.star >= 5 ? '#ffd23a' : '#f0a020');
-        if (s.up && s.star > 1) toast(CROPS[c].n + ' ' + starsText(s.star) + '（' + STAR_N[s.star] + '）圖鑑新高！', 2200);
-        if (dexOpen) renderDex();
-      });
-      if (r && r.drop && CROPS[r.drop]) { toast('相鄰的作物雜交了！得到「' + CROPS[r.drop].n + '」種子'); sparkle(x, y, CROPS[r.drop].c); }
-    }, e => {
-      if (e && /not_ready/.test(String(e.message || e.code || e))) { noPrecip = true; return true; }   // 悄悄以伺服器為準，不再顯示矛盾的提示
-    }); qAdd('harvest'); return true;
+  bt = bt || { x, y, left: 1, got: {}, rolls: [] };
+  const c = p.crop, fertUsed = (p.fert | 0) > 0;
+  p.crop = null; p.grown = 0; p.tick = srvNow(); p.fert = 0;
+  sparkle(x, y, CROPS[c].c);
+  const fin = () => { if (--bt.left === 0) harvestSummary(bt); };   // 成功、失敗都要算一次，才不會卡住合併提示
+  act2('harvest', { p_x: x, p_y: y }, r => {
+    bt.got[c] = (bt.got[c] | 0) + 1;
+    if (typeof cropMarkSeen === 'function') cropMarkSeen(c);
+    bt.rolls.push(starRoll('crop', c, { perfect: fertUsed }).then(s => ({ c, s })));   // 每格照樣各抽一次星級，只是提示合併
+    if (r && r.drop && CROPS[r.drop]) { toast('相鄰的作物雜交了！得到「' + CROPS[r.drop].n + '」種子'); sparkle(x, y, CROPS[r.drop].c); }
+    fin();
+  }, e => {
+    fin();
+    if (e && /not_ready/.test(String(e.message || e.code || e))) { noPrecip = true; return true; }   // 悄悄以伺服器為準，不再顯示矛盾的提示
+  });
+  qAdd('harvest'); return true;
 }
 function act() {
   if (vfOn) { vfPress(); return; }                 // 出海團拉扯小遊戲：動作鍵＝切換收線
@@ -76,6 +100,8 @@ function act() {
     else if (k2 === BN) takeBench(x, y);
     else if (rp) openFriendPop(rp);
     else if (k2 === TS) enterLekcus();
+    else if (k2 === CKP) campCook(x, y);
+    else if (k2 === CMD) { const o = campAt(x, y); pop(x, y, o ? o.n : '', '#fff3b0'); }
     else if (k2 === CPT) openCaptain();
     else if (k2 === BB) openBuild('');
     else if (k2 === MB) openMsgBoard();
@@ -127,9 +153,9 @@ function act() {
   }
   if (k !== G) { if (t.id === 'net') swingNet(x, y); return; }
   if (t.id === 'net' && !ripeNow(p)) { swingNet(x, y); return; }
-  if (ripeNow(p)) {
-    lineTiles(x, y, toolN(toolLv.harvest | 0 || 1)).forEach(([tx, ty]) => { const q = plots.get(pk(tx, ty)); if (q && K[ty][tx] === G) harvestOne(tx, ty, q); });
-    refreshHud(); return;
+  /* 第一格熟了就收；第一格還在長、但這一排後面有熟的，也一起收（水壺／肥料要留給它們自己的動作） */
+  if (ripeNow(p) || (p && p.crop && t.id !== 'can' && t.id !== 'fert' && ripeLine(x, y).length)) {
+    harvestLine(x, y); refreshHud(); return;
   }
   if (t.id === 'none') { pop(x, y, '這格是空的，到背包裝備物品', '#ffffff'); return; }
   if (t.id === 'rod') { pop(x, y, '面向池塘才能釣魚', '#cfe8f7'); return; }
@@ -138,27 +164,31 @@ function act() {
   if (t.id === 'axe') { pop(x, y, '到西邊森林面向樹才砍得動', '#ffffff'); return; }
   if (t.id === 'fert') { fertAct(x, y, p); return; }
   if (t.id === 'hoe') {
-    if (p && p.crop) pop(x, y, '還沒長好', '#ffffff');
-    else {
-      const mode = p ? 'untill' : 'till';
-      lineTiles(x, y, toolN(toolLv.hoe)).forEach(([tx, ty], i) => hoeOne(tx, ty, mode, i === 0));
-    }
+    const line = lineTiles(x, y, toolN(toolLv.hoe));
+    /* 翻土模式由第一個「沒有作物」的格子決定；第一格有作物時只會往後翻新土，不會把後面的空田翻回草地 */
+    const lead = line.find(([tx, ty]) => { const q = plots.get(pk(tx, ty)); return !(q && q.crop); });
+    const mode = lead && plots.get(pk(lead[0], lead[1])) ? 'untill' : 'till';
+    if (p && p.crop && (!lead || mode === 'untill')) pop(x, y, '還沒長好', '#ffffff');
+    else line.forEach(([tx, ty], i) => hoeOne(tx, ty, mode, i === 0));
   } else if (t.id === 'can') {
-    if (!p) pop(x, y, '先用鋤頭翻土', '#ffffff');
-    else if (world().wet) { pop(x, y, world().snow ? '下雪天不用澆水' : '下雨天不用澆水', '#cfe8f7'); }
-    else if (isWet(p)) pop(x, y, '土還是濕的', '#cfe8f7');
-    else lineTiles(x, y, toolN(toolLv.can)).forEach(([tx, ty]) => canOne(tx, ty));
+    if (world().wet) pop(x, y, world().snow ? '下雪天不用澆水' : '下雨天不用澆水', '#cfe8f7');
+    else {
+      /* 水壺升級：整排掃過去，澆還乾的田，已濕或沒翻的跳過 */
+      const line = lineTiles(x, y, toolN(toolLv.can));
+      let n = 0; line.forEach(([tx, ty]) => { if (canOne(tx, ty)) n++; });
+      if (!n) pop(x, y, line.some(([tx, ty]) => plots.has(pk(tx, ty))) ? '土還是濕的' : '先用鋤頭翻土', line.some(([tx, ty]) => plots.has(pk(tx, ty))) ? '#cfe8f7' : '#ffffff');
+    }
   } else {
-    const kk = t.crop;
-    if (!p) pop(x, y, '先用鋤頭翻土', '#ffffff');
-    else if (p.crop) pop(x, y, '這裡已經有作物', '#ffffff');
+    const kk = t.crop, line = lineTiles(x, y, toolN(toolLv.seed | 0 || 1));
+    const empty = line.filter(([tx, ty]) => { const q = plots.get(pk(tx, ty)); return q && !q.crop && K[ty][tx] === G; });
+    if (!empty.length) pop(x, y, p ? '這裡已經有作物' : '先用鋤頭翻土', '#ffffff');
     else if (cropLocked(kk)) pop(x, y, CROPS[kk].n + '需要農耕 Lv.' + CROP_NEED[kk], '#ffb3a8');
     else if (have('s:' + kk) <= 0) pop(x, y, '沒有種子了，去雜貨攤買', '#ffb3a8');
     else {
-      /* 撒種子升級：沿面向方向一排種 toolN(toolLv.seed) 格，種子不夠就種到用完為止 */
+      /* 撒種子升級：整排裡已翻好、還空著的田都種，已有作物的跳過；種子不夠就種到用完為止 */
       let n = 0;
-      lineTiles(x, y, toolN(toolLv.seed | 0 || 1)).forEach(([tx, ty], i) => { if (plantOne(tx, ty, kk, i === 0)) n++; });
-      if (n) loadLevelSoon();
+      line.forEach(([tx, ty]) => { if (plantOne(tx, ty, kk, n === 0 && tx === empty[0][0] && ty === empty[0][1])) n++; });
+      if (n) { if (n < empty.length && have('s:' + kk) <= 0) pop(x, y, '種了 ' + n + ' 格，種子用完了', '#ffb3a8'); loadLevelSoon(); }
     }
   }
   refreshHud();

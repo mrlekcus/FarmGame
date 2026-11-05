@@ -210,6 +210,23 @@ const PR = 74, PIER_X0 = 19, PIER_X1 = 24, PIER_Y = 15, PIER_WX = 21;
 const MB = 77, MB_X = 20, MB_Y = 17, MB_W = 4, MB_H = 2;
 for (let y = MB_Y; y < MB_Y + MB_H; y++) for (let x = MB_X; x < MB_X + MB_W; x++) pkind[y][x] = MB;
 for (let x = PIER_X0; x <= PIER_X1; x++) pkind[PIER_Y][x] = PR;
+/* ---------- 廣場左下角的露營烹飪區：篝火吊鍋、切菜料理檯、烤肉架可以煮菜（CKP），帳篷和提燈是裝飾（CMD）；都走不進去，從旁邊面向它按動作鍵。
+   畫法在 js/camp.js。原本散在這一區的 5 棵樹刪掉了。 */
+const CKP = 78, CMD = 79;
+const CAMP = [
+  { k: 'pot',     x: 4, y: 15, w: 2, h: 2, cook: true, n: '篝火吊鍋' },
+  { k: 'table',   x: 7, y: 15, w: 2, h: 1, cook: true, n: '切菜料理檯' },
+  { k: 'grill',   x: 7, y: 17, w: 2, h: 1, cook: true, n: '烤肉架' },
+  { k: 'tent',    x: 2, y: 17, w: 2, h: 2, n: '露營帳篷' },
+  { k: 'lantern', x: 1, y: 15, w: 1, h: 1, n: '露營提燈' },
+  { k: 'stump', x: 4, y: 18, w: 1, h: 1, seat: true, n: '露營木墩' },   // 木墩：和長椅一樣坐下（BN），位置與坐姿會同步
+  { k: 'stump', x: 5, y: 18, w: 1, h: 1, seat: true, n: '露營木墩' },
+  { k: 'stump', x: 6, y: 18, w: 1, h: 1, seat: true, n: '露營木墩' }
+];
+[[7, 14], [3, 16], [2, 17], [3, 18], [8, 18]].forEach(([x, y]) => { if (pkind[y][x] === TR) pkind[y][x] = G; });
+CAMP.forEach(o => { for (let y = o.y; y < o.y + o.h; y++) for (let x = o.x; x < o.x + o.w; x++) pkind[y][x] = o.seat ? BN : o.cook ? CKP : CMD; });
+const campStumpAt = (x, y) => CAMP.some(o => o.seat && o.x === x && o.y === y);
+const campAt = (x, y) => CAMP.find(o => x >= o.x && x < o.x + o.w && y >= o.y && y < o.y + o.h);
 /* ---------- 出海團的船甲板（3/4 俯視，16×12 格）：上面兩排是天空，其餘是海；甲板 x 3~12、y 4~9，一圈欄杆，左上是船艙 ----------
    BRL 欄杆（走不進去，面向它可以拋竿，魚線落在欄杆外的水面）、BCB 船艙與船頭（走不進去）、VSK 天空。海面用既有的 WA。 */
 const BRL = 70, BCB = 71, VSK = 72;

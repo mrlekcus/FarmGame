@@ -60,6 +60,7 @@ function drawBoard(px, py) {
   r('#d4688a', px + 4, py + 3, 1, 1); r('#d4688a', px + 10, py + 3, 1, 1); r('#7aa8c8', px + 9, py + 8, 2, 1);
 }
 function drawBench(px, py, tx, ty) {
+  if (scene === 'plaza' && typeof campStumpAt === 'function' && campStumpAt(tx, ty)) { drawCampStump(px, py); return; }   // 露營區的木墩（js/camp.js）
   const rowK = (typeof ty === 'number' && K[ty]) ? K[ty] : null;
   if (rowK && rowK[tx + 1] === BN && rowK[tx - 1] !== BN) return;   // 兩格相連的雙人長椅：由右邊那格一次畫完
   if (rowK && rowK[tx - 1] === BN) {

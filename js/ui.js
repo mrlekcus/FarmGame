@@ -133,8 +133,10 @@ function updateTip() {
       else if (rp) s = '這是 ' + rp.name + '。';
       else if (K[y][x] === WA) s = curTool().id === 'rod' ? '池塘：按動作鍵拋竿釣魚。' : '池塘。（換成釣竿就能釣魚）';
       else if (K[y][x] === FR) s = '噴水池。';
-      else if (K[y][x] === BN) s = '長椅：按動作鍵坐下。';
+      else if (K[y][x] === BN) s = (campStumpAt(x, y) ? '露營木墩' : '長椅') + '：按動作鍵坐下。';
       else if (K[y][x] === MB) s = '碼頭留言板：按動作鍵看大家的便利貼，也能貼一張（每天 3 次）。';
+      else if (K[y][x] === CKP) s = ((campAt(x, y) || {}).n || '') + '：按動作鍵做料理。';
+      else if (K[y][x] === CMD) s = ((campAt(x, y) || {}).n || '') + '。';
       else if (K[y][x] === TS) s = '塔羅小攤：按動作鍵走進去，找 Lekcus 抽今天的運勢牌。';
     }
   } else if (scene === 'barn') {
