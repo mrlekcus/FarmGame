@@ -98,25 +98,24 @@ function petRender() {
   const p = d.pet, L = petLookOf(p.breed);
   if (!care) h += say(petMsg || (p.fed ? '牠吃得飽飽的～' : '牠肚子餓了，餵點東西吧！'));
   else if (petMsg) h += '<p style="margin:0;text-align:center;font-weight:800">' + petMsg + '</p>';
-  h += '<div class="row">' + petCv(p.breed) + '<div class="meta"><b>' + p.name + '</b><small style="display:block">' + (L ? L.breed + '・' + L.coat : '') + '</small>' +
-    '<small style="display:block">' + (p.fed ? '飽足中・約剩 ' + petHrs(p.fedUntil) : '肚子餓了') + '　飯碗存量 ' + p.bowl + '　親密 ' + p.bond + '</small></div></div>';
-  const q = (a, t, dis) => '<button type="button" class="btn" data-pa="' + a + '"' + (dis ? ' disabled' : '') + '>' + t + '</button>';
-  h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">' +
-    q('act', '摸摸（今天剩 ' + p.patLeft + '）', p.patLeft < 1).replace('data-pa="act"', 'data-pa="act" data-k="pat"') +
-    q('act', '餵飼料（背包 ' + have('p:food') + '）', have('p:food') < 1).replace('data-pa="act"', 'data-pa="act" data-k="feed"') + '</div>';
+  const left = Math.max(0, p.fedUntil - srvNow()), fedPct = p.fed ? Math.max(5, Math.min(100, Math.round(left / (12 * 3600000) * 100))) : 4;   // 飽足 12 小時封頂（和寵物資料卡一樣）
+  const noFood = have('p:food') < 1;
+  h += '<div class="ps-card"><div class="ps-top">' + petCv(p.breed) + '<div class="meta"><b class="ps-name">' + p.name + '</b><small>' + (L ? L.breed + '・' + L.coat : '') + '</small></div></div>' +
+    '<div class="ps-stats"><div class="ps-st"><div><span>🍖 飽足</span><span class="' + (p.fed ? '' : 'ps-bad') + '">' + (p.fed ? '約剩 ' + petHrs(p.fedUntil) : '肚子餓了') + '</span></div><div class="bar"><i style="width:' + fedPct + '%;background:#ff8fa8"></i></div></div>' +
+    '<div class="ps-st"><div><span>💗 親密</span><span>' + p.bond + '</span></div><div class="bar"><i style="width:' + ((p.bond % 10) * 10 || (p.bond ? 100 : 0)) + '%;background:#ffb04a"></i></div></div></div>' +
+    '<div class="ps-foot"><span>飯碗存量 ' + p.bowl + ' / 3</span><span>背包飼料 ' + have('p:food') + '</span></div></div>' +
+    '<button type="button" class="btn wide" style="margin:0" data-pa="act" data-k="feed"' + (noFood ? ' disabled' : '') + '>🍖 餵飼料' + (noFood ? '（背包沒有飼料）' : '') + '</button>';
   if (care) { h += close; petCard.innerHTML = h; petPaint(petCard); return; }
-  h += '<div class="shop-h"><h2 style="font-size:18px">商店</h2></div>' +
-    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">' +
-    '<button type="button" class="btn" data-pa="buy" data-k="food" data-n="1"' + (me.coins < c.food ? ' disabled' : '') + '>飼料 ×1　' + c.food + ' G</button>' +
-    '<button type="button" class="btn" data-pa="buy" data-k="food" data-n="10"' + (me.coins < c.food * 10 ? ' disabled' : '') + '>飼料 ×10　' + c.food * 10 + ' G</button></div>' +
-    '<div class="shop-h"><h2 style="font-size:16px">寵物家具</h2><small>擺在家裡：飯碗可倒飼料，玩具牠會自己去玩</small></div>' +
-    '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px">' + PET_GOODS.map(([k, key, nm, dim]) => {
-      const own = petOwns(key), price = c[k];
-      return '<button type="button" class="btn ' + (own ? 'ghost' : '') + '" data-pa="buy" data-k="' + k + '" data-n="1" style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px"' + (own || me.coins < price ? ' disabled' : '') + '>' +
-        '<img src="' + petIcon(key, dim) + '" style="height:' + 28 * dim[1] + 'px;image-rendering:pixelated"><b>' + nm + '</b><small>' + dim[0] + '×' + dim[1] + '　' + (own ? '已擁有' : price + ' G') + '</small></button>';
+  const buyBtn = (n, price) => '<button type="button" class="btn ps-buy" data-pa="buy" data-k="food" data-n="' + n + '"' + (me.coins < price ? ' disabled' : '') + '>×' + n + '<small>' + price + ' G</small></button>';
+  h += '<div class="ps-sec">商店</div>' +
+    '<div class="ps-food"><div class="ps-sack"><b></b></div><div class="meta"><b>寵物飼料</b><small>耐飽 ' + c.hours + ' 小時；飯碗最多存 3 份，餓了會自己吃</small></div>' + buyBtn(1, c.food) + buyBtn(10, c.food * 10) + '</div>' +
+    '<div class="ps-sec">寵物家具<small>擺在家裡：飯碗可倒飼料，玩具牠會自己去玩</small></div>' +
+    '<div class="ps-grid">' + PET_GOODS.slice().sort((x, y) => petOwns(x[1]) - petOwns(y[1])).map(([k, key, nm, dim]) => {   // 還沒買的排前面
+      const own = petOwns(key), price = c[k], poor = !own && me.coins < price;
+      return '<button type="button" class="ps-g' + (own ? ' own' : '') + (poor ? ' poor' : '') + '" data-pa="buy" data-k="' + k + '" data-n="1"' + (own || poor ? ' disabled' : '') + '>' +
+        (own ? '<span class="ps-own">✓ 已擁有</span>' : '') + '<span class="ps-ico"><img src="' + petIcon(key, dim) + '" alt=""></span><b>' + nm + '</b><small>' + dim[0] + '×' + dim[1] + '</small>' + (own ? '' : '<span class="ps-price">' + price + ' G</span>') + '</button>';
     }).join('') + '</div>' +
-    '<small>飼料耐飽 ' + c.hours + ' 小時；飯碗最多存 3 份，餓了會自己吃。</small>' +
-    '<button type="button" class="btn ghost wide" data-pa="return">送回領養處</button>' + close;
+    '<button type="button" class="ps-link" data-pa="return">送回領養處</button>' + close;
   petCard.innerHTML = h; paintClerk(); petPaint(petCard);
 }
 const PET_GOODS = [['bowl', 'petbowl', '木托盤雙碗', [2, 1]], ['toy_a', 'pettoya', '玩具籃', [1, 1]], ['toy_b', 'pettoyb', '貓跳台', [1, 2]], ['toy_c', 'pettoyc', '拔河繩與毛線球', [1, 1]], ['toy_d', 'pettoyd', '條紋隧道', [2, 1]]];
@@ -187,9 +186,6 @@ function petHappy(kind) {
   if (petShown() && typeof sparkle === 'function') sparkle(petFol.x, petFol.y - 0.4, '#ff9db8');
 }
 function petBondCheck(oldB, newB) { if (Math.floor(newB / 10) > Math.floor(oldB / 10)) setTimeout(() => petEmote('star', 3200), 2500); }
-/* 命中範圍放寬：面向的那一格（或點的那一格）離寵物不到 1.3 格就算，而且寵物要在玩家身邊 2.5 格內 */
-function petAtTile(x, y) { return petShown() && Math.hypot(petFol.x - x, petFol.y - y) < 1.3 && Math.hypot(petFol.x - pl.x, petFol.y - pl.y) < 2.5; }
-function petTapped(tx, ty) { return petShown() && Math.hypot(petFol.x - tx, petFol.y - ty) < 1.1; }
 const petLerp = (a, b, k) => a + (b - a) * Math.max(0, Math.min(1, k));
 /* 上線迎接：4 種動作隨機挑一種（衝過來撲、原地蹦跳、睡醒、繞圈），每次登入第一次看到寵物時演 */
 let petWelSeen = false;
@@ -292,7 +288,7 @@ function petCuriousCheck(f, t) {
     f.items = house.items.length;
   }
 }
-/* ---------- 底部寵物列（點寵物或面向牠按動作鍵） ---------- */
+/* ---------- 寵物資料卡（右邊快捷列的「🐾 寵物」鈕開啟；寵物本身不再吃動作鍵和點擊，不會擋到門和其他東西） ---------- */
 (function () {
   const st = document.createElement('style');
   st.textContent = `

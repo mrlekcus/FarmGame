@@ -144,3 +144,35 @@ dtCard.addEventListener('click', async e => {
   if (ate) { closeDisplay(); playEat(ate.k, ate.b); }   // 吃的時候關掉視窗，讓你看到角色的動作
   else if (dsOpen && dtId != null) renderDish();
 });
+
+/* ---------- 電視轉過方向：背面／側面（畫面內容不顯示，但照樣可以按動作鍵換頻道）＋螢幕的光影 ----------
+   轉 180 度 = 螢幕朝牆，看到背面（散熱孔、小燈）；轉 90 度 = 螢幕朝左、轉 270 度 = 螢幕朝右（側面，長條底座上的電視）。
+   不管哪個頻道，螢幕都只是一條顏色在閃的光，顏色跟著頻道走，並在螢幕前面的地板上灑一層淡淡的光。 */
+function tvTint(id, now) {
+  const c = tvOf(id), t = Math.floor(now / 350);
+  if (c === 1) return t % 3 ? '#ffb070' : '#ffd9a0';           // 烹飪節目：暖橘
+  if (c === 2) return t % 2 ? '#7cc2ea' : '#9bd4f2';           // 釣魚節目：水藍
+  if (c === 3) return world().wet ? '#9aa6b6' : '#8fd0ff';     // 天氣預報：陰雨灰、晴天藍
+  if (c === 4) return t % 4 === 0 ? '#9db8ff' : '#7f9fe8';     // 今日情報：藍底
+  return Math.floor(now / 700) % 2 ? '#bfe6ff' : '#ffd9e2';    // 卡通：和正面一樣粉藍交替
+}
+function drawTvTurned(it, px, py, now) {
+  const rt = (it.r | 0) & 3, col = tvTint(it.id, now), WD = '#c98f62', WE = '#9b6a44', CS = '#4a4a58', CE = '#2f2f3a';
+  const glow = (x, y, w, h, a) => { g.globalAlpha = a; r(col, x, y, w, h); g.globalAlpha = 1; };
+  if (rt === 2) {   // 背面：螢幕朝牆，光灑在後面的牆根上
+    ob('#3e3e4c', CE, px + 5, py - 6, 22, 14);
+    for (let i = 0; i < 3; i++) r(CE, px + 8, py - 3 + i * 3, 16, 1);
+    r(col, it.f ? px + 7 : px + 22, py + 4, 3, 2);
+    ob(WD, WE, px + 1, py + 8, 30, 7); r(WE, px + 15, py + 9, 2, 5);
+    glow(px + 7, py - 10, 18, 4, 0.18); glow(px + 9, py - 13, 14, 3, 0.1);
+    return;
+  }
+  const left = rt === 1;   // 側面：長條底座上放著電視，螢幕朝左（轉 90 度）或朝右（轉 270 度）
+  r('rgba(90,60,40,.18)', px + 2, py + 31, 12, 1);
+  ob(WD, WE, px + 1, py + 1, 14, 30);
+  ob(CS, CE, px + 3, py + 4, 10, 24);
+  r(col, px + (left ? 4 : 6), py + 6, 6, 20);
+  r('#ffffff', px + (left ? 5 : 7), py + 7, 1, 4);
+  const gx = left ? px : px + 16, d = left ? -1 : 1;   // 光從螢幕那一側往外灑，越遠越淡
+  [[4, 4, 0.2], [8, 4, 0.12], [12, 4, 0.06]].forEach(([o, w, a], i) => glow(d < 0 ? gx - o - w + 4 : gx + o - 4, py + 6 + i * 2, w, 20 - i * 4, a));
+}

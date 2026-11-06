@@ -96,12 +96,12 @@ function renderSty() {
   const head = '<div class="shop-h"><h2>' + S.title + '</h2><span class="chip gold">' + coins + ' G</span></div>';
   if (syStage === 'talk') {
     syCard.innerHTML = head +
-      '<div class="row"><canvas width="16" height="16" data-clerk="1" style="width:64px;height:64px;image-rendering:pixelated;flex:none"></canvas><div class="meta"><b>' + S.clerk + '</b><small style="font-size:14px;line-height:1.5;white-space:normal">' + syLine + '</small></div></div>' +
+      '<div class="row"><canvas width="16" height="20" data-clerk="1" style="width:64px;height:80px;image-rendering:pixelated;flex:none"></canvas><div class="meta"><b>' + S.clerk + '</b><small style="font-size:14px;line-height:1.5;white-space:normal">' + syLine + '</small></div></div>' +
       '<button type="button" class="btn wide" data-a="list">' + S.look + '</button>' +
       '<button type="button" class="btn ghost wide" data-a="chat">聊聊</button>' +
       '<button type="button" class="btn ghost wide" data-a="close">沒事了，謝謝</button>';
-    const c2 = syCard.querySelector('canvas[data-clerk]').getContext('2d'); c2.clearRect(0, 0, 16, 16); g = c2;
-    try { npcArt(0, 0, S.ck, 0); } catch (e) { /* 略過 */ }
+    const c2 = syCard.querySelector('canvas[data-clerk]').getContext('2d'); c2.clearRect(0, 0, 16, 20); g = c2;
+    try { npcArt(0, 4, S.ck, 0); } catch (e) { /* 略過 */ }
     g = ctx;
     return;
   }

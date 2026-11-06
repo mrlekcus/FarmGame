@@ -1252,3 +1252,37 @@ body.imm .camhint{display:block}
 .dock.folded .dockfold{width:52px;padding:6px 0;border-radius:16px;opacity:1}
 .dock.folded .dockfold small{display:block}
 .dock .dockbtn[hidden]{display:none!important}
+
+/* ---------- 寵物領養店（A 分區卡片）：寵物狀態卡、飼料商品列、家具圖卡 ---------- */
+.ps-card{background:#fff;border:3px solid var(--edge);border-radius:16px;padding:10px;display:flex;flex-direction:column;gap:8px}
+.ps-top{display:flex;gap:10px;align-items:center}
+.ps-name{font-size:16px}
+.ps-stats{display:flex;gap:12px}
+.ps-st{flex:1;min-width:0;font-size:12px;font-weight:700}
+.ps-st>div:first-child{display:flex;justify-content:space-between;gap:6px;margin-bottom:3px}
+.ps-st .bar{height:11px;border:2px solid var(--edge);border-radius:8px;background:#fff;overflow:hidden}
+.ps-st .bar i{display:block;height:100%;transition:width .4s}
+.ps-bad{color:var(--pink-deep)}
+.ps-foot{display:flex;justify-content:space-between;font-size:12px;color:var(--muted)}
+.ps-sec{font:700 12px var(--f-display);letter-spacing:.14em;color:var(--muted);margin-top:4px;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.ps-sec small{font-weight:400;letter-spacing:0;font-size:12px}
+.ps-food{display:flex;align-items:center;gap:8px;background:#fff;border:3px solid var(--edge);border-radius:16px;padding:8px 10px}
+.ps-buy{display:flex;flex-direction:column;align-items:center;gap:1px;padding:6px 12px;min-height:40px;flex:none}
+.ps-buy small{font-size:11px;font-weight:600}
+.ps-sack{width:36px;height:40px;position:relative;flex:none}
+.ps-sack:before{content:"";position:absolute;left:4px;top:8px;width:28px;height:30px;background:#d9a066;border:3px solid #a8743a;border-radius:6px 6px 9px 9px}
+.ps-sack:after{content:"🐾";position:absolute;left:10px;top:16px;font-size:15px}
+.ps-sack b{position:absolute;left:9px;top:1px;width:18px;height:9px;background:#e9bd85;border:3px solid #a8743a;border-radius:4px 4px 0 0}
+.ps-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.ps-g{position:relative;background:#fff;border:3px solid var(--edge);border-radius:16px;padding:8px;display:flex;flex-direction:column;align-items:center;gap:3px;text-align:center;font:inherit;color:inherit;cursor:pointer;box-shadow:0 3px 0 var(--edge)}
+.ps-g:active:not([disabled]){transform:translateY(2px);box-shadow:0 1px 0 var(--edge)}
+.ps-g b{font-size:13px}
+.ps-g small{color:var(--muted);font-size:11px}
+.ps-g.own{background:#faf3ea;opacity:.85;box-shadow:none;cursor:default}
+.ps-g.poor{opacity:.6;cursor:not-allowed}
+.ps-ico{height:50px;display:flex;align-items:flex-end;justify-content:center}
+.ps-ico img{image-rendering:pixelated;max-height:50px;max-width:96px}
+.ps-price{font:700 12px var(--f-display);background:#fff3cf;border:2px solid var(--sun);color:#b9791a;border-radius:999px;padding:3px 9px;white-space:nowrap}
+.ps-g.poor .ps-price{color:#fff;background:var(--pink);border-color:var(--pink-deep)}
+.ps-own{position:absolute;top:6px;right:6px;font:700 11px var(--f-display);background:#e3f6e8;border:2px solid var(--leaf);color:#3f9a52;border-radius:999px;padding:2px 8px}
+.ps-link{background:none;border:0;font:inherit;font-size:12px;color:var(--muted);text-decoration:underline;padding:6px;cursor:pointer;align-self:center}

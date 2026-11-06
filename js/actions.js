@@ -90,7 +90,6 @@ function act() {
   if (cooking) { cookAct(); return; }
   const [x, y] = facing();
   if (x < 0 || y < 0 || x >= W || y >= H) return;
-  if (typeof petAtTile === 'function' && petAtTile(x, y)) { petEmote('happy', 1800); return; }   // 面向寵物按動作鍵只會讓牠開心一下
   if (scene === 'plaza') {
     const k2 = K[y][x], rp = remoteAt(x, y);
     if (catchShown) { hideCatch(); return; }

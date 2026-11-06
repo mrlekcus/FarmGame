@@ -51,8 +51,11 @@ function gymSweat(px, py, now, seed) {
   }
 }
 /* 人站的位置（16×16 的小人左上角）：站在器材最下面那一排、橫向置中，再加上 dx */
+/* 跑步機轉過方向（轉 90／180／270 度）：人站在跑步帶正中間（跑步帶中心 = 家具圖上的 8, 20，再跟著轉向換算） */
 function gymPos(it) {
-  const d = dimsOf(it.k, 0), G = GYM[it.k];
+  const G = GYM[it.k], rt = (it.r | 0) & 3;
+  if (rt && it.k === 'treadmill') { const c = bedPt(it, 8, 20); return [Math.round(c[0] - 8) + G.dx, Math.round(c[1] - (rt & 1 ? 6 : 4))]; }
+  const d = dimsOf(it.k, 0);
   return [(RX + it.x) * T + Math.round(d.w * T / 2 - 8) + G.dx, (RY + it.y + d.h - 1) * T];
 }
 
@@ -116,10 +119,11 @@ FURN.squatrack = (px, py, now) => {
 
 /* ---------- 站著用的器材：人怎麼動（自己和朋友的畫面都走 drawSeated） ---------- */
 /* 每個函數收 (器材, 角色, 現在時間, 人的位置 x, y)，位置是 16×16 小人的左上角 */
+const TREAD_FACE = ['down', 'right', 'down', 'left'];   // 轉 0／90／180／270 度：控制台在上／右／下／左；原位照舊面向畫面，轉 180 度控制台在下剛好面向它
 const GYM_DRAW = {
   treadmill(it, ch, now, x, y) {                       // 原地跑，跑越久越喘
     const el = gymEl(it, now), ph = Math.floor(now / 120) % 2;
-    drawPlayer(x, y, 'down', true, ph, ch);
+    drawPlayer(x, y, TREAD_FACE[(it.r | 0) & 3], true, ph, ch);   // 橫放時臉朝控制台那一邊跑（控制台在右就朝右、在左就朝左）
     if (el > 2500) gymSweat(x, y, now, 0);
     if (el > 7000 && (el - 7000) % 4500 < 1700) gymSay('喘～', x + 8, y - 8 + Math.round(Math.sin(now / 200)), '#fff3b0');
   },
@@ -209,12 +213,12 @@ drawLying = function (it, ch, slot) {
 function gymEnter(it, x, y) {
   const G = GYM[it.k], d = dimsOf(it.k, it.r | 0);
   if (!G || !d || pose || fishing || cooking) return;
-  if ((it.r | 0) !== 0 && G.type !== 'lie') { toast('轉過方向的' + G.name + '不能用，轉回原位就可以了', 2200); return; }   // 躺著用的可以轉方向，站著用的轉回原位
+  if ((it.r | 0) !== 0 && G.type !== 'lie' && !turnSeatOK(it)) { toast('轉過方向的' + G.name + '不能用，轉回原位就可以了', 2200); return; }   // 躺著用的、跑步機可以轉方向，其他站著用的轉回原位
   if (seatTaken(it)) { toast(G.name + '已經有人在用了', 1400); return; }
   let tx = x, ty = y;
   if (G.type === 'sit') { tx = Math.max(RX + it.x, Math.min(RX + it.x + d.w - 1, x)); ty = RY + it.y + d.h - 1; }   // 站在最下面那一排；朋友的畫面靠這格找出你用的是哪一件
   pose = { type: G.type, id: it.id, ix: it.x, iy: it.y, ox: pl.x, oy: pl.y, face0: pl.face, tile: 0, slot: 0, sort: RY + it.y + d.h - 1 + 0.02, t: 0, gym: it.k };
-  pl.x = pl.sx = tx; pl.y = pl.sy = ty; pl.prog = 1; pl.face = 'down'; pressed.length = 0;
+  pl.x = pl.sx = tx; pl.y = pl.sy = ty; pl.prog = 1; pl.face = it.k === 'treadmill' ? TREAD_FACE[(it.r | 0) & 3] : 'down'; pressed.length = 0;
   pop(tx, ty - (G.type === 'lie' ? 0.6 : 1.2), G.say, G.col);
   lastPosKey = ''; posAcc = 999; trackSelf();          // 讓同一間屋子裡的人看到我在用
 }

@@ -315,7 +315,6 @@ function tapMove(e) {
     if (fishing.phase === 'bite') { actQueued = true; return; }
     if (fishing.phase !== 'wait' || (tx === fishing.x && ty === fishing.y)) return;
   }
-  if (typeof petTapped === 'function' && petTapped(tx, ty)) { if (typeof petEmote === 'function') petEmote('happy', 1800); return; }   // 點寵物只會讓牠開心一下
   const tg = tapTarget(tx, ty);
   if (tg) { tx = tg[0]; ty = tg[1]; }
   if (!tg && tx === pl.x && ty === pl.y) return;

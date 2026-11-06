@@ -248,6 +248,11 @@ FURN.chairDir = (px, py, face) => {
   ob(C, WD, X(3, 10), py + 9, 10, 4);
 };
 const SEAT = { chair: 'sit', sofa: 'sit', bed: 'lie' };   // 可以坐／躺的家具
+/* 轉過方向也能用的坐具／器材：椅子、沙發、跑步機（人跟著家具的方向，沙發面向哪裡就朝哪裡坐，跑步機一律面向控制台）；其他站著用的還是要轉回原位 */
+const turnSeatOK = it => !!it && (it.k === 'chair' || it.k === 'sofa' || it.k === 'treadmill');
+/* 沙發的朝向：和椅子一樣，轉 0~3 次 = 面向 下／左／上／右；翻轉只是左右鏡射，面向不變 */
+const sofaFace = it => CHAIR_FACE[(it.r | 0) & 3];
+const seatFace = it => it.k === 'chair' ? chairFace(it) : it.k === 'sofa' ? sofaFace(it) : 'down';
 const STYLER = { wardrobe: 1, mirror: 1 };   // 按動作鍵換造型；衣櫥只能在自己家用，鏡子拜訪朋友家時也能用（換的是自己的造型）
 const DISP = { aquarium: { n: 4, kind: 'fish' }, specimen: { n: 6, kind: 'bug' } };   // 要和 SQL 的 _display_slots / _display_kind 一致
 const dispOf = it => (house && house.disp && house.disp[it.id]) || [];
@@ -311,6 +316,7 @@ function drawFurn(it, px, py, now) {
   if (!f || !d) return;
   if (it.k === 'chair') { FURN.chairDir(px, py, chairFace(it)); return; }   // 椅子：依朝向直接畫
   const rt = (it.r | 0) & 3;
+  if (it.k === 'tv' && rt) { drawTvTurned(it, px, py, now); return; }   // 電視：不整張圖旋轉（會倒過來），轉過去畫背面／側面，見 tv.js
   let ox = px, oy = py;
   g.save();
   if (rt) {   // 旋轉：以轉過之後的佔格中心為軸（90 度的倍數，像素不會糊）
