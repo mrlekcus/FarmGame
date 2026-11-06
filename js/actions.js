@@ -105,6 +105,7 @@ function act() {
     else if (k2 === CPT) openCaptain();
     else if (k2 === BB) openBuild('');
     else if (k2 === MB) openMsgBoard();
+    else if (petRemoteAt(x, y)) petTouchRemote(petRemoteAt(x, y));   // 面向朋友的寵物按動作鍵＝摸摸（放最後：不會擋住門、NPC 和告示牌）
     return;
   }
   if (scene === 'house') {
@@ -126,6 +127,7 @@ function act() {
     else if (hit && ART[hit.k] && !edit.on) openArt(hit);
     else if (hit && FX_ACT[hit.k] && !edit.on) fxAct(hit, x, y);
     else if (hit && SEAT[hit.k] && !edit.on) takeSeat(hit, x, y);
+    else if (petRemoteAt(x, y)) petTouchRemote(petRemoteAt(x, y));   // 面向朋友的寵物按動作鍵＝摸摸（家具有功能時以家具優先）
     else if (hit) pop(x, y, (defOf(hit.k) || {}).name || '', '#fff3b0');
     return;
   }

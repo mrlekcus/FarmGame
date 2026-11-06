@@ -184,6 +184,7 @@ function petHappy(kind) {
   petFol.happyUntil = Date.now() + 2600;
   petEmote(kind === 'feed' || kind === 'bowl' ? 'yum' : kind === 'play' ? 'happy' : 'love', 2400);
   if (petShown() && typeof sparkle === 'function') sparkle(petFol.x, petFol.y - 0.4, '#ff9db8');
+  if (kind === 'pat') petTouchSend(myUid);   // 自己摸摸：同一個地方的朋友也看到牠開心跳一下、飄愛心
 }
 function petBondCheck(oldB, newB) { if (Math.floor(newB / 10) > Math.floor(oldB / 10)) setTimeout(() => petEmote('star', 3200), 2500); }
 const petLerp = (a, b, k) => a + (b - a) * Math.max(0, Math.min(1, k));
@@ -392,9 +393,53 @@ function petRemoteEnts(now, ents) {
     const dx = rp.x - f.x, dy = rp.y - f.y, d = Math.hypot(dx, dy);
     f.moving = d > 1.15;
     if (f.moving) { const st = Math.min(d - 1.0, 5.2 * dt / 1000); f.x += dx / d * st; f.y += dy / d * st; if (Math.abs(dx) > 0.05) f.face = dx < 0 ? -1 : 1; f.still = t; }
-    const pose = f.moving ? 'side' : t - f.still > 20000 ? 'sleep' : 'front';
-    ents.push({ y: f.y + 0.01, draw: () => { petB(L, Math.round(f.x * T), Math.round(f.y * T), { pose, now, dir: f.face }); } });
+    const happy = t < (f.happyUntil || 0);
+    if (happy) f.still = t;
+    const pose = happy ? 'happy' : f.moving ? 'side' : t - f.still > 20000 ? 'sleep' : 'front';
+    const jump = happy ? Math.round(Math.abs(Math.sin((f.happyUntil - t) / 110)) * 5) : 0;
+    const bx = Math.round(f.x * T), by = Math.round(f.y * T);
+    ents.push({ y: f.y + 0.01, draw: () => { petB(L, bx, by - jump, { pose, now, dir: f.face }); } });
+    if (f.emo && f.emo.until > t) {
+      const e = f.emo, age = t - e.at, bob = Math.round(Math.sin(age / 260)), pop_ = age < 160 ? 3 : 0;
+      ents.push({ y: f.y + 6, draw: () => { petEmoDraw(e.k, bx + 1, by - 15 - jump + bob + pop_); } });
+    }
   });
+}
+/* ---------- 朋友摸寵物：面向別人的寵物按動作鍵，大家都看得到（只有表情和愛心，不加親密度、沒有次數限制） ---------- */
+let petTouchAt = 0;
+function petTouchSend(owner) {
+  try { if (syncScene() && net && net.ok) net.ch.send({ type: 'broadcast', event: 'ptp', payload: { i: myUid, to: owner } }); } catch (e) { /* 略過 */ }
+}
+function petRemoteAt(x, y) {   // 這一格上有沒有別人的寵物（玩家本人站在這格時以玩家為優先，呼叫端先判斷）
+  if (!me || !syncScene() || scene === 'tarot' || scene === 'boat') return null;
+  let hit = null;
+  remotes.forEach(rp => {
+    if (!hereRp(rp) || !petPub[rp.id]) return;
+    const f = petRFol[rp.id]; if (!f || f.w !== rp.w) return;
+    if (Math.round(f.x) === x && Math.round(f.y) === y) hit = rp;
+  });
+  return hit;
+}
+function petShowTouched(f, t) {
+  f.happyUntil = t + 2400; f.still = t;
+  f.emo = { k: 'love', at: t, until: t + 2400 };
+  if (typeof sparkle === 'function') sparkle(f.x, f.y - 0.4, '#ff9db8');
+}
+function petTouchRemote(rp) {
+  if (!ready || !me || !rp) return;
+  const now = performance.now(); if (now - petTouchAt < 700) return;   // 只擋連按，不限每天次數
+  petTouchAt = now;
+  const f = petRFol[rp.id]; if (f) petShowTouched(f, Date.now());
+  myEmo = { id: 'heart', at: now };   // 自己頭上也冒小愛心
+  petTouchSend(rp.id);
+}
+function onPetTouch(p) {
+  if (!p || typeof p !== 'object' || typeof p.i !== 'string' || typeof p.to !== 'string') return;
+  const from = remotes.get(p.i); if (!from || !hereRp(from)) return;
+  const t = Date.now();
+  if (p.to === myUid) { if (petShown()) { petFol.happyUntil = t + 2400; petFol.still = t; petEmote('love', 2400); if (typeof sparkle === 'function') sparkle(petFol.x, petFol.y - 0.4, '#ff9db8'); } }
+  else { const o = remotes.get(p.to), f = petRFol[p.to]; if (!o || !f || !hereRp(o)) return; petShowTouched(f, t); }
+  if (p.i !== p.to) from.emo = { id: 'heart', at: performance.now() };   // 摸的人頭上冒小愛心
 }
 
 /* 家裡的飯碗：面向它按動作鍵，把背包的飼料倒進去（碗最多存 3 份，餓了寵物會自己吃） */
