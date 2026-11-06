@@ -11,24 +11,39 @@ const NPC_LOOK = {   // 頭髮色、衣服色（每位村民的配件在 npcArt 
   jian: { hair: '#2f2a33', cloth: '#8fd3c0' },
   mu:   { hair: '#7a5a3a', cloth: '#c9955f' }
 };
-/* 旅行商人 米羅（選項 I：捲毯背包客）：背包頂上綁著花紋地毯捲，紅帽插白羽毛 */
-function miloArt(px, py, bob) {
-  const o = 'rgba(90,60,40,.55)', b = bob;
-  r('rgba(90,60,40,.18)', px + 3, py + 14, 10, 2);
-  ob('#b05a4a', '#7a3428', px, py + 6 + b, 5, 9);
-  ob('#e8c070', '#a8802a', px, py + 3 + b, 5, 4); r('#c9584a', px + 1, py + 4 + b, 3, 1); r('#6a9ac4', px + 1, py + 5 + b, 3, 1);
-  ob('#6a9ac4', o, px + 4, py + 9 + b, 8, 6);
-  ob('#ffe0c4', o, px + 4, py + 3 + b, 8, 7);
-  r('#3a2a2a', px + 4, py + 3 + b, 8, 2); r('#3a2a2a', px + 4, py + 3 + b, 1, 5); r('#3a2a2a', px + 11, py + 3 + b, 1, 5);
-  r('#4a3a3a', px + 6, py + 7 + b, 1, 1); r('#4a3a3a', px + 9, py + 7 + b, 1, 1); r('#ff9ab0', px + 7, py + 9 + b, 2, 1);
-  ob('#c9584a', '#8a2e26', px + 3, py + b, 10, 4); r('#ffffff', px + 12, py + b, 1, 3); r('#ffffff', px + 13, py + 1 + b, 1, 2);
+/* 旅行商人 米羅（捲毯背包客，精緻版）：背包頂上綁花紋地毯捲、紅帽插白羽毛、紅圍巾；
+   畫法和新村民一樣——衣服有亮暗面、眼睛有高光、有腮紅和手腳，每 3.8 秒眨一次眼。 */
+function miloArt(px, py, bob, now) {
+  if (now == null) now = Date.now();
+  const o = 'rgba(90,60,40,.55)', bl = (now % 3800) > 3650, cloth = '#6a9ac4', hc = '#3a2a2a';
+  const H = { x: 3, y: 2, w: 10, h: 8 }, B = { x: 4, y: 9, w: 8, h: 6 };
+  const R = (c, x, y, w, h) => r(c, px + x, py + y + bob, w, h), R0 = (c, x, y, w, h) => r(c, px + x, py + y, w, h), OB = (f, e, x, y, w, h) => ob(f, e, px + x, py + y + bob, w, h);
+  const hi = c => shade(c, 1.18), lo = c => shade(c, .82);
+  R0('rgba(90,60,40,.2)', 3, 14, 10, 2); R0('rgba(90,60,40,.12)', 2, 14, 12, 2);
+  // 背包＋地毯捲（在身體後面）
+  OB('#b05a4a', '#7a3428', 0, 6, 5, 9); R('#d27a68', 1, 7, 1, 6);
+  OB('#e8c070', '#a8802a', -1, 3, 7, 4); R('#c9584a', 0, 4, 5, 1); R('#6a9ac4', 0, 5, 5, 1); R('#fff1b8', 1, 4, 1, 1); R('#7a3428', 2, 3, 1, 4); R('#b4b8c4', 1, 12, 2, 2);
+  // 腳、身體（亮面＋暗面）、手
+  R0('#6a4a3a', B.x + 1, 14, 2, 1); R0('#6a4a3a', B.x + B.w - 3, 14, 2, 1);
+  OB(cloth, o, B.x, B.y, B.w, B.h); R(hi(cloth), B.x + 1, B.y + 1, B.w - 2, 1); R(lo(cloth), B.x + 1, B.y + B.h - 2, B.w - 2, 1);
+  R('#ffe3cc', B.x - 1, B.y + 2, 1, 3); R('#ffe3cc', B.x + B.w, B.y + 2, 1, 3);
+  // 紅圍巾、背帶
+  R('#c9584a', B.x + 1, B.y, B.w - 2, 1); R('#a8423a', B.x + 1, B.y + 1, 2, 1); R('#7a3428', B.x + 1, B.y + 1, 1, B.h - 2);
+  // 頭、頭髮
+  OB('#ffe3cc', o, H.x, H.y, H.w, H.h); R(hi('#ffe3cc'), H.x + 2, H.y + 1, 2, 1);
+  R(hc, H.x, H.y, H.w, 2); R(hc, H.x, H.y, 1, H.h - 3); R(hc, H.x + H.w - 1, H.y, 1, H.h - 3); R(hi(hc), H.x + 2, H.y, 3, 1);
+  // 臉：眼睛有高光、腮紅、嘴
+  [H.x + 2, H.x + H.w - 4].forEach(x => { if (bl) R('#3a2a3a', x, H.y + 4, 2, 1); else { R('#3a2a3a', x, H.y + 3, 2, 3); R('#ffffff', x, H.y + 3, 1, 1); R('#8a6a8a', x + 1, H.y + 5, 1, 1); } });
+  R('#ff9ab0', H.x + 1, H.y + 6, 1, 1); R('#ff9ab0', H.x + H.w - 2, H.y + 6, 1, 1); R('#e0607a', H.x + 4, H.y + 6, 2, 1);
+  // 紅帽＋白羽毛
+  OB('#c9584a', '#8a2e26', H.x, H.y - 3, H.w, 4); R('#e8806f', H.x + 2, H.y - 2, 3, 1); R('#8a2e26', H.x - 1, H.y + 1, H.w + 2, 1); R('#ffffff', H.x + H.w - 1, H.y - 4, 1, 3); R('#ffffff', H.x + H.w, H.y - 3, 1, 2);
 }
 /* 村民像素圖（16×16，精緻版）：衣服有亮暗面、眼睛有高光、有腮紅和手腳，每 3.8 秒眨一次眼；招牌配件——
    村長橡果帽＋鬍子＋拐杖、婆婆髮髻花＋眼鏡、老鯉叔草帽＋釣竿、阿洛礦燈帽＋鎬子、小茉蝴蝶結＋牛奶、
    桃子姊姊雙蝴蝶結＋捲尺＋剪刀、阿剪師傅側分瀏海＋剪刀、阿杉師傅綠帽＋大鬍子＋鎚子。
    店員（桃子、阿剪、阿杉）和頭像小圖（npcIcon）都走這支。 */
 function npcArt(px, py, key, bob, now) {
-  if (key === 'milo') { miloArt(px, py, bob); return; }
+  if (key === 'milo') { miloArt(px, py, bob, now); return; }
   if (now == null) now = Date.now();
   const L = NPC_LOOK[key] || NPC_LOOK.oak, o = 'rgba(90,60,40,.55)', bl = (now % 3800) > 3650;   // bl：每 3.8 秒眨一次眼
   const H = { x: 3, y: 2, w: 10, h: 8 };

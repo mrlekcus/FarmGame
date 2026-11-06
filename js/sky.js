@@ -206,7 +206,7 @@ function draw(now) {
       else if (k === RK) drawRock(px, py, ROCKS.findIndex(q => q[0] === tx && q[1] === ty));
       else if (k === WL) drawWell(px, py, now);
       else if (k === G && scene === 'town' && tx === MXT && ty === MYT && merchantHere()) drawStall(px, py, now);
-      else if (k === G && scene === 'town' && tx === MXT + 1 && ty === MYT && merchantHere()) miloArt(px, py, Math.floor(now / 600) % 2);   // 米羅站在攤位右邊
+      else if (k === G && scene === 'town' && tx === MXT + 1 && ty === MYT && merchantHere()) miloArt(px, py, Math.floor(now / 600) % 2, now);   // 米羅站在攤位右邊
       else if (k === G && scene === 'farm' && yardMap.has(pk(tx, ty))) yardArt(px, py, yardMap.get(pk(tx, ty)), now, dark > 0.35);
       else if (k === G && scene === 'farm') {
         const p = plots.get(pk(tx, ty));

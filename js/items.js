@@ -127,12 +127,13 @@ function drawRock(px, py, idx) {
     r('#8fd3ff', px + 5, py + 8, 2, 2); r('#d98a52', px + 10, py + 6, 2, 2);
   } else r('#6f7384', px + 5, py + 7, 5, 1);
 }
-function drawStall(px, py, now) {
+function drawStall(px, py, now) {   // 旅行商人的攤位（精緻版）：藍白條紋遮陽篷有亮暗面和波浪邊，桌上擺地毯捲、罐子和小物
   r('rgba(90,60,40,.18)', px + 1, py + 14, 14, 2);
-  r('#9b6a44', px + 2, py + 6, 2, 9); r('#9b6a44', px + 12, py + 6, 2, 9);
-  for (let i = 0; i < 4; i++) rr(i % 2 ? '#ffffff' : '#7a7ee8', px + 1 + i * 4, py, 4, 6);
-  ob('#e8b27a', '#9b6a44', px + 2, py + 10, 12, 4);
-  r('#ffd34d', px + 4, py + 8, 2, 2); r('#ff8fa8', px + 7, py + 8, 2, 2); r('#8fd3ff', px + 10, py + 8, 2, 2);
+  r('#9b6a44', px + 2, py + 7, 2, 8); r('#9b6a44', px + 12, py + 7, 2, 8);
+  for (let i = 0; i < 4; i++) { const c = i % 2 ? '#ffffff' : '#7a7ee8', x = px + 1 + i * 4; r(c, x, py, 4, 6); r(shade(c, 1.18), x, py, 4, 1); r(shade(c, .82), x, py + 5, 4, 1); r(c, x + 1, py + 6, 2, 1); }
+  ob('#e8b27a', '#9b6a44', px + 2, py + 10, 12, 4); r('#f2c897', px + 3, py + 11, 10, 1);
+  ob('#e8c070', '#a8802a', px + 3, py + 7, 4, 3); r('#c9584a', px + 4, py + 8, 2, 1);
+  ob('#fff1b8', '#b8932a', px + 8, py + 8, 2, 2); r('#ff8fa8', px + 10, py + 8, 2, 2); r('#8fd3ff', px + 12, py + 9, 1, 1);
   if (Math.floor(now / 500) % 2) r('#fff6a8', px + 14, py + 1, 1, 3);
 }
 
