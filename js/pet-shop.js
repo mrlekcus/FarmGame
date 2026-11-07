@@ -187,7 +187,136 @@ function petSync(force) {
 /* ---------- 跟班寵物：在農場、小村、森林、廣場、自己家跟在玩家後面走 ---------- */
 const petFol = { x: 0, y: 0, tr: [], px: -1, py: -1, scene: '', t: 0, still: 0, face: 1, moving: false, happyUntil: 0, nextBubble: 0, goal: null, nextGoal: 0, moveAt: 0, lx: -1, ly: -1, emo: null, fDots: 0, fBall: 0, items: -1, seenR: {} };
 const PET_SCENES = { farm: 1, town: 1, forest: 1, plaza: 1, house: 1 };   // 進自己的家也會跟進來（去朋友家也會跟去，朋友看得到）
-function petShown() { return !!(petMine && petUnlocked && ready && PET_SCENES[scene]); }
+/* 外出設定（存在伺服器 pets.fmode）：stay 留在家／close 貼身／free 自由走動（預設）。留在家時只有在自己家裡看得到牠 */
+const petMode = () => { const m = petMine && petMine.mode; return m === 'stay' || m === 'close' ? m : 'free'; };
+function petShown() { return !!(petMine && petUnlocked && ready && PET_SCENES[scene]) && (petMode() !== 'stay' || (scene === 'house' && !visiting)); }
+/* 親密等級：用累計親密度算（伺服器只存 bond，等級和才藝解鎖都在前端算）；每升一級學會一個才藝，周圍的人都看得到 */
+const PET_LVB = [0, 45, 105, 225, 450, 900, 1350];
+const petLvOf = b => { let l = 1; PET_LVB.forEach((v, i) => { if ((b | 0) >= v) l = i + 1; }); return l; };
+const PET_TRICKS = [
+  { k: 'sit', lv: 2, n: '坐下', ic: '🪑', ms: 3000 }, { k: 'shake', lv: 3, n: '握手', ic: '🤝', ms: 2600 }, { k: 'spin', lv: 4, n: '轉圈圈', ic: '🔄', ms: 2400 },
+  { k: 'roll', lv: 5, n: '翻滾', ic: '🤸', ms: 2600 }, { k: 'fire', lv: 6, n: '愛心煙火', ic: '🎆', ms: 3400 }, { k: 'dance', lv: 7, n: '專屬舞蹈', ic: '💃', ms: 5000 }
+];
+const PET_TRICK_BY = {}; PET_TRICKS.forEach(x => { PET_TRICK_BY[x.k] = x; });
+/* 才藝動畫：回傳這一刻的偏移（格）、跳高（像素）、姿勢、朝向；自己和別人的寵物共用。fx 是一次性的閃光 */
+function petTrickFrame(f, t) {
+  const tr = f.trick; if (!tr) return null;
+  const d = PET_TRICK_BY[tr.k], u = t - tr.t0;
+  if (!d || u >= d.ms) { f.trick = null; return null; }
+  const o = { ox: 0, oy: 0, jump: 0, pose: 'front', dir: 0, emo: null };
+  const fx = (times, cols) => { tr.fx = tr.fx | 0; while (tr.fx < times.length && u >= times[tr.fx]) { if (typeof sparkle === 'function') { const a = tr.fx * 1.3; sparkle(f.x + Math.cos(a) * 0.9, f.y - 0.3 + Math.sin(a) * 0.5, cols[tr.fx % cols.length]); } tr.fx++; } };
+  o.k = tr.k; o.u = u; o.ms = d.ms;
+  if (tr.k === 'sit') { o.oy = 0.04; o.sink = Math.round(Math.min(1, u / 450) * 3 * Math.min(1, (d.ms - u) / 350)); o.emo = u < 1500 ? 'happy' : 'love'; }
+  else if (tr.k === 'shake') { o.pose = 'front'; o.emo = 'love'; }
+  else if (tr.k === 'spin') { o.pose = 'side'; o.ox = Math.cos(u / 220) * 0.35 - 0.35; o.oy = Math.sin(u / 220) * 0.25; o.dir = Math.floor(u / 180) % 2 ? -1 : 1; o.emo = 'happy'; }
+  else if (tr.k === 'roll') { const ph = u / d.ms; o.ox = (ph < 0.5 ? ph : 1 - ph) * 1.6; o.jump = Math.round(Math.abs(Math.sin(u / 330)) * 8); o.pose = 'front'; o.rot = Math.floor(u / 140) % 4; o.mv = ph < 0.5 ? 1 : -1; o.emo = 'happy'; }
+  else if (tr.k === 'fire') { o.pose = 'happy'; o.jump = Math.round(Math.abs(Math.sin(u / 200)) * 6); o.emo = 'love'; fx([300, 800, 1300, 1800, 2300, 2800], ['#ff9db8', '#ffd34d', '#ff6f91', '#8fd0ff', '#ffb04a', '#ff9db8']); }
+  else if (tr.k === 'dance') { const b = Math.floor(u / 250) % 2; o.pose = b ? 'happy' : 'front'; o.dir = b ? -1 : 1; o.ox = Math.sin(u / 250) * 0.15; o.jump = b ? 3 : 0; o.emo = b ? 'star' : 'happy'; fx([500, 1500, 2500, 3500, 4500], ['#ffd34d', '#ff9db8', '#8fd0ff', '#b6e88a', '#ffb04a']); }
+  if (o.emo && (!f.emo || f.emo.until < t + 150)) f.emo = { k: o.emo, at: t, until: t + 900 };
+  return o;
+}
+/* 才藝的畫法（方案 C）：坐下＝壓扁坐在粉紅坐墊上；握手＝舉起前爪迎接伸來的手；翻滾＝真的轉圈＋灰塵；愛心煙火＝愛心往上飄＋天上放煙火。
+   變形是把現有寵物圖下移裁切、旋轉 90 度，道具另外畫，所以所有品種都適用。petTrickDraw 畫寵物本身和腳邊的道具，petTrickTop 畫蓋在上面的東西 */
+const PET_HEART3 = ['x.x', 'xxx', '.x.'];
+function petHeart3(c, x, y) { PET_HEART3.forEach((row, j) => [...row].forEach((ch, i) => { if (ch === 'x') r(c, x + i, y + j, 1, 1); })); }
+function petTrickDraw(L, bx, by, jump, pose, now, dir, trk) {
+  const k = trk && trk.k, u = trk ? trk.u : 0, a0 = g.globalAlpha;
+  if (k === 'sit') {
+    g.save(); g.beginPath(); g.rect(bx - 8, by - 40, 32, 40 + 14); g.clip();
+    petB(L, bx, by + (trk.sink | 0), { pose, now, dir });
+    g.restore();
+    r('#d9667f', bx + 1, by + 12, 14, 4); r('#ff9db8', bx + 2, by + 11, 12, 4); r('#ffc2d4', bx + 3, by + 11, 6, 1); r('#ffffff', bx, by + 13, 2, 1); r('#ffffff', bx + 14, by + 13, 2, 1);
+    return;
+  }
+  if (k === 'roll') {
+    const sx = trk.mv || 1;
+    // 灰塵（落在身後地面）和速度線
+    for (let i = 0; i < 5; i++) {
+      const ph = ((u / 260) + i * 0.37) % 1, x = bx + 8 - sx * (5 + i * 5 + ph * 3), y = by + 12 + (i % 2);
+      g.globalAlpha = Math.max(0, 0.95 - i * 0.16 - ph * 0.2); r('#ffffff', Math.round(x), y, i < 2 ? 3 : 2, i < 2 ? 3 : 2);
+    }
+    g.globalAlpha = a0;
+    for (let i = 0; i < 3; i++) { const len = 6 - i; r('rgba(255,255,255,.85)', sx > 0 ? bx - 4 - len - i * 2 : bx + 20 + i * 2, by + 4 + i * 3 - jump, len, 1); }
+    const cx = bx + 8, cy = by - jump + 9;
+    g.save(); g.translate(cx, cy); g.rotate((trk.rot | 0) * Math.PI / 2); g.translate(-cx, -cy);
+    petB(L, bx, by - jump, { pose, now, dir: sx });
+    g.restore();
+    return;
+  }
+  if (k === 'shake') {
+    petB(L, bx, by, { pose, now, dir, happy: true });
+    // 舉起的前爪（朝臉的那一側，上下揮動）
+    const pawUp = u < 500 ? u / 500 : u > trk.ms - 500 ? Math.max(0, (trk.ms - u) / 500) : 1, wave = u > 1100 && u < trk.ms - 500 ? Math.round(Math.abs(Math.sin(u / 120)) * 2) : 0;
+    const px_ = dir > 0 ? bx + 13 : bx - 2, py_ = by + 11 - Math.round(pawUp * 4) - wave;
+    if (pawUp > 0.15) { r(L.out, px_, py_, 4, 5); r(L.body, px_ + 1, py_ + 1, 2, 3); r(L.light || L.body, px_ + 1, py_ + 3, 2, 1); }
+    return;
+  }
+  petB(L, bx, by - jump, { pose, now, dir });
+}
+function petTrickTop(trk, bx, by, jump, dir) {
+  if (!trk) return;
+  const k = trk.k, u = trk.u, a0 = g.globalAlpha;
+  if (k === 'shake') {
+    const ease = z => z * z * (3 - 2 * z), T1 = 700, T2 = trk.ms - 650;
+    const far = 30, near = 16, off = u < T1 ? far - (far - near) * ease(u / T1) : u > T2 ? near + (far - near) * ease(Math.min(1, (u - T2) / 600)) : near + (u > 1100 ? Math.round(Math.abs(Math.sin(u / 120)) * 1) : 0);
+    const hx = dir > 0 ? bx + 8 + off : bx + 8 - off - 5, hy = by + 8;
+    const sl = dir > 0 ? hx + 5 : hx - 24;
+    r('#ff9db8', sl, hy + 1, 24, 4); r('#e0668a', sl, hy + 4, 24, 1);   // 袖子
+    r('#8a5a4a', hx, hy, 5, 5); r('#ffd9b8', hx + 1, hy + 1, 3, 3); r('#ffd9b8', dir > 0 ? hx - 1 : hx + 5, hy + 1, 1, 2);   // 手
+    if (u > T1 && u < T2 + 300) {   // 碰到時冒閃光
+      const fl = Math.floor(u / 140) % 2, cx = dir > 0 ? hx - 2 : hx + 7;
+      r('#fff6a8', cx, by + 4 - fl, 1, 3); r('#fff6a8', cx - 1, by + 5 - fl, 3, 1); r('#ffd34d', cx + (fl ? 3 : -4), by + 7, 1, 1); r('#ffd34d', cx + (fl ? -3 : 3), by + 3, 1, 1);
+    }
+    return;
+  }
+  if (k === 'fire') {
+    const cols = ['#ff9db8', '#ffd34d', '#8fd0ff', '#ff6f91'], ox = [-12, 10, -2, 14], oy = [0, 4, 10, -2];
+    for (let i = 0; i < 4; i++) {
+      const a = u - (300 + i * 650); if (a < 0 || a > 1200) continue;
+      const q = a / 1200, rad = 3 + q * 13, cx = bx + 8 + ox[i], cy = by - 22 - oy[i];
+      g.globalAlpha = Math.max(0, 1 - q * q);
+      for (let n = 0; n < 12; n++) { const an = n / 12 * 6.2832 + i; r(cols[(i + (n % 2)) % 4], Math.round(cx + Math.cos(an) * rad), Math.round(cy + Math.sin(an) * rad), 2, 2); }
+      if (q < 0.35) petHeart3(cols[(i + 3) % 4], cx - 1, cy - 1);
+      g.globalAlpha = a0;
+    }
+    for (let i = 0; i < 4; i++) {   // 往上飄的小愛心
+      const ph = ((u / 1500) + i / 4) % 1, x = bx + 6 + Math.round(Math.sin(ph * 6 + i * 2) * 9), y = by - 4 - Math.round(ph * 26);
+      g.globalAlpha = Math.max(0, 1 - ph); petHeart3(i % 2 ? '#ffb04a' : '#ff9db8', x, y); g.globalAlpha = a0;
+    }
+  }
+}
+/* 自由走動：在主人附近逛，每隔幾秒挑一個新的點；跑遠了就快步追上 */
+function petFreeStep(f, t, dt, cx, cy, radius) {
+  const dist = Math.hypot(cx - f.x, cy - f.y); let sp = 2.4;
+  if (dist > radius + 2) { f.wx = cx; f.wy = cy; f.wNext = t + 1500; sp = 5.2; }
+  else if (f.wx == null || (!f.moving && t > f.wNext) || Math.hypot(f.wx - cx, f.wy - cy) > radius + 1.5) {
+    for (let i = 0; i < 8; i++) {
+      const a = Math.random() * 6.283, rr = 1 + Math.random() * (radius - 1), x = Math.round(cx + Math.cos(a) * rr), y = Math.round(cy + Math.sin(a) * rr);
+      if (!(x === Math.round(cx) && y === Math.round(cy)) && walkable(x, y)) { f.wx = x; f.wy = y; break; }
+    }
+    f.wNext = t + 2500 + Math.random() * 4500;
+  }
+  if (f.wx == null) { f.moving = false; return; }
+  const dx = f.wx - f.x, dy = f.wy - f.y, d = Math.hypot(dx, dy);
+  f.moving = d > 0.06;
+  if (f.moving) { const st = Math.min(d, sp * dt / 1000); f.x += dx / d * st; f.y += dy / d * st; if (Math.abs(dx) > 0.05) f.face = dx < 0 ? -1 : 1; }
+}
+let petTrickAt = 0;
+function petDoTrick(k) {
+  const d = PET_TRICK_BY[k]; if (!d || !petMine) return;
+  if (petLvOf(petMine.bond) < d.lv) { toast('親密 Lv.' + d.lv + ' 才學得會'); return; }
+  if (!petShown()) { toast('寵物現在不在你身邊'); return; }
+  const now = Date.now(); if (now - petTrickAt < 8000) { toast('牠剛表演完，休息一下吧'); return; }
+  petTrickAt = now; petFol.wel = null; petFol.goal = null; petFol.trick = { k, t0: now, fx: 0 };
+  petBcast('ptk', { i: myUid, k });
+  petBarClose();
+}
+function onPetTrick(p) {   // 'ptk'：同一個地方的朋友的寵物在表演才藝
+  if (!p || typeof p.i !== 'string' || typeof p.k !== 'string' || p.i === myUid || !PET_TRICK_BY[p.k]) return;
+  const rp = remotes.get(p.i); if (!rp || !hereRp(rp)) return;
+  const f = petRFol[p.i]; if (!f || !petPub[p.i] || f.trick) return;
+  f.trick = { k: p.k, t0: Date.now(), fx: 0, rx: rp.x, ry: rp.y };
+}
 function petEmote(k, ms) { const t = Date.now(); petFol.emo = { k, at: t, until: t + (ms || 2200) }; }
 function petHappy(kind) {
   petFol.happyUntil = Date.now() + 2600;
@@ -195,7 +324,13 @@ function petHappy(kind) {
   if (petShown() && typeof sparkle === 'function') sparkle(petFol.x, petFol.y - 0.4, '#ff9db8');
   if (kind === 'pat') petTouchSend(myUid);   // 自己摸摸：同一個地方的朋友也看到牠開心跳一下、飄愛心
 }
-function petBondCheck(oldB, newB) { if (Math.floor(newB / 10) > Math.floor(oldB / 10)) setTimeout(() => petEmote('star', 3200), 2500); }
+function petBondCheck(oldB, newB) {
+  const lo = petLvOf(oldB), ln = petLvOf(newB), nm = (petMine && petMine.name) || '牠';
+  if (ln > lo) {   // 升級：學會新才藝
+    const tk = PET_TRICKS.find(x => x.lv === ln);
+    setTimeout(() => { petEmote('star', 3200); toast('親密升到 Lv.' + ln + '！' + nm + (tk ? '學會了「' + tk.n + '」，到寵物資料卡看看' : '')); }, 2500);
+  } else if (Math.floor(newB / 10) > Math.floor(oldB / 10)) setTimeout(() => petEmote('star', 3200), 2500);
+}
 const petLerp = (a, b, k) => a + (b - a) * Math.max(0, Math.min(1, k));
 /* 上線迎接：4 種動作隨機挑一種（衝過來撲、原地蹦跳、睡醒、繞圈），每次登入第一次看到寵物時演 */
 let petWelSeen = false;
@@ -243,22 +378,26 @@ function petFollowEnts(now, ents) {
     f.wel = null; f.x = Math.max(0, pl.x - 1); f.y = pl.y; f.tr = []; f.still = t;
   }
   if (pl.x !== f.px || pl.y !== f.py) { f.tr.push([f.px, f.py]); if (f.tr.length > 2) f.tr.shift(); f.px = pl.x; f.py = pl.y; }
-  if (pl.x !== f.lx || pl.y !== f.ly) { f.lx = pl.x; f.ly = pl.y; f.moveAt = t; f.goal = null; f.nextGoal = Math.max(f.nextGoal || 0, t + 15000); f.fDots = f.fBall = 0; }
+  if (pl.x !== f.lx || pl.y !== f.ly) { f.lx = pl.x; f.ly = pl.y; f.moveAt = t; f.goal = null; f.trick = null; f.nextGoal = Math.max(f.nextGoal || 0, t + 15000); f.fDots = f.fBall = 0; }
   const gl = petHomeGoal(f, t);
   let play = null;
   if (gl && gl.at) {
     play = petPlayFrame(f, gl, t);
     if (play.done) { if (gl.noReward) petEmote('sweat', 2800); f.goal = null; f.nextGoal = t + 25000 + Math.random() * 25000; play = null; f.still = t; }
   }
-  if (!play) {
-    const tg = gl ? [gl.x, gl.y] : (visiting && petVisitMode(myUid) === 'feet') ? petFeetSpot() : f.tr.length ? f.tr[0] : [pl.x, pl.y];
-    const dx = tg[0] - f.x, dy = tg[1] - f.y, d = Math.hypot(dx, dy);
-    f.moving = d > 0.05;
-    if (gl && !f.moving) { petGoalArrive(f, gl, t); }
-    if (f.moving) { const st = Math.min(d, 5.2 * dt / 1000); f.x += dx / d * st; f.y += dy / d * st; if (Math.abs(dx) > 0.05) f.face = dx < 0 ? -1 : 1; f.still = t; f.fDots = f.fBall = 0; }
-    else if (f.tr.length > 1 && t - f.still > 1500) f.tr.shift();   // 玩家停下來後，牠慢慢靠過來
-    if (Math.round(f.x) === pl.x && Math.round(f.y) === pl.y && !f.moving && f.tr.length) f.tr = [];
-  } else f.moving = false;
+  const trk = !play ? petTrickFrame(f, t) : null;
+  if (!play && !trk) {
+    if (!gl && petMode() !== 'close') {   // 自由走動（留在家時在家裡也一樣）
+      petFreeStep(f, t, dt, pl.x, pl.y, 3);
+      if (f.moving) { f.still = t; f.fDots = f.fBall = 0; }
+    } else {
+      const tg = gl ? [gl.x, gl.y] : petFeetSpot();   // 貼身：緊貼在玩家身後一格
+      const dx = tg[0] - f.x, dy = tg[1] - f.y, d = Math.hypot(dx, dy);
+      f.moving = d > 0.05;
+      if (gl && !f.moving) { petGoalArrive(f, gl, t); }
+      if (f.moving) { const st = Math.min(d, 5.2 * dt / 1000); f.x += dx / d * st; f.y += dy / d * st; if (Math.abs(dx) > 0.05) f.face = dx < 0 ? -1 : 1; f.still = t; f.fDots = f.fBall = 0; }
+    }
+  } else { f.moving = false; if (trk) f.still = t; }
   /* 表情：餓了、閒置、好奇 */
   const busy = f.emo && f.emo.until > t;
   if (t > f.nextBubble) {
@@ -273,16 +412,19 @@ function petFollowEnts(now, ents) {
   }
   petCuriousCheck(f, t);
   const L = petLookOf(petMine.breed); if (!L) return;
-  const sleeping = !play && !f.moving && idle > 20000;
+  const sleeping = !play && !trk && !f.moving && idle > 20000;
   if (sleeping && (!f.emo || f.emo.until < t + 300)) petEmote('sleepy', 900);
-  const pose = t < f.happyUntil ? 'happy' : f.moving ? 'side' : sleeping ? 'sleep' : 'front';
+  const pose = trk ? trk.pose : t < f.happyUntil ? 'happy' : f.moving ? 'side' : sleeping ? 'sleep' : 'front';
   let bx = Math.round(f.x * T), by = Math.round(f.y * T);
   if (play) { bx = play.px; by = play.py; }
+  if (trk) { bx += Math.round(trk.ox * T); by += Math.round(trk.oy * T); }
   ents.push({ y: play ? play.sortY : f.y + 0.01, draw: () => {
     if (play) { play.draw(L, now); return; }
-    const jump = t < f.happyUntil ? Math.round(Math.abs(Math.sin((f.happyUntil - t) / 110)) * 5) : 0;
-    petB(L, bx, by - jump, { pose, now, dir: f.face });
+    const jump = trk ? trk.jump : t < f.happyUntil ? Math.round(Math.abs(Math.sin((f.happyUntil - t) / 110)) * 5) : 0;
+    if (trk) petTrickDraw(L, bx, by, jump, pose, now, trk.dir ? trk.dir : f.face, trk);
+    else petB(L, bx, by - jump, { pose, now, dir: f.face });
   } });
+  if (trk && (trk.k === 'shake' || trk.k === 'fire')) ents.push({ y: f.y + 5, draw: () => petTrickTop(trk, bx, by, trk.jump, trk.dir ? trk.dir : f.face) });
   if (f.emo && f.emo.until > t) {
     const e = f.emo, age = t - e.at, bob = Math.round(Math.sin(age / 260)), pop_ = age < 160 ? 3 : 0;
     ents.push({ y: f.y + 6, draw: () => { petEmoDraw(e.k, bx + 1, by - 15 + bob + pop_); } });
@@ -323,6 +465,22 @@ function petCuriousCheck(f, t) {
   `;
   document.head.appendChild(st);
 })();
+(function () {
+  const st = document.createElement('style');
+  st.textContent = `
+  #petbar{max-height:calc(100vh - 24px);overflow-y:auto}
+  #petbar .pb-sec{font-weight:800;font-size:13px;margin-top:4px}#petbar .pb-sec small{font-weight:600;opacity:.65;font-size:11px}
+  #petbar .pb-seg{display:flex;gap:6px}
+  #petbar .pb-seg button{flex:1;font:700 12px/1.2 inherit;font-family:inherit;padding:7px 2px;border:2px solid var(--edge,#8a5a4a);border-radius:12px;background:#fff;color:inherit;cursor:pointer}
+  #petbar .pb-seg button small{display:block;font-weight:600;font-size:10px;opacity:.7;margin-top:2px}
+  #petbar .pb-seg button.on{background:var(--pink,#ff8fa8);color:#fff}
+  #petbar .pb-tr{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+  #petbar .pb-tr button{font:700 12px/1.2 inherit;font-family:inherit;padding:7px 2px;border:2px solid #f0dcc8;border-radius:12px;background:#fff;color:inherit;cursor:pointer}
+  #petbar .pb-tr button small{display:block;font-weight:600;font-size:10px;opacity:.7}
+  #petbar .pb-tr button:disabled{opacity:.45;filter:grayscale(1);cursor:default}
+  `;
+  document.head.appendChild(st);
+})();
 const petBar = document.createElement('div'); petBar.id = 'petbar'; petBar.hidden = true; document.body.appendChild(petBar);
 let petBarOn = false, petBarTimer = 0, petBarBusy = false;
 const petBIcons = {};
@@ -351,9 +509,13 @@ function petBarRender() {
   petBar.innerHTML = '<button type="button" class="pb-x" data-b="x" aria-label="關閉">✕</button>' +
     '<div class="pb-h"><canvas class="pb-pt" width="24" height="24" data-pk="' + p.breed + '"></canvas><div class="pb-m" style="font-size:16px">' + p.name + '<small><span style="color:#d9667f">♥</span> 親密 ' + p.bond + '</small></div></div>' +
     '<div><div class="pb-r"><span>飽足</span><span>' + (left > 0 ? petHrs(p.fedUntil) : '肚子餓了！') + '</span></div><div class="pb-bar"><i style="width:' + pct + '%"></i></div></div>' +
+    (function () { const lv = petLvOf(p.bond), nx = PET_LVB[lv], pv = PET_LVB[lv - 1], pc = nx ? Math.round((p.bond - pv) / (nx - pv) * 100) : 100;
+      return '<div><div class="pb-r"><span>♥ 親密 Lv.' + lv + '</span><span>' + (nx ? p.bond + ' / ' + nx : '已滿級') + '</span></div><div class="pb-bar"><i style="width:' + pc + '%;background:#ffb04a"></i></div></div>'; })() +
     '<div class="pb-r"><span>飯碗</span><span>' + p.bowl + ' / 3 份</span></div>' +
     '<div class="pb-r"><span>今天可得親密</span><span>摸摸 ' + p.patLeft + '・玩耍 ' + p.playLeft + '</span></div>' +
-    '<div class="pb-acts">' + btn('pat', 'pat', p.patLeft, p.patLeft < 1, '摸摸') + btn('feed', 'feed', bag, bag < 1, '餵食') + '</div>';
+    '<div class="pb-acts">' + btn('pat', 'pat', p.patLeft, p.patLeft < 1, '摸摸') + btn('feed', 'feed', bag, bag < 1, '餵食') + '</div>' +
+    '<div class="pb-sec">🐾 外出時</div><div class="pb-seg">' + [['stay', '🏠 留在家', '只在家裡'], ['close', '🐾 貼身', '緊跟在後'], ['free', '🌿 自由走動', '在你附近逛']].map(m => '<button type="button" data-b="mode:' + m[0] + '" class="' + (petMode() === m[0] ? 'on' : '') + '">' + m[1] + '<small>' + m[2] + '</small></button>').join('') + '</div>' +
+    '<div class="pb-sec">🎪 才藝<small> 身邊的人都看得到</small></div><div class="pb-tr">' + PET_TRICKS.map(x => { const ok = petLvOf(p.bond) >= x.lv; return '<button type="button" data-b="trick:' + x.k + '"' + (ok ? '' : ' disabled') + '>' + x.ic + ' ' + x.n + (ok ? '' : '<small>Lv.' + x.lv + '</small>') + '</button>'; }).join('') + '</div>';
   petPaint(petBar);
 }
 async function petBarOpen() {
@@ -370,6 +532,17 @@ petBar.addEventListener('pointerdown', e => e.stopPropagation());
 petBar.addEventListener('click', async e => {
   const b = e.target.closest('[data-b]'); if (!b || b.disabled || petBarBusy) return;
   const k = b.dataset.b; if (k === 'x') { petBarClose(); return; }
+  if (/^trick:/.test(k)) { petDoTrick(k.slice(6)); return; }
+  if (/^mode:/.test(k)) {   // 外出設定：存到伺服器，其他玩家也看得到一致的結果
+    const m = k.slice(5); if (m === petMode()) return;
+    petBarBusy = true;
+    try {
+      const r = await enqueue(() => rpc('pet_set_mode', { p_mode: m }));
+      const nm = (r && r.mode) || m; if (petMine) petMine.mode = nm; if (petData && petData.pet) petData.pet.mode = nm;
+      toast(nm === 'stay' ? '牠會留在家裡等你' : nm === 'close' ? '牠會緊跟在你身後' : '牠會在你附近自由走動');
+    } catch (er) { const msg = String(er && er.message); toast(/does not exist|PGRST202|42883/.test(msg) ? '這個設定還沒開放' : errText(er)); }
+    petBarBusy = false; petBarRender(); return;
+  }
   petBarBusy = true;
   try {
     const ob_ = petMine ? petMine.bond : 0;
@@ -396,19 +569,27 @@ function petRemoteEnts(now, ents) {
   const t = Date.now(), dt = Math.min(100, t - (petRT || t)); petRT = t;
   list.forEach(rp => {
     const pb = petPub[rp.id]; if (!pb) return;
+    const md = pb.mode === 'stay' || pb.mode === 'close' ? pb.mode : 'free';
+    if (md === 'stay' && !(scene === 'house' && visiting && String(visiting.uid) === String(rp.id))) return;   // 留在家的寵物只在牠家裡看得到
     const L = petLookOf(pb.breed); if (!L) return;
     let f = petRFol[rp.id];
     if (!f || f.w !== rp.w) f = petRFol[rp.id] = { x: rp.x, y: rp.y, face: 1, still: t, w: rp.w };
     const dx = rp.x - f.x, dy = rp.y - f.y, d = Math.hypot(dx, dy);
-    const feet = scene !== 'house' || petVisitMode(rp.id) === 'feet', near = feet ? 1.15 : 2.4, stopAt = feet ? 1.0 : 1.7;   // 屋子裡：坐腳邊＝貼著不離；跟著走＝離遠一點慢慢跟
-    f.moving = d > near;
-    if (f.moving) { const st = Math.min(d - stopAt, 5.2 * dt / 1000); f.x += dx / d * st; f.y += dy / d * st; if (Math.abs(dx) > 0.05) f.face = dx < 0 ? -1 : 1; f.still = t; }
+    const trk = petTrickFrame(f, t);
+    if (f.trick && Math.hypot(rp.x - f.trick.rx, rp.y - f.trick.ry) > 0.6) f.trick = null;   // 主人走開了就中斷
+    if (trk) { f.moving = false; f.still = t; }
+    else if (md === 'close') {
+      const near = 1.15, stopAt = 1.0;   // 貼身：緊貼不離
+      f.moving = d > near;
+      if (f.moving) { const st = Math.min(d - stopAt, 5.2 * dt / 1000); f.x += dx / d * st; f.y += dy / d * st; if (Math.abs(dx) > 0.05) f.face = dx < 0 ? -1 : 1; f.still = t; }
+    } else { petFreeStep(f, t, dt, rp.x, rp.y, 3); if (f.moving) f.still = t; }
     const happy = t < (f.happyUntil || 0);
     if (happy) f.still = t;
-    const pose = happy ? 'happy' : f.moving ? 'side' : t - f.still > 20000 ? 'sleep' : 'front';
-    const jump = happy ? Math.round(Math.abs(Math.sin((f.happyUntil - t) / 110)) * 5) : 0;
-    const bx = Math.round(f.x * T), by = Math.round(f.y * T);
-    ents.push({ y: f.y + 0.01, draw: () => { petB(L, bx, by - jump, { pose, now, dir: f.face }); } });
+    const pose = trk ? trk.pose : happy ? 'happy' : f.moving ? 'side' : t - f.still > 20000 ? 'sleep' : 'front';
+    const jump = trk ? trk.jump : happy ? Math.round(Math.abs(Math.sin((f.happyUntil - t) / 110)) * 5) : 0;
+    const bx = Math.round((f.x + (trk ? trk.ox : 0)) * T), by = Math.round((f.y + (trk ? trk.oy : 0)) * T);
+    ents.push({ y: f.y + 0.01, draw: () => { if (trk) petTrickDraw(L, bx, by, jump, pose, now, trk.dir ? trk.dir : f.face, trk); else petB(L, bx, by - jump, { pose, now, dir: f.face }); } });
+    if (trk && (trk.k === 'shake' || trk.k === 'fire')) ents.push({ y: f.y + 5, draw: () => petTrickTop(trk, bx, by, jump, trk.dir ? trk.dir : f.face) });
     if (f.emo && f.emo.until > t) {
       const e = f.emo, age = t - e.at, bob = Math.round(Math.sin(age / 260)), pop_ = age < 160 ? 3 : 0;
       ents.push({ y: f.y + 6, draw: () => { petEmoDraw(e.k, bx + 1, by - 15 - jump + bob + pop_); } });

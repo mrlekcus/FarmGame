@@ -260,6 +260,7 @@ function startNet(rm, priv, tries) {
       .on('broadcast', { event: 'ptp' }, m => onPetTouch(m && m.payload))
       .on('broadcast', { event: 'pwl' }, m => onPetWelcome(m && m.payload))
       .on('broadcast', { event: 'pgl' }, m => onPetGoal(m && m.payload))
+      .on('broadcast', { event: 'ptk' }, m => onPetTrick(m && m.payload))
       .subscribe(status => {
         if (!net || net.ch !== ch) return;
         if (status === 'SUBSCRIBED') { net.ok = true; net.wasOk = true; net.bad = 0; lastSendAt = 0; if (priv) privEverOk = true; trackSelf(); try { fxJoined(); } catch (e) { /* 略過 */ } }
