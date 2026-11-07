@@ -29,7 +29,7 @@ let petCare = false;
 async function openPetShop(care) {
   if (care === true) { petBarToggle(); return; }
   if (!ready || !me || paused() || petOpen) return;
-  petStoryAt = 0; petReplay = false; petCare = care === true; petOpen = true; pressed.length = 0; petMsg = ''; petPick = null; petData = null;
+  petStoryAt = 0; petCgReset(); petReplay = false; petCare = care === true; petOpen = true; pressed.length = 0; petMsg = ''; petPick = null; petData = null;
   petEl.hidden = false; petCard.innerHTML = '<div class="shop-h"><h2>阿喵姊姊的領養店</h2></div><p>讀取中…</p>';
   await petLoad();
 }
@@ -76,13 +76,15 @@ function petRender() {
   }
   const c = d.cfg;
   if (petReplay || (!d.pet && !d.met && !care)) {   // 第一次進來：先演小劇情（窗外的腳印），演完才開放領養
-    const ln = PET_STORY[Math.min(petStoryAt, PET_STORY.length - 1)], last = petStoryAt >= PET_STORY.length - 1;
-    if (ln[0] === 'npc') h += say(ln[1]);
-    else if (ln[0] === 'me') h += '<div class="row" style="justify-content:flex-end"><div class="meta" style="text-align:right"><b>你</b><small style="display:block;margin-top:4px;line-height:1.5">' + ln[1] + '</small></div></div>';
-    else h += '<p style="margin:14px 0;text-align:center;font-style:italic;opacity:.8">' + ln[1] + '</p>';
+    const ln = PET_STORY[Math.min(petStoryAt, PET_STORY.length - 1)], last = petStoryAt >= PET_STORY.length - 1, tx = ln[1].replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+    h += '<canvas id="petcg" width="192" height="108" style="display:block;width:100%;aspect-ratio:16/9;image-rendering:pixelated;border:3px solid var(--edge);border-radius:12px;background:#000"></canvas>';
+    h += '<div style="display:flex;gap:4px;justify-content:center">' + PET_STORY.map((_, i) => '<i style="width:7px;height:7px;border-radius:50%;background:' + (i <= petStoryAt ? 'var(--pink)' : '#efe6d6') + '"></i>').join('') + '</div>';
+    if (ln[0] === 'npc') h += say(tx).replace('<small style="', '<small id="petcg-txt" data-full="' + tx + '" style="min-height:3em;').replace('>' + tx + '</small>', '></small>');
+    else if (ln[0] === 'me') h += '<div class="row" style="justify-content:flex-end"><div class="meta" style="text-align:right"><b>你</b><small id="petcg-txt" data-full="' + tx + '" style="display:block;margin-top:4px;line-height:1.5;min-height:3em"></small></div></div>';
+    else h += '<p id="petcg-txt" data-full="' + tx + '" style="margin:10px 0;text-align:center;font-style:italic;opacity:.8;min-height:3em"></p>';
     h += '<button type="button" class="btn wide" data-pa="story">' + (last ? (petReplay ? '看完了' : '好，去看看牠們') : '繼續 ▶') + '</button>';
     if (!last) h += '<button type="button" class="btn ghost wide" data-pa="storyskip">略過劇情</button>';
-    petCard.innerHTML = h; paintClerk(); return;
+    petCard.innerHTML = h; paintClerk(); petCgStart(document.getElementById('petcg'), PET_CG_BEATS[Math.min(petStoryAt, PET_CG_BEATS.length - 1)]); petCgType(document.getElementById('petcg-txt')); return;
   }
   if (!d.pet) {   // 領養
     const sel = petPick, L = sel && petLookOf(sel);
@@ -158,8 +160,8 @@ petCard.addEventListener('click', ev => {
   const b = ev.target.closest('[data-pa]'); if (!b || b.disabled) return;
   const a = b.dataset.pa, k = b.dataset.k, n = b.dataset.n;
   if (a === 'close') closePetShop();
-  else if (a === 'replay') { petReplay = true; petStoryAt = 0; petRender(); }
-  else if (a === 'story') { if (petStoryAt < PET_STORY.length - 1) { petStoryAt++; petRender(); } else if (petReplay) { petReplay = false; petRender(); } else petCall('pet_meet', {}, () => {}); }
+  else if (a === 'replay') { petReplay = true; petStoryAt = 0; petCgReset(); petRender(); }
+  else if (a === 'story') { if (petCgSkipType()) return; if (petStoryAt < PET_STORY.length - 1) { petStoryAt++; petRender(); } else if (petReplay) { petReplay = false; petRender(); } else petCall('pet_meet', {}, () => {}); }
   else if (a === 'storyskip') { if (petReplay) { petReplay = false; petRender(); } else petCall('pet_meet', {}, () => {}); }
   else if (a === 'pick') { petPick = k; petRender(); }
   else if (a === 'give') { const lim = Math.min((petData.need[k] | 0) - (petData.have[k] | 0), ((petData.daily && petData.daily[k]) | 0) - ((petData.today && petData.today[k]) | 0)), q = n === 'all' ? Math.min(have(k), lim) : 1; if (q > 0) petCall('pet_build_give', { p_item: k, p_qty: q }, r => { petMsg = '謝謝你！'; }); }
