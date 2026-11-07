@@ -61,6 +61,10 @@ function shopItems(cat) {
 }
 const shopFull = it => !!it.buy && have(it.id) >= INV_CAP;   // 這種東西已經 999 個了
 const shopMax = (it, coins) => it.buy ? Math.max(1, Math.min(it.a === 'buyy' ? 50 : 99, Math.floor(coins / Math.max(1, it.price)), INV_CAP - have(it.id))) : it.stock;   // buy_yard 後端一次最多 50，其他 99；再加上持有上限 999
+function satTag(k) {   // 和 sellValue 同一套：前 5 個原價、第 6～10 個 6 折、之後 3 折
+  const n = soldOf(k);
+  return n < 5 ? { k: 'full', t: '原價 ×' + (5 - n) } : n < 10 ? { k: 'mid', t: '6 折 ×' + (10 - n) } : { k: 'low', t: '3 折' };
+}
 const shopTotal = (it, q) => it.sat ? sellValue(soldOf(it.sat), q, it.price) : q * it.price;
 const shopIcon = it => it.dot ? '<i class="dot" style="--c:' + it.dot + '"></i>' :
   '<canvas class="fico" width="16" height="16" ' + (it.fish ? 'data-fish="' + esc(it.fish) + '"' : it.bug ? 'data-bug="' + esc(it.bug) + '"' : it.yard ? 'data-yard="' + esc(it.yard) + '"' : 'data-misc="' + esc(it.misc) + '"') + '></canvas>';
@@ -112,8 +116,10 @@ function renderShop() {
   if (shopCat === 'up') main = '<h3>釣竿</h3>' + rodRow + '<h3>鋤頭與水壺</h3>' + toolRows + '<h3>房屋擴建</h3>' + houseExpandRow(coins);
   else {
     if (shopCat === 'sell') main += list.length ? '<div class="shbar"><span>背包可賣 ' + list.length + ' 種 · 全部賣出（作物、魚、蟲）共 ' + grand + ' G</span><button type="button" class="btn small" data-a="sellall"' + dis + '>全部賣出</button></div>' : '<p class="empty">背包裡沒有可以賣的東西。收成作物、釣魚、抓蟲蝶之後再來。</p>';
-    main += list.map(it => '<div class="row shr' + (it.id === shopSel ? ' sel' : '') + (it.lock ? ' lk' : '') + '" data-sel="' + esc(it.id) + '">' + shopIcon(it) +
-      '<div class="meta"><b>' + esc(it.name) + (it.stock ? ' ×' + it.stock : '') + '</b><small>' + (it.lock ? esc(it.lock) : esc(it.sub)) + '</small></div><b class="shp">' + (it.buy ? it.price + ' G' : '') + '</b></div>').join('');
+    main += list.map(it => { const st = shopCat === 'sell' && it.sat ? satTag(it.sat) : null;   // 收購飽和標籤：原價還剩幾個／6 折還剩幾個／3 折
+      return '<div class="row shr' + (it.id === shopSel ? ' sel' : '') + (it.lock ? ' lk' : '') + (st && st.k === 'low' ? ' sat3' : '') + '" data-sel="' + esc(it.id) + '">' + shopIcon(it) +
+      '<div class="meta"><b>' + esc(it.name) + (it.stock ? ' ×' + it.stock : '') + '</b><small>' + (it.lock ? esc(it.lock) : esc(it.sub)) + '</small></div>' +
+      (st ? '<span class="sat ' + st.k + '">' + st.t + '</span>' : '') + '<b class="shp">' + (it.buy ? it.price + ' G' : '') + '</b></div>'; }).join('');
     if (shopCat !== 'sell' && list.length) main += '<small class="empty">每種東西最多持有 ' + INV_CAP + ' 個。</small>';
     if (shopCat === 'sell' && list.some(x => x.sat)) main += '<small class="empty">收購飽和：每種魚、蟲、採集物每天前 5 個原價，第 6～10 個 6 折，之後 3 折（凌晨 0 點重置）。</small>';
   }
