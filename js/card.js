@@ -2,10 +2,10 @@
 /* 玩家名片 —— 雷克斯農場。所有檔案共用同一個全域範圍，載入順序見 index.html。 */
 /* ---------- 玩家名片：自我介紹、等級、成就（自己和好友看得到） ---------- */
 const cdEl = $('cdm'), cdCard = $('cdcard');
-let cd = null, cdMsg = '', cdSeq = 0, cdCat = '', cdSlot = -1, cdPick = 'got', cdRecent = [], cdRecentReal = false;
+let cd = null, cdMsg = '', cdSeq = 0, cdCat = '', cdSlot = -1, cdPick = 'got', cdRecent = [], cdRecentReal = false, cdLocked = false;
 const ACH = [
   { id: 'days7', ic: '🌱', n: '農場新鮮人', d: '加入滿 7 天' }, { id: 'days30', ic: '🏡', n: '老住戶', d: '加入滿 30 天' },
-  { id: 'pl5', ic: '⭐', n: '玩家 Lv.5', d: '玩家等級達到 5' }, { id: 'pl10', ic: '🌟', n: '玩家滿級', d: '玩家等級達到 10' },
+  { id: 'pl5', ic: '⭐', n: '玩家 Lv.5', d: '玩家等級達到 5' }, { id: 'pl10', ic: '🌟', n: '玩家 Lv.10', d: '玩家等級達到 10' },
   { id: 'farm5', ic: '🥕', n: '農耕達人', d: '農耕 Lv.5' }, { id: 'farm10', ic: '🌾', n: '農耕大師', d: '農耕 Lv.10' },
   { id: 'fish5', ic: '🎣', n: '釣魚達人', d: '釣魚 Lv.5' }, { id: 'bug5', ic: '🦋', n: '捕蟲達人', d: '捕蟲 Lv.5' },
   { id: 'cook5', ic: '🍳', n: '烹飪達人', d: '烹飪 Lv.5' }, { id: 'cook10', ic: '🍲', n: '烹飪大師', d: '烹飪 Lv.10' },
@@ -152,10 +152,54 @@ function cdPicker(got, tot, pct) {
   }).join('') : '<p class="empty">這裡還沒有成就。</p>') + '</div>';
   return h;
 }
+/* 未解鎖成就條件頁：自己的名片才有。有數字可以算的就畫進度條，其他只寫條件；進度都是從名片資料和本機紀錄算的，算不出來就不顯示 */
+function cdProg(a, got) {
+  const st = cd.stats || {}, id = a.id; let m, c, mx, lv = false;
+  try {
+    const half = (f, t) => ({ c: f | 0, mx: Math.max(1, Math.ceil((t | 0) / 2)) });
+    if ((m = /^days(\d+)$/.exec(id))) { c = st.days | 0; mx = +m[1]; }
+    else if ((m = /^pl(\d+)$/.exec(id))) { c = cd.pl | 0; mx = +m[1]; lv = true; }
+    else if ((m = /^farm(\d+)$/.exec(id))) { c = cd.farm | 0; mx = +m[1]; lv = true; }
+    else if ((m = /^fish(\d+)$/.exec(id)) && id !== 'fish_half' && id !== 'fish_all') { c = id === 'fish100' ? st.fish_caught | 0 : cd.fish | 0; mx = +m[1]; lv = id !== 'fish100'; }
+    else if ((m = /^bug(\d+)$/.exec(id))) { c = id === 'bug100' ? st.bug_caught | 0 : cd.bug | 0; mx = +m[1]; lv = id !== 'bug100'; }
+    else if ((m = /^cook(\d+)$/.exec(id))) { c = cd.cook != null ? cd.cook | 0 : ckLv(); mx = +m[1]; lv = true; }
+    else if (id === 'fish_half') { const h = half(st.fish_found, st.fish_total); c = h.c; mx = h.mx; }
+    else if (id === 'fish_all') { c = st.fish_found | 0; mx = st.fish_total | 0; }
+    else if (id === 'bug_half') { const h = half(st.bug_found, st.bug_total); c = h.c; mx = h.mx; }
+    else if (id === 'bug_all') { c = st.bug_found | 0; mx = st.bug_total | 0; }
+    else if (id === 'plots10') { c = st.plots | 0; mx = 10; }
+    else if (id === 'home15') { c = st.furniture | 0; mx = 15; }
+    else if (id === 'friend3') { c = st.friends | 0; mx = 3; }
+    else if ((m = /^voy(\d+)$/.exec(id))) { c = voyStat ? (voyStat.hosted | 0) + (voyStat.joined | 0) : 0; mx = +m[1]; }
+    else if (id === 'dish_half' || id === 'dish_all') { c = recipes.filter(rc => (cookLog[rc.key] | 0) > 0).length; mx = id === 'dish_all' ? recipes.length : Math.ceil(recipes.length / 2); }
+    else if (id === 'dish100') { c = recipes.reduce((t, rc) => t + (cookLog[rc.key] | 0), 0); mx = 100; }
+    else if (id === 'star_fish') { c = starCount('fish', fishCat.map(x => x.key)).five; mx = 5; }
+    else if (id === 'star_bug') { c = starCount('bug', bugCat.map(x => x.key)).five; mx = 5; }
+    else if (id === 'star_dish') { c = starCount('dish', recipes.map(x => x.key)).five; mx = 5; }
+    else if ((m = /^fit(\d+)$/.exec(id))) { c = 0; for (let k = 0; k < OUTFITS.length; k++) if (fcHave(+m[1], k)) c++; mx = OUTFITS.length; }
+  } catch (e) { return null; }
+  if (!(mx > 0) || c == null) return null;
+  c = Math.min(c, mx);
+  return { pct: Math.round(c / mx * 100), txt: lv ? 'Lv.' + c + '/' + mx : c + '/' + mx };
+}
+function cdLockedPage(got) {
+  const left = ACH.filter(a => !got.has(a.id));
+  let h = '<div class="cdx-h">未解鎖成就　<small>' + (left.length ? '還有 ' + left.length + ' 個沒拿到' : '全部都拿到了') + '</small></div>';
+  if (!left.length) return h + '<p class="empty">所有成就都拿到了，太厲害了！</p>';
+  ACH_CATS.forEach(c => {
+    const l = c.a.filter(a => !got.has(a.id)); if (!l.length) return;
+    h += '<div class="lkc">' + c.ic + ' ' + c.n + '　' + l.length + ' 個</div><div class="lkl">' + l.map(a => {
+      const pg = cdProg(a, got);
+      return '<div class="lkr"><i>' + a.ic + '</i><div class="m">' + esc(a.n) + '<small>' + esc(a.d) + '</small>' + (pg ? '<span class="bar"><i style="width:' + pg.pct + '%"></i></span>' : '') + '</div>' + (pg ? '<span class="pg">' + pg.txt + '</span>' : '') + '</div>';
+    }).join('') + '</div>';
+  });
+  return h;
+}
 let cdGift = false;
 function renderCard() {
   let h = '<div class="shop-h"><h2>' + (cd && cd.self ? '我的名片' : '玩家名片') + '</h2></div>';
   if (!cd) h += '<p class="empty">' + esc(cdMsg || '讀取中…') + '</p>' + (cdMsg ? '<button type="button" class="btn wide" data-a="retry">重試</button>' : '');
+  else if (cd.self && cdLocked && !cdGift) h += cdLockedPage(cdGot());
   else if (cdGift) {
     const items = Object.keys(inv).filter(k => /^(c|fish|bug):[a-z0-9_]+$/.test(k) && have(k) > 0);
     h += '<p class="empty">選一樣送給 ' + esc(cd.name) + '（每天最多送 3 份，一次送 1 個）</p>' + (cdMsg ? '<p class="mk-msg">' + esc(cdMsg) + '</p>' : '') +
@@ -190,7 +234,7 @@ function renderCard() {
   const keep = $('cd-bio') ? $('cd-bio').value : null;
   cdCard.innerHTML = h + (cd && !cd.self && !cdGift ? '<button type="button" class="btn wide" data-a="gift">寄明信片＆禮物給 ' + esc(cd.name) + '</button>' : '') +
     (cdGift ? '<button type="button" class="btn ghost wide" data-a="back">回到名片</button>' : '') +
-    (cd && cd.self && !cdGift ? '<button type="button" class="btn wide" data-a="lv">等級與解鎖說明</button>' : '') + '<button type="button" class="btn ghost wide" data-a="close">關閉</button>';
+    (cd && cd.self && !cdGift ? (cdLocked ? '<button type="button" class="btn wide" data-a="lkback">回到名片</button><button type="button" class="btn ghost small" data-a="lv">等級與解鎖說明</button>' : '<button type="button" class="btn wide" data-a="lk">未解鎖成就條件</button>') : '') + '<button type="button" class="btn ghost wide" data-a="close">關閉</button>';
   if (keep !== null && $('cd-bio') && cdMsg === '') $('cd-bio').value = keep;
   const cv = $('cd-av');
   if (cv && cd) { const c2 = cv.getContext('2d'); c2.clearRect(0, 0, 16, 22); g = c2; try { drawPlayer(0, 6, 'down', false, 0, toChar(cd.name, cd.look)); } catch (e) { /* 略過 */ } g = ctx; }
@@ -210,7 +254,7 @@ function cdShow() {                                                // 畫面出�
   catch (e) { console.error('名片顯示失敗', e); cd = null; cdMsg = '名片資料讀取失敗，請重試'; try { renderCard(); } catch (e2) { /* 略過 */ } }
 }
 async function loadCard() {
-  const my = ++cdSeq; cd = null; cdMsg = ''; cdGift = false; cdCat = ''; cdSlot = -1; cdPick = 'got'; cdShow();
+  const my = ++cdSeq; cd = null; cdMsg = ''; cdGift = false; cdCat = ''; cdSlot = -1; cdPick = 'got'; cdLocked = false; cdShow();
   let fresh = [];
   try {
     const r = cdNorm(await cdTimeout(rpc('card_get', cdUid ? { p_uid: cdUid } : {}), 12000));
@@ -223,13 +267,15 @@ async function openCard(uid) {
   cdOpen = true; pressed.length = 0; cdUid = uid || ''; cdEl.hidden = false; cdCard.focus();
   await loadCard();
 }
-function closeCard() { cdOpen = false; cdEl.hidden = true; cdSeq++; }
+function closeCard() { cdLocked = false; cdOpen = false; cdEl.hidden = true; cdSeq++; }
 cdCard.addEventListener('click', async e => {
   const b = e.target.closest('[data-a]'); if (!b || !b.dataset.a) return;
   const a = b.dataset.a;
   if (a === 'close') closeCard();
   else if (a === 'retry') loadCard();
   else if (a === 'lv') { closeCard(); openLevels(); }
+  else if (a === 'lk') { cdLocked = true; cdMsg = ''; renderCard(); cdEl.scrollTop = 0; }
+  else if (a === 'lkback') { cdLocked = false; cdMsg = ''; renderCard(); cdEl.scrollTop = 0; }
   else if (a === 'gift') { const u = cd && cd.uid; closeCard(); if (u && isFriend(u)) openMail(u); else toast('要先成為好友才能寄明信片'); }
   else if (a === 'back') { cdGift = false; cdMsg = ''; renderCard(); }
   else if (a === 'acat') { cdCat = b.dataset.c; cdMsg = ''; renderCard(); cdEl.scrollTop = 0; }
