@@ -2,7 +2,7 @@
    阿喵姊姊（領養店店員）按動作鍵就會打開這個面板。 */
 Object.assign(ERR, {
   pet_locked: '寵物店還在蓋，等你把材料湊齊、付完工錢就能領養囉', pet_built: '寵物店已經蓋好了', pet_item_full: '這種材料已經夠了，換別種吧', pet_daily_full: '今天這種材料捐滿了，明天再來', pet_mat_missing: '材料還沒湊齊',
-  pet_has: '你已經有一隻寵物了，要換的話先送回領養處', pet_none: '你還沒有寵物', pet_owned: '你已經有這個了',
+  pet_not_met: '先走進店裡，和阿喵姊姊聊聊吧', pet_has: '你已經有一隻寵物了，要換的話先送回領養處', pet_none: '你還沒有寵物', pet_owned: '你已經有這個了',
   pet_full: '牠現在吃得很飽，等一下再餵吧', pet_tired: '牠今天玩累了，明天再來吧', pet_no_bowl: '要先買飯碗才能放飼料',
   pet_no_toy: '要先買玩具才能玩', not_gm: '只有 GM 可以這樣做'
 });
@@ -29,7 +29,7 @@ let petCare = false;
 async function openPetShop(care) {
   if (care === true) { petBarToggle(); return; }
   if (!ready || !me || paused() || petOpen) return;
-  petStoryAt = 0; petCare = care === true; petOpen = true; pressed.length = 0; petMsg = ''; petPick = null; petData = null;
+  petStoryAt = 0; petReplay = false; petCare = care === true; petOpen = true; pressed.length = 0; petMsg = ''; petPick = null; petData = null;
   petEl.hidden = false; petCard.innerHTML = '<div class="shop-h"><h2>阿喵姊姊的領養店</h2></div><p>讀取中…</p>';
   await petLoad();
 }
@@ -48,7 +48,7 @@ const PET_STORY = [
   ['nar', '（門縫下，一隻小爪子悄悄伸了進來）'],
   ['npc', '呵呵，有一隻好像已經等不及了。請進，挑你喜歡的。']
 ];
-let petStoryAt = 0;
+let petStoryAt = 0, petReplay = false;   // petReplay：有寵物的玩家按「回顧劇情」，只在本機重演，不寫伺服器
 function petRender() {
   const d = petData; if (!d) return;
   const head = '<div class="shop-h"><h2>阿喵姊姊的領養店</h2><span class="chip gold">' + me.coins + ' G</span></div>';
@@ -75,12 +75,12 @@ function petRender() {
     h += close; petCard.innerHTML = h; paintClerk(); return;
   }
   const c = d.cfg;
-  if (!d.pet && !d.met && !care) {   // 第一次進來：先演小劇情（窗外的腳印），演完才開放領養
+  if (petReplay || (!d.pet && !d.met && !care)) {   // 第一次進來：先演小劇情（窗外的腳印），演完才開放領養
     const ln = PET_STORY[Math.min(petStoryAt, PET_STORY.length - 1)], last = petStoryAt >= PET_STORY.length - 1;
     if (ln[0] === 'npc') h += say(ln[1]);
     else if (ln[0] === 'me') h += '<div class="row" style="justify-content:flex-end"><div class="meta" style="text-align:right"><b>你</b><small style="display:block;margin-top:4px;line-height:1.5">' + ln[1] + '</small></div></div>';
     else h += '<p style="margin:14px 0;text-align:center;font-style:italic;opacity:.8">' + ln[1] + '</p>';
-    h += '<button type="button" class="btn wide" data-pa="story">' + (last ? '好，去看看牠們' : '繼續 ▶') + '</button>';
+    h += '<button type="button" class="btn wide" data-pa="story">' + (last ? (petReplay ? '看完了' : '好，去看看牠們') : '繼續 ▶') + '</button>';
     if (!last) h += '<button type="button" class="btn ghost wide" data-pa="storyskip">略過劇情</button>';
     petCard.innerHTML = h; paintClerk(); return;
   }
@@ -115,6 +115,7 @@ function petRender() {
       return '<button type="button" class="ps-g' + (own ? ' own' : '') + (poor ? ' poor' : '') + '" data-pa="buy" data-k="' + k + '" data-n="1"' + (own || poor ? ' disabled' : '') + '>' +
         (own ? '<span class="ps-own">✓ 已擁有</span>' : '') + '<span class="ps-ico"><img src="' + petIcon(key, dim) + '" alt=""></span><b>' + nm + '</b><small>' + dim[0] + '×' + dim[1] + '</small>' + (own ? '' : '<span class="ps-price">' + price + ' G</span>') + '</button>';
     }).join('') + '</div>' +
+    '<button type="button" class="ps-link" data-pa="replay">回顧劇情</button>' +
     '<button type="button" class="ps-link" data-pa="return">送回領養處</button>' + close;
   petCard.innerHTML = h; paintClerk(); petPaint(petCard);
 }
@@ -135,6 +136,7 @@ function paintClerk() {
   try { clerkArt('cl_a', 0, 0, Date.now()); } catch (e) { /* 略過 */ }
   g = ctx;
 }
+let petCloseAfter = '';
 async function petCall(name, args, ok) {
   if (petBusy) return; petBusy = true;
   try {
@@ -144,18 +146,25 @@ async function petCall(name, args, ok) {
     if (ok) ok(r);
     refreshHud();
   } catch (e) { petMsg = errText(e); toast(petMsg); }
-  petBusy = false; await petLoad();
+  petBusy = false;
+  if (petCloseAfter) {   // 蓋好店：直接關掉面板，不在工地面板裡接著領養；要玩家自己走進店裡找阿喵姊姊
+    const msg = petCloseAfter; petCloseAfter = '';
+    try { const d = await enqueue(() => rpc('pet_get')); petUnlocked = !!(d && d.unlocked); petMine = (d && d.pet) || null; petSyncAt = Date.now(); } catch (e) { /* 略過 */ }
+    closePetShop(); toast(msg); return;
+  }
+  await petLoad();
 }
 petCard.addEventListener('click', ev => {
   const b = ev.target.closest('[data-pa]'); if (!b || b.disabled) return;
   const a = b.dataset.pa, k = b.dataset.k, n = b.dataset.n;
   if (a === 'close') closePetShop();
-  else if (a === 'story') { if (petStoryAt < PET_STORY.length - 1) { petStoryAt++; petRender(); } else petCall('pet_meet', {}, () => {}); }
-  else if (a === 'storyskip') petCall('pet_meet', {}, () => {});
+  else if (a === 'replay') { petReplay = true; petStoryAt = 0; petRender(); }
+  else if (a === 'story') { if (petStoryAt < PET_STORY.length - 1) { petStoryAt++; petRender(); } else if (petReplay) { petReplay = false; petRender(); } else petCall('pet_meet', {}, () => {}); }
+  else if (a === 'storyskip') { if (petReplay) { petReplay = false; petRender(); } else petCall('pet_meet', {}, () => {}); }
   else if (a === 'pick') { petPick = k; petRender(); }
   else if (a === 'give') { const lim = Math.min((petData.need[k] | 0) - (petData.have[k] | 0), ((petData.daily && petData.daily[k]) | 0) - ((petData.today && petData.today[k]) | 0)), q = n === 'all' ? Math.min(have(k), lim) : 1; if (q > 0) petCall('pet_build_give', { p_item: k, p_qty: q }, r => { petMsg = '謝謝你！'; }); }
-  else if (a === 'pay') petCall('pet_build_pay', {}, () => { petMsg = '完工啦！寵物店開張～'; });
-  else if (a === 'gmfinish') petCall('pet_gm_finish', {}, () => { petMsg = 'GM 已讓寵物店完工'; });
+  else if (a === 'pay') petCall('pet_build_pay', {}, () => { petCloseAfter = '完工啦！寵物店開張了～走進去找阿喵姊姊聊聊吧'; });
+  else if (a === 'gmfinish') petCall('pet_gm_finish', {}, () => { petCloseAfter = 'GM 已讓寵物店完工，走進去找阿喵姊姊'; });
   else if (a === 'adopt') {
     const nm = ((petCard.querySelector('#petname') || {}).value || '').trim();
     if (!nm) { petMsg = '先幫牠取個名字吧'; petRender(); return; }
@@ -177,8 +186,8 @@ function petSync(force) {
 
 /* ---------- 跟班寵物：在農場、小村、森林、廣場、自己家跟在玩家後面走 ---------- */
 const petFol = { x: 0, y: 0, tr: [], px: -1, py: -1, scene: '', t: 0, still: 0, face: 1, moving: false, happyUntil: 0, nextBubble: 0, goal: null, nextGoal: 0, moveAt: 0, lx: -1, ly: -1, emo: null, fDots: 0, fBall: 0, items: -1, seenR: {} };
-const PET_SCENES = { farm: 1, town: 1, forest: 1, plaza: 1, house: 1 };   // 進自己的家也會跟進來（去別人家時不顯示，改畫對方的寵物）
-function petShown() { return !!(petMine && petUnlocked && ready && PET_SCENES[scene] && !visiting); }
+const PET_SCENES = { farm: 1, town: 1, forest: 1, plaza: 1, house: 1 };   // 進自己的家也會跟進來（去朋友家也會跟去，朋友看得到）
+function petShown() { return !!(petMine && petUnlocked && ready && PET_SCENES[scene]); }
 function petEmote(k, ms) { const t = Date.now(); petFol.emo = { k, at: t, until: t + (ms || 2200) }; }
 function petHappy(kind) {
   petFol.happyUntil = Date.now() + 2600;
@@ -242,7 +251,7 @@ function petFollowEnts(now, ents) {
     if (play.done) { if (gl.noReward) petEmote('sweat', 2800); f.goal = null; f.nextGoal = t + 25000 + Math.random() * 25000; play = null; f.still = t; }
   }
   if (!play) {
-    const tg = gl ? [gl.x, gl.y] : f.tr.length ? f.tr[0] : [pl.x, pl.y];
+    const tg = gl ? [gl.x, gl.y] : (visiting && petVisitMode(myUid) === 'feet') ? petFeetSpot() : f.tr.length ? f.tr[0] : [pl.x, pl.y];
     const dx = tg[0] - f.x, dy = tg[1] - f.y, d = Math.hypot(dx, dy);
     f.moving = d > 0.05;
     if (gl && !f.moving) { petGoalArrive(f, gl, t); }
@@ -391,8 +400,9 @@ function petRemoteEnts(now, ents) {
     let f = petRFol[rp.id];
     if (!f || f.w !== rp.w) f = petRFol[rp.id] = { x: rp.x, y: rp.y, face: 1, still: t, w: rp.w };
     const dx = rp.x - f.x, dy = rp.y - f.y, d = Math.hypot(dx, dy);
-    f.moving = d > 1.15;
-    if (f.moving) { const st = Math.min(d - 1.0, 5.2 * dt / 1000); f.x += dx / d * st; f.y += dy / d * st; if (Math.abs(dx) > 0.05) f.face = dx < 0 ? -1 : 1; f.still = t; }
+    const feet = scene !== 'house' || petVisitMode(rp.id) === 'feet', near = feet ? 1.15 : 2.4, stopAt = feet ? 1.0 : 1.7;   // 屋子裡：坐腳邊＝貼著不離；跟著走＝離遠一點慢慢跟
+    f.moving = d > near;
+    if (f.moving) { const st = Math.min(d - stopAt, 5.2 * dt / 1000); f.x += dx / d * st; f.y += dy / d * st; if (Math.abs(dx) > 0.05) f.face = dx < 0 ? -1 : 1; f.still = t; }
     const happy = t < (f.happyUntil || 0);
     if (happy) f.still = t;
     const pose = happy ? 'happy' : f.moving ? 'side' : t - f.still > 20000 ? 'sleep' : 'front';
@@ -418,6 +428,7 @@ function petRemoteAt(x, y) {   // 這一格上有沒有別人的寵物（玩家�
     const f = petRFol[rp.id]; if (!f || f.w !== rp.w) return;
     if (Math.round(f.x) === x && Math.round(f.y) === y) hit = rp;
   });
+  if (!hit && petHW && petHW.vis && petHW.f && Math.round(petHW.f.x) === x && Math.round(petHW.f.y) === y) hit = { id: petHW.uid, host: 1 };   // 屋主不在線、在家等待的寵物
   return hit;
 }
 function petShowTouched(f, t) {
@@ -429,17 +440,151 @@ function petTouchRemote(rp) {
   if (!ready || !me || !rp) return;
   const now = performance.now(); if (now - petTouchAt < 700) return;   // 只擋連按，不限每天次數
   petTouchAt = now;
-  const f = petRFol[rp.id]; if (f) petShowTouched(f, Date.now());
+  const f = rp.host ? (petHW && petHW.f) : petRFol[rp.id]; if (f) petShowTouched(f, Date.now());
   myEmo = { id: 'heart', at: now };   // 自己頭上也冒小愛心
   petTouchSend(rp.id);
+  if (visiting && String(rp.id) === String(visiting.uid)) petVisitTouchLog(rp.host ? (petHW && petHW.pb) : petPub[rp.id]);
 }
 function onPetTouch(p) {
   if (!p || typeof p !== 'object' || typeof p.i !== 'string' || typeof p.to !== 'string') return;
   const from = remotes.get(p.i); if (!from || !hereRp(from)) return;
   const t = Date.now();
   if (p.to === myUid) { if (petShown()) { petFol.happyUntil = t + 2400; petFol.still = t; petEmote('love', 2400); if (typeof sparkle === 'function') sparkle(petFol.x, petFol.y - 0.4, '#ff9db8'); } }
+  else if (petHW && petHW.vis && petHW.f && String(petHW.uid) === p.to) petShowTouched(petHW.f, t);   // 屋主不在線：大家都看到等待中的寵物被摸
   else { const o = remotes.get(p.to), f = petRFol[p.to]; if (!o || !f || !hereRp(o)) return; petShowTouched(f, t); }
   if (p.i !== p.to) from.emo = { id: 'heart', at: performance.now() };   // 摸的人頭上冒小愛心
+}
+
+/* ---------- 去朋友家 ----------
+   自己的寵物跟著去：跟隨 A（跟著走）／B（坐腳邊），大家看到的一樣，每半小時隨機換一次。
+   屋主不在線時，屋主的寵物在家等待：A 角落的小墊子睡覺／B 飯碗玩具旁打盹／C 門墊旁看門（隨機），訪客一進門就跑去迎接。
+   朋友互動：面向寵物按動作鍵＝摸摸；面向玩具＝陪玩；面向飯碗＝餵點心（用自己的飼料，要伺服器的 pet_visit_feed）。 */
+const petHash = s => { let h = 0; s = String(s); for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0; return Math.abs(h); };
+const petVisitMode = uid => petHash(uid + '|' + worldKey() + '|' + Math.floor(Date.now() / 1800000)) % 2 ? 'feet' : 'walk';
+function petFeetSpot() {   // 玩家身後一格（走不到就貼在玩家那格）
+  const o = { up: [0, 1], down: [0, -1], left: [1, 0], right: [-1, 0] }[pl.face] || [0, 1];
+  const x = pl.x + o[0], y = pl.y + o[1];
+  return walkable(x, y) ? [x, y] : [pl.x, pl.y];
+}
+let petHW = null, petFeedBusy = false, petVLAt = 0, petPlayAtT = 0;
+function petEmoteOn(f, k, ms) { const t = Date.now(); f.emo = { k, at: t, until: t + (ms || 2200) }; }
+function petHostPb() { return (petHW && petHW.vis && petHW.pb) || (visiting && petPub[visiting.uid]) || null; }
+function petHostSpot(seed) {   // 等待的位置：有飯碗／玩具才有「玩具旁」可選；否則在 小墊子（角落）和 門墊旁 之間隨機
+  const its = ((house && house.items) || []).filter(i => /^pet(toy|bowl)/.test(i.k));
+  const kinds = ['bed', 'door']; if (its.length) kinds.push('play');
+  const type = kinds[seed % kinds.length];
+  if (type === 'play') { const gl = petMakeGoal(its[(seed >> 3) % its.length]); if (gl) return { type, x: gl.x, y: gl.y }; }
+  if (type === 'bed') {
+    const c = [[RX + RW - 1, RY + 1], [RX, RY + 1], [RX + RW - 1, RY + RH - 2], [RX, RY + RH - 2]];
+    for (let i = 0; i < 4; i++) { const q = c[(i + seed) % 4]; if (walkable(q[0], q[1])) return { type, x: q[0], y: q[1] }; }
+  }
+  const d = [[RX + DX + 2, RY + RH - 1], [RX + DX - 1, RY + RH - 1], [RX + DX + 2, RY + RH - 2], [RX + DX - 1, RY + RH - 2]];
+  for (let i = 0; i < d.length; i++) if (walkable(d[i][0], d[i][1])) return { type: 'door', x: d[i][0], y: d[i][1] };
+  return null;
+}
+function petBcast(event, payload) { try { if (net && net.ok && net.ch) net.ch.send({ type: 'broadcast', event, payload }); } catch (e) { /* 略過 */ } }
+function petHostEnts(now, ents) {
+  if (!visiting || scene !== 'house' || !ready || !me || !house) { petHW = null; return; }
+  const hid = visiting.uid, t = Date.now();
+  if (!petHW || petHW.v !== visiting) {
+    const W0 = petHW = { uid: hid, v: visiting, since: t, vis: false, pb: null, spot: null, f: null, wel: null, welDone: false, sent: false, seed: petHash(hid + '|' + Math.floor(t / 1800000)) };
+    rpc('pet_public_many', { p_uids: [hid] }).then(d => { W0.pb = (d && d[hid]) || false; }).catch(() => { W0.pb = false; });
+  }
+  const W = petHW, hp = remotes.get(hid), online = !!(hp && hereRp(hp));
+  if (t - W.since < 2500 || !net || !net.ok) return;   // 剛進門先等一下，確認屋主在不在線
+  if (!W.sent) { W.sent = true; petBcast('pwl', { i: myUid, h: hid }); }   // 通知屋子裡的人：有訪客進門了（屋主在線，他的寵物會自己歡迎）
+  if (online) { W.vis = false; W.f = null; W.wel = null; return; }
+  if (!W.pb) return;
+  const L = petLookOf(W.pb.breed); if (!L) return;
+  if (!W.f) {
+    const sp = petHostSpot(W.seed); if (!sp) return;
+    W.spot = sp; W.f = { x: sp.x, y: sp.y, face: 1, still: t, w: worldKey(), nextEmo: t + 3000 }; W.vis = true;
+    if (!W.welDone) { W.welDone = true; W.wel = { to: myUid, t0: t }; }
+  }
+  const f = W.f, dt = Math.min(100, t - (W.t || t)); W.t = t;
+  let tg = [W.spot.x, W.spot.y], stop = 0.05, play = null;
+  if (W.wel) {   // 迎接：跑到訪客旁邊，跳起來冒愛心，再回去
+    const who = W.wel.to === myUid ? pl : remotes.get(W.wel.to);
+    if (!who || t - W.wel.t0 > 12000) W.wel = null;
+    else {
+      tg = [who.x, who.y]; stop = 1.05;
+      if (!W.wel.at && Math.hypot(who.x - f.x, who.y - f.y) < 1.5) { W.wel.at = t; petShowTouched(f, t); }
+      if (W.wel.at && t - W.wel.at > 3000) W.wel = null;
+    }
+  }
+  const gl = !W.wel ? f.goal : null;
+  if (gl) {   // 朋友叫牠去玩玩具／吃點心
+    if (!gl.at) {
+      if (Math.hypot(gl.x - f.x, gl.y - f.y) < 0.06) { gl.at = t; gl.px0 = Math.round(f.x * T); gl.py0 = Math.round(f.y * T); petEmoteOn(f, gl.k === 'petbowl' ? 'yum' : 'happy', 2400); }
+      else tg = [gl.x, gl.y];
+    }
+    if (gl.at) { play = petPlayFrame(f, gl, t); if (play.done) { f.goal = null; play = null; f.still = t; } }
+  }
+  if (!play) {
+    const dx = tg[0] - f.x, dy = tg[1] - f.y, d = Math.hypot(dx, dy), lim = stop > 0.1 ? 1.0 : 0;
+    f.moving = d > stop;
+    if (f.moving) { const st = Math.min(d - lim, 5.2 * dt / 1000); f.x += dx / d * st; f.y += dy / d * st; if (Math.abs(dx) > 0.05) f.face = dx < 0 ? -1 : 1; f.still = t; }
+  } else f.moving = false;
+  if (!play && !f.moving && !W.wel && t > f.nextEmo) { f.nextEmo = t + 5000 + Math.random() * 3000; petEmoteOn(f, W.spot.type === 'door' ? 'dots' : 'sleepy', 2200); }
+  const happy = t < (f.happyUntil || 0);
+  const sleeping = !play && !f.moving && !W.wel && !happy && W.spot.type !== 'door' && t - f.still > 2500;
+  const pose = happy ? 'happy' : f.moving ? 'side' : sleeping ? 'sleep' : 'front';
+  const jump = happy ? Math.round(Math.abs(Math.sin((f.happyUntil - t) / 110)) * 5) : 0;
+  let bx = Math.round(f.x * T), by = Math.round(f.y * T);
+  if (play) { bx = play.px; by = play.py; }
+  if (W.spot.type === 'bed') { const sx = W.spot.x * T, sy = W.spot.y * T; ents.push({ y: W.spot.y + 0.005, draw: () => { r('#b9704a', sx - 3, sy + 9, 22, 7); r('#e8b894', sx - 2, sy + 8, 20, 6); } }); }
+  ents.push({ y: play ? play.sortY : f.y + 0.01, draw: () => { if (play) { play.draw(L, now); return; } petB(L, bx, by - jump, { pose, now, dir: f.face }); } });
+  if (f.emo && f.emo.until > t) {
+    const e = f.emo, age = t - e.at, bob = Math.round(Math.sin(age / 260)), pop_ = age < 160 ? 3 : 0;
+    ents.push({ y: f.y + 6, draw: () => { petEmoDraw(e.k, bx + 1, by - 15 - jump + bob + pop_); } });
+  }
+}
+function onPetWelcome(p) {   // 'pwl'：有訪客進屋
+  if (!p || typeof p.i !== 'string' || typeof p.h !== 'string' || p.i === myUid) return;
+  const from = remotes.get(p.i); if (!from || !hereRp(from)) return;
+  const t = Date.now();
+  if (p.h === myUid) { if (!visiting && scene === 'house' && petShown()) { petFol.happyUntil = t + 2600; petFol.still = t; petEmote('alert', 900); setTimeout(() => petEmote('love', 2400), 900); } return; }   // 我是屋主：寵物歡迎來訪的朋友
+  const W = petHW; if (W && W.vis && String(W.uid) === p.h && !W.wel) W.wel = { to: p.i, t0: t };   // 屋主不在線：等待的寵物跑去迎接新來的人
+}
+function petApplyGoal(hid, it) {   // 叫屋主的寵物去玩玩具／吃飯碗：屋主在線由屋主那邊演，不在線由訪客這邊演
+  if (!house || !it || !/^pet(toy|bowl)/.test(it.k)) return false;
+  const gl = petMakeGoal(it); if (!gl) return false;
+  const t = Date.now();
+  if (String(hid) === String(myUid) && !visiting) { if (!petShown() || petFol.goal) return false; petFol.goal = gl; petFol.nextGoal = t + 25000; petFol.fDots = petFol.fBall = 1; petEmote('alert', 1200); return true; }
+  const W = petHW; if (W && W.vis && W.f && String(W.uid) === String(hid) && !W.f.goal && !W.wel) { W.f.goal = gl; petEmoteOn(W.f, 'alert', 1200); return true; }
+  return false;
+}
+function onPetGoal(p) {   // 'pgl'
+  if (!p || typeof p.i !== 'string' || typeof p.h !== 'string' || p.i === myUid) return;
+  const from = remotes.get(p.i); if (!from || !hereRp(from)) return;
+  const it = house && house.items && house.items.find(x => String(x.id) === String(p.id));
+  if (it) petApplyGoal(p.h, it);
+}
+function petVisitTouchLog(pb) { if (!visiting || Date.now() - petVLAt < 300000) return; petVLAt = Date.now(); visitLog('other', '摸了' + ((pb && pb.name) || '寵物')); }
+function petVisitPlay(it) {   // 在朋友家面向玩具按動作鍵：陪牠玩
+  if (!visiting) return;
+  const pb = petHostPb(); if (!pb) { toast('這間屋子的主人還沒有寵物'); return; }
+  const now = Date.now(); if (now - petPlayAtT < 3000) return; petPlayAtT = now;
+  petBcast('pgl', { i: myUid, h: visiting.uid, id: it.id });
+  petApplyGoal(visiting.uid, it);
+  toast((pb.name || '牠') + '跑去玩了'); visitLog('other', '陪' + (pb.name || '牠') + '玩');
+}
+async function petVisitFeed(it) {   // 在朋友家面向飯碗按動作鍵：倒一份點心（用自己的飼料）
+  if (!visiting || petFeedBusy) return;
+  const pb = petHostPb(); if (!pb) { toast('這間屋子的主人還沒有寵物'); return; }
+  petFeedBusy = true;
+  try {
+    const r_ = await enqueue(() => rpc('pet_visit_feed', { p_owner: visiting.uid }));
+    if (r_ && r_.inv) Object.assign(inv, r_.inv);
+    toast('把點心倒進' + (pb.name || '牠') + '的碗裡了'); refreshHud();
+    petBcast('pgl', { i: myUid, h: visiting.uid, id: it.id });
+    petApplyGoal(visiting.uid, it);
+    visitLog('other', '餵了' + (pb.name || '牠') + '點心');
+  } catch (er) {
+    const m = String(er && er.message);
+    toast(/not_enough_items/.test(m) ? '背包裡沒有飼料，到寵物店買吧' : /pet_fed_today|pet_visit_cap/.test(m) ? '今天已經餵過牠了，明天再來吧' : /does not exist|PGRST202|42883/.test(m) ? '餵點心還沒開放' : errText(er));
+  }
+  petFeedBusy = false;
 }
 
 /* 家裡的飯碗：面向它按動作鍵，把背包的飼料倒進去（碗最多存 3 份，餓了寵物會自己吃） */

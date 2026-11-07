@@ -265,6 +265,7 @@ function draw(now) {
   }
   if (typeof petFollowEnts === 'function') petFollowEnts(now, ents);
   if (typeof petRemoteEnts === 'function') petRemoteEnts(now, ents);
+  if (typeof petHostEnts === 'function') petHostEnts(now, ents);
   if (scene === 'house') houseEnts(now).forEach(en => ents.push(en));
   if (scene === 'barn') barnEnts(now, ents);
   if (scene === 'tarot') lekcusEnts(now, ents);
