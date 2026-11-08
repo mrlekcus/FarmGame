@@ -5,12 +5,13 @@ const bdEl = $('bdm'), bdCard = $('bdcard');
 let bdData = null, bdBusy = false;
 async function openBoard() {
   if (!ready || !me || authOpen || paused() || bdOpen) return;
-  bdOpen = true; pressed.length = 0; bdData = null; stData = null; bdTab = 'order'; renderBoard(); bdEl.hidden = false; bdCard.focus();
+  bdOpen = true; pressed.length = 0; bdData = null; stData = null; bdTab = 'order'; scgReset(); renderBoard(); bdEl.hidden = false; bdCard.focus();
   try { bdData = await rpc('order_get'); } catch (e) { toast(errText(e)); closeBoard(); return; }
   if (bdOpen) renderBoard();
 }
-function closeBoard() { bdOpen = false; bdEl.hidden = true; }
+function closeBoard() { bdOpen = false; bdEl.hidden = true; scgReset(); }
 function renderBoard() {
+  if (bdTab === 'story' && scgPlaying()) { bdCard.innerHTML = scgPlayHtml(); scgAfter(bdCard); return; }   // 重播中：整張卡片換成 CG＋對白
   let h = '<div class="shop-h"><h2>布告欄</h2><span class="chip gold">' + (me ? me.coins : 0) + ' G</span></div>' +
     '<div class="v-quick" style="margin:6px 0">' + [['order', '每週委託'], ['story', '村莊故事']].map(([k, n]) =>
       '<button type="button" class="chipbtn" data-a="tab" data-c="' + k + '" aria-pressed="' + (bdTab === k ? 'true' : 'false') + '">' + n + '</button>').join('') + '</div>';
@@ -26,12 +27,13 @@ function renderBoard() {
       }).join('');
   }
   bdCard.innerHTML = h + '<button type="button" class="btn ghost wide" data-a="close">離開</button>';
+  scgAfter(bdCard);   // 畫回憶相簿的縮圖
 }
 function renderStory() {
   if (!stData) return '<p class="empty">讀取中…</p>';
   const d = stData.done | 0, chs = stData.chapters || [], cur = chs.find(c => c.ch === d + 1);
-  let h = '<p class="empty">雷克斯小村的故事共 ' + chs.length + ' 章，進度 ' + d + '/' + chs.length + '。到村子裡找對應的村民對話、交付物品，故事就會繼續。頭上有「!」的人有事找你。</p>';
-  chs.filter(c => c.ch <= d).forEach(c => { h += '<div class="row"><div class="meta"><b>✓ 第 ' + c.ch + ' 章：' + esc(c.title) + '</b><small>' + esc(c.intro) + '</small></div></div>'; });
+  let h = '<p class="empty">雷克斯小村的故事共 ' + chs.length + ' 章，進度 ' + d + '/' + chs.length + '。到村子裡找對應的村民對話、交付物品，故事就會繼續。頭上有「!」的人有事找你。' + (d > 0 ? '點一張回憶，就能重看那一章。' : '') + '</p>';
+  h += scgAlbumHtml(chs, d);   // 回憶相簿（js/story-cg.js）
   if (!cur) return h + '<p class="empty">目前的故事都完成了，之後還會有新章節！</p>';
   const nq = NPCS.find(q => q.k === cur.npc), lock = plv() < cur.pl;
   h += '<div class="row"><div class="meta"><b>第 ' + cur.ch + ' 章：' + esc(cur.title) + '</b><small>' + esc(cur.intro) + '</small><small>' +
@@ -42,6 +44,7 @@ bdCard.addEventListener('click', async e => {
   const b = e.target.closest('button[data-a]');
   if (!b || b.disabled) return;
   if (b.dataset.a === 'close') { closeBoard(); return; }
+  if (b.dataset.a.indexOf('scg') === 0) { if (scgClick(b.dataset.a, b.dataset.c)) renderBoard(); return; }   // 故事重播（只在本機演，不寫伺服器）
   if (b.dataset.a === 'tab') {
     bdTab = b.dataset.c; renderBoard();
     if (bdTab === 'story') { try { stData = await rpc('story_get'); } catch (err) { toast(errText(err)); } if (bdOpen) renderBoard(); }

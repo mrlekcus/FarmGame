@@ -143,7 +143,7 @@ async function openNpc(i) {
   }
   dg.i = 0; if (dgOpen) renderDlg();
 }
-function closeDlg() { dgOpen = false; dgEl.hidden = true; dg = null; }
+function closeDlg() { dgOpen = false; dgEl.hidden = true; dg = null; scgSt.beat = -1; }
 function renderDlg() {
   if (!dg) return;
   if (!dg.lines.length) { dgCard.innerHTML = '<p class="empty">讀取中…</p>'; return; }
@@ -162,12 +162,14 @@ function renderDlg() {
   } else btn = (dg.mode === 'chat' && SEED_NPC[dg.npc.k] ? '<button type="button" class="btn wide" data-a="seed"' + dis + '>用採集物換種子</button>' : '') +
     '<button type="button" class="btn' + (dg.mode === 'chat' && SEED_NPC[dg.npc.k] ? ' ghost' : '') + ' wide" data-a="close">' + (dg.mode === 'outro' ? '完成' : '再見') + '</button>';
   dgCard.innerHTML = '<div class="shop-h"><h2>' + esc(sp.n) + '</h2>' + (dg.mode === 'quest' ? '<span class="chip">第 ' + dg.cur.ch + ' 章：' + esc(dg.cur.title) + '</span>' : '') + '</div>' +
+    (dg.cur && (dg.mode === 'quest' || dg.mode === 'outro') ? scgCanvas(dg.cur.ch - 1) : '') +   // 章節對話：上面多一幅劇情 CG（js/story-cg.js）
     '<div style="display:flex;gap:12px;align-items:flex-start;margin:8px 0">' +
     (me_ ? '<canvas width="16" height="22" data-me="1" style="width:64px;height:88px;flex:none;image-rendering:pixelated"></canvas>' : '<canvas width="16" height="20" data-npc="' + sp.k + '" style="width:64px;height:80px;flex:none;image-rendering:pixelated"></canvas>') +
     '<p style="margin:0;font-size:16px;line-height:1.7;min-height:80px">' + esc(ln.t) + '</p></div>' +
     '<small class="empty">' + (dg.i + 1) + ' / ' + dg.lines.length + '</small>' + btn;
   dgCard.querySelectorAll('canvas[data-npc]').forEach(cv => npcIcon(cv.getContext('2d'), cv.dataset.npc));
   dgCard.querySelectorAll('canvas[data-me]').forEach(cv => { const c2 = cv.getContext('2d'); c2.clearRect(0, 0, 16, 22); g = c2; try { drawPlayer(0, 6, 'down', false, 0, myChar()); } catch (e) { /* 略過 */ } g = ctx; });
+  const scv = dgCard.querySelector('canvas[data-scg]'); if (scv) scgRun(scv, +scv.dataset.scg);
 }
 dgCard.addEventListener('click', async e => {
   const b = e.target.closest('button[data-a]'); if (!b || b.disabled || !dg) return;
