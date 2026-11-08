@@ -119,6 +119,7 @@ function act() {
     else if (hit && hit.k === 'petbowl' && !edit.on) { if (visiting) petVisitFeed(hit); else petBowlAct(); }   // 面向飯碗按動作鍵＝倒飼料進去
     else if (hit && /^pettoy/.test(hit.k) && !edit.on) { if (visiting) petVisitPlay(hit); else petPlayAt(hit); }   // 面向玩具按動作鍵＝叫寵物過去玩
     else if (hit && hit.k === 'tv' && !edit.on) openTv(hit);
+    else if (hit && hit.k === 'shelf' && !edit.on) shelfAct();   // 書櫃：看圖鑑（朋友家 = 屋主的圖鑑），見 dex-visit.js
     else if (hit && DISP[hit.k]) { if (visiting) visitShowList(hit); else openDisplay(hit.id); }
     else if (hit && hit.k === 'kitchen' && !edit.on) { ckAnchor = { id: hit.id, fx: x, fy: y, at: visiting ? visiting.uid : null }; openKitchen(); }
     else if (hit && STYLER[hit.k] && !edit.on && (!visiting || hit.k === 'mirror')) openMaker(false);

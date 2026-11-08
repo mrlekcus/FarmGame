@@ -33,6 +33,8 @@ function renderDisplay() {
     if (!k) c2d.clearRect(0, 0, 16, 16); else if (isFish) drawFish(c2d, k, false); else drawBug(c2d, k, false);
   });
 }
+/* 魚缸／標本架換展示品的錯誤訊息（伺服器沒有同名訊息時補上） */
+Object.entries({ dup_display: '這一件已經放在別層了', bad_slot: '沒有這一層' }).forEach(([k, v]) => { if (!(k in ERR)) ERR[k] = v; });
 function setDisplay(id, slot, key) {
   const it = house.items.find(i => i.id === id), dd = it && DISP[it.k];
   if (!dd || slot < 0 || slot >= dd.n) return;

@@ -1296,3 +1296,14 @@ body.imm .camhint{display:block}
 .lkr .bar{display:block;height:5px;border-radius:3px;background:#efe6d6;margin-top:4px;overflow:hidden}.lkr .bar i{display:block;height:100%;background:var(--pink-deep)}
 .lkr .pg{font-size:11px;color:var(--pink-deep);flex:none;font-weight:700}
 .lkc,.lkl{flex:none}
+
+.mk-sets{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px}
+.mk-set{background:#fff;border:2px solid var(--edge);border-radius:14px;padding:6px 4px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:4px;font:700 11.5px/1.25 var(--f-display);color:var(--ink)}
+.mk-setpv{width:44px;height:61px;display:grid;place-items:center}
+.mk-setpv canvas{width:44px;height:61px;image-rendering:pixelated;display:block}
+.mk-setpv .mk-none{font-size:22px;color:var(--muted)}
+.mk-setbtns{display:flex;flex-direction:column;gap:4px;width:100%}
+
+/* 書櫃：看朋友的圖鑑，朋友有、我還沒有的格子 */
+.dexc.lack{box-shadow:0 0 0 2px #ffd34d}
+.dxlack{color:#d9822b!important;font-weight:700}

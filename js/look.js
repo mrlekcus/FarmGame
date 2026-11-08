@@ -14,7 +14,7 @@ const myChar = () => toChar(me && me.name, me && me.look);
 /* 衣櫥側欄：左邊分類、右邊縮圖；沒買到的款式與顏色完全不顯示 */
 const MK_TABS = [
   { id: 'style', ic: '💇', n: '髮型' }, { id: 'hat', ic: '🎩', n: '帽子' }, { id: 'glass', ic: '👓', n: '眼鏡' },
-  { id: 'fits', ic: '👕', n: '衣服' }, { id: 'body', ic: '🧑', n: '身體' }
+  { id: 'fits', ic: '👕', n: '衣服' }, { id: 'sets', ic: '🗂️', n: '穿搭' }, { id: 'body', ic: '🧑', n: '身體' }
 ];
 let mkTab = 'fits';
 const mkSplit = $('mk-split');
@@ -29,7 +29,7 @@ const mkCell = (k, i, name, on) => '<button type="button" class="mk-cell" data-k
   '<span>' + esc(name) + '</span></button>';
 const mkSw = (k, cols, idxs, label) => idxs.map(i => '<button type="button" class="sw" data-k="' + k + '" data-i="' + i + '" style="--c:' + cols[i] + '" aria-pressed="' + (draft[k] === i) + '" aria-label="' + label + ' ' + (i + 1) + '"></button>').join('');
 function renderMakerPanel() {
-  mkSplit.innerHTML = '<div class="mk-rail">' + MK_TABS.map(t => '<button type="button" class="mk-ri" data-tab="' + t.id + '" aria-pressed="' + (t.id === mkTab) + '"><b>' + t.ic + '</b>' + t.n + '</button>').join('') + '</div><div class="mk-main"></div>';
+  mkSplit.innerHTML = '<div class="mk-rail">' + MK_TABS.filter(t => t.id !== 'sets' || !firstTime).map(t => '<button type="button" class="mk-ri" data-tab="' + t.id + '" aria-pressed="' + (t.id === mkTab) + '"><b>' + t.ic + '</b>' + t.n + '</button>').join('') + '</div><div class="mk-main"></div>';
   const m = mkSplit.querySelector('.mk-main');
   let h = '';
   if (mkTab === 'style') {
@@ -51,21 +51,77 @@ function renderMakerPanel() {
       (paid ? '<div class="mk-prog"><i style="width:' + Math.round(cols.length / OUTFITS.length * 100) + '%"></i></div>' : '') +
       '<div class="sws">' + mkSw('outfit', OUTFITS, cols, '衣服顏色') + '</div>' +
       (paid ? '<div class="mk-hint">' + (cols.length >= OUTFITS.length ? '✅ 已集滿，獲得「' + esc(FITS[f]) + '收藏家」成就' : '集滿 ' + OUTFITS.length + ' 色可得「' + esc(FITS[f]) + '收藏家」成就') + '</div>' : '') + '</div>';
+  } else if (mkTab === 'sets') {
+    h = setsHtml();
   } else {
     h = '<div class="mk-sec"><span class="optlabel">性別</span><div class="chips">' + GENDERS.map((n, i) => '<button type="button" class="cb" data-k="gender" data-i="' + i + '" aria-pressed="' + (draft.gender === i) + '">' + n + '</button>').join('') + '</div></div>' +
       '<div class="mk-sec"><span class="optlabel">膚色</span><div class="sws">' + mkSw('skin', SKINS, SKINS.map((_, i) => i), '膚色') + '</div></div>';
   }
   m.innerHTML = h;
+  m.querySelectorAll('canvas[data-set]').forEach(cv => {
+    const sv = lookSets && lookSets[+cv.dataset.set], c2 = cv.getContext('2d'); c2.clearRect(0, 0, 16, 22); if (!sv) return;
+    g = c2;
+    try { drawPlayer(0, 6, 'down', false, 0, { ...draft, ...sv }); } catch (e) { /* 略過 */ }
+    g = ctx;
+  });
   m.querySelectorAll('canvas[data-k]').forEach(cv => {
     const c2 = cv.getContext('2d'); c2.clearRect(0, 0, 16, 22); g = c2;
     try { drawPlayer(0, 6, 'down', false, 0, { ...draft, [cv.dataset.k]: +cv.dataset.i }); } catch (e) { /* 略過 */ }
     g = ctx;
   });
 }
+/* 穿搭存檔：衣櫥裡存 3 套造型（髮型、髮色、帽子、眼鏡、衣服、衣服顏色；不含性別和膚色），存在伺服器 look_presets。
+   「穿上」只是套到目前的預覽，按「完成」才真的換裝；沒買到的款式伺服器不會讓你存成目前造型（_look_guard 照常檢查）。 */
+const SET_KEYS = ['style', 'hair', 'hat', 'hatc', 'glass', 'glassc', 'fits', 'outfit'];
+let lookSets = null, lookSetsBusy = false;
+function setsFrom(r) {
+  const out = {};
+  if (r && typeof r === 'object') for (const k in r) { const n = +k, v = r[k]; if (n >= 1 && n <= 3 && v && typeof v === 'object') { const c = {}; SET_KEYS.forEach(key => { if (Number.isInteger(v[key]) && v[key] >= 0 && v[key] < LIMIT[key]) c[key] = v[key]; }); out[n] = c; } }
+  return out;
+}
+async function loadLookSets() {
+  if (lookSetsBusy) return;
+  lookSetsBusy = true;
+  try { lookSets = setsFrom(await withTimeout(rpc('look_preset_list'), 15000)); }
+  catch (e) { lookSets = {}; mkMsg(errText(e)); }
+  lookSetsBusy = false;
+  if (makerOpen && mkTab === 'sets') renderMakerPanel();
+}
+function setsHtml() {
+  if (lookSets === null) { loadLookSets(); return '<p class="empty">讀取中…</p>'; }
+  let h = '<div class="mk-sec"><span class="optlabel">穿搭存檔</span><div class="mk-sets">';
+  for (let n = 1; n <= 3; n++) {
+    const sv = lookSets[n];
+    h += '<div class="mk-set"><div class="mk-setpv">' + (sv ? '<canvas width="16" height="22" data-set="' + n + '"></canvas>' : '<div class="mk-none">＋</div>') + '</div><b>穿搭 ' + n + '</b><div class="mk-setbtns">' +
+      (sv ? '<button type="button" class="btn small" data-sa="use" data-n="' + n + '">穿上</button>' : '') +
+      '<button type="button" class="btn small ghost" data-sa="save" data-n="' + n + '">' + (sv ? '覆蓋' : '存入目前') + '</button>' +
+      (sv ? '<button type="button" class="btn small ghost" data-sa="clear" data-n="' + n + '">清空</button>' : '') + '</div></div>';
+  }
+  return h + '</div></div><div class="mk-hint">先在其他分頁搭好，再回來按「存入目前」。「穿上」之後要按「完成」才會換裝</div>';
+}
+async function setsAct(a, n) {
+  if (!draft || lookSetsBusy || !(n >= 1 && n <= 3)) return;
+  if (a === 'use') {
+    const sv = lookSets && lookSets[n];
+    if (!sv) return;
+    Object.assign(draft, sv); mkMsg(''); syncMaker();
+    return;
+  }
+  const look = a === 'clear' ? null : (() => { const c = {}; SET_KEYS.forEach(k => { c[k] = draft[k] | 0; }); return c; })();
+  lookSetsBusy = true; mkMsg('');
+  try {
+    lookSets = setsFrom(await withTimeout(enqueue(() => rpc('look_preset_save', { p_slot: n, p_look: look })), 20000));
+    mkMsg(a === 'clear' ? '已清空穿搭 ' + n : '已存入穿搭 ' + n);
+  } catch (e) { mkMsg(errText(e)); }
+  lookSetsBusy = false;
+  renderMakerPanel();
+}
 mkSplit.addEventListener('click', e => {
   if (!draft) return;
   const t = e.target.closest('button[data-tab]');
   if (t) { mkTab = t.dataset.tab; renderMakerPanel(); return; }
+  const sa_ = e.target.closest('button[data-sa]');
+  if (sa_) { setsAct(sa_.dataset.sa, +sa_.dataset.n); return; }
   const b = e.target.closest('button[data-k]');
   if (!b) return;
   draft[b.dataset.k] = +b.dataset.i; syncMaker();
@@ -99,7 +155,7 @@ function syncMaker() {
 }
 function openMaker(first) {
   if (shopOpen || makerOpen) return;
-  makerOpen = true; firstTime = first; pressed.length = 0;
+  makerOpen = true; firstTime = first; pressed.length = 0; lookSets = null;
   draft = first ? { ...DEF_CHAR, name: '' } : myChar();
   $('mk-name').value = draft.name === DEF_CHAR.name && first ? '' : draft.name;
   $('mk-cancel').hidden = first;

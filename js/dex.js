@@ -30,7 +30,13 @@ function dexMini(f, isBug) {
 /* ---------- 圖鑑品質 1～5 星：只記在圖鑑（最高星），背包物品不分星級、賣價不變 ---------- */
 const STAR_N = ['', '普通', '不錯', '優良', '極品', '傳說'];
 const starKey = (kind, key) => kind + ':' + key;
-const starBest = (kind, key) => starLog[starKey(kind, key)] | 0;
+/* 看朋友的圖鑑（書櫃）：dexSrc = { uid, name, fish, bug, cook, star }（朋友解鎖了哪些、每種最高幾星；不含數量）；自己的圖鑑是 null */
+let dexSrc = null, dexShelf = null, dexMiss = false;   // dexShelf = { open }：從自己家的書櫃打開時，可以切換要不要開放給朋友看；dexMiss = 只看「我還沒有」的
+const dexFish = () => dexSrc ? dexSrc.fish : fishLog, dexBug = () => dexSrc ? dexSrc.bug : bugLog, dexCook = () => dexSrc ? dexSrc.cook : cookLog;
+const starBest = (kind, key) => (dexSrc ? dexSrc.star : starLog)[starKey(kind, key)] | 0;
+const dexTitle = t => dexSrc ? esc(dexSrc.name) + ' 的' + t : t;
+const dexNo = t => dexSrc ? '屋主' + t : t;   // 還沒抓到／釣到／煮過／收成過
+const noStarText = verb => dexSrc ? '屋主還沒有品質紀錄' : '還沒有品質紀錄（再' + verb + '一次就會記下）';
 const starsHtml = (n, tot) => { n = Math.max(0, Math.min(5, n | 0)); tot = tot || 5; let o = ''; for (let i = 1; i <= tot; i++) o += '<s class="' + (i <= n ? 'on' : '') + '">★</s>'; return '<span class="stars" aria-label="' + n + ' 星">' + o + '</span>'; };
 const starsText = n => '★'.repeat(Math.max(0, Math.min(5, n | 0))) + '☆'.repeat(5 - Math.max(0, Math.min(5, n | 0)));
 /* 釣到／抓到／煮出後，請伺服器擲這一次的星級（伺服器擲骰，只收等級當加成），回傳 { star, best, up }；舊伺服器沒有這個函式就當作沒有星級 */
@@ -172,14 +178,14 @@ const dexdCard = dexdEl.firstChild;
 function closeDexDetail() { dexSel = null; dexdEl.hidden = true; }
 /* 點開某一格：只有解鎖過（釣到／抓到過）的才看得到所有資料 */
 function openDexDetail(key, isBug) {
-  const cat = isBug ? bugCat : fishCat, log = isBug ? bugLog : fishLog, f = cat.find(x => x.key === key);
+  const cat = isBug ? bugCat : fishCat, log = isBug ? dexBug() : dexFish(), f = cat.find(x => x.key === key);
   if (!f || !((log[key] | 0) > 0)) return;
   dexSel = { bug: isBug, key };
   const rc = RARITY[f.rarity] || ['', '#a8a0a0'], n = log[key] | 0, sea = !isBug && habitatOf(f) !== 'fresh';
-  const c = dexCond(f, isBug), rec = !isBug && fishRec[key] ? fishRec[key].best : 0;
+  const c = dexCond(f, isBug), rec = !isBug && !dexSrc && fishRec[key] ? fishRec[key].best : 0;
   const cm = !isBug && f.min_cm !== undefined ? f.min_cm + '～' + f.max_cm + ' cm' : (!isBug && FISH_SZ[key] ? FISH_SZ[key] : '');
   const head = '<div class="dxh"><canvas width="16" height="16" ' + (isBug ? 'data-bug' : 'data-fish') + '="' + esc(key) + '"></canvas><div><div class="dxn">' + esc(f.name) +
-    '<span class="dxt" style="color:' + rc[1] + ';border-color:' + rc[1] + '">' + rc[0] + '</span></div><small>' + f.price + ' G' + (cm ? ' · ' + cm : '') + ' · ' + (isBug ? '抓到' : '釣到') + ' ×' + dexN(n) + (rec ? ' · 最大 ' + rec + ' cm' : '') + '</small></div></div>';
+    '<span class="dxt" style="color:' + rc[1] + ';border-color:' + rc[1] + '">' + rc[0] + '</span></div><small>' + f.price + ' G' + (cm ? ' · ' + cm : '') + (dexSrc ? '' : ' · ' + (isBug ? '抓到' : '釣到') + ' ×' + dexN(n) + (rec ? ' · 最大 ' + rec + ' cm' : '')) + '</small></div></div>';
   let rows = '';
   if (sea) {
     rows = '<div class="dxr"><span>地點</span><span class="dxch">' + (habitatOf(f) === 'mystery' ? '神秘路線限定' : '出海團的海釣') + '</span></div>';
@@ -194,14 +200,15 @@ function openDexDetail(key, isBug) {
       (c.lv > 1 ? '<div class="dxr"><span>等級</span><span class="dxch">Lv.' + c.lv + ' 以上</span></div>' : '');
   }
   const sb = starBest(isBug ? 'bug' : 'fish', key);
-  rows = '<div class="dxr"><span>品質</span><div style="flex:1">' + (sb ? starsHtml(sb) + ' <small>最高 ★' + sb + '・' + STAR_N[sb] + '</small>' : '<small>還沒有品質紀錄（再' + (isBug ? '抓' : '釣') + '一次就會記下）</small>') + '</div></div>' + rows;
-  dexdCard.innerHTML = head + rows + '<button type="button" class="btn ghost wide" data-a="dclose">關閉</button>';
+  rows = '<div class="dxr"><span>品質</span><div style="flex:1">' + (sb ? starsHtml(sb) + ' <small>最高 ★' + sb + '・' + STAR_N[sb] + '</small>' : '<small>' + noStarText(isBug ? '抓' : '釣') + '</small>') + '</div></div>' + rows;
+  dexdCard.innerHTML = head + rows + dexMineRow(isBug ? 'bug' : 'fish', key) + '<button type="button" class="btn ghost wide" data-a="dclose">關閉</button>';
   dexdEl.hidden = false; dexdCard.focus();
   dexdCard.querySelectorAll('canvas[data-fish]').forEach(cv => drawFish(cv.getContext('2d'), cv.dataset.fish, false));
   dexdCard.querySelectorAll('canvas[data-bug]').forEach(cv => drawBug(cv.getContext('2d'), cv.dataset.bug, false));
 }
 /* ---------- 料理圖鑑：煮過的料理才看得到名字和效果（煮過的次數存在伺服器 cook_log） ---------- */
-const dishDone = k => (cookLog[k] | 0) > 0 || have('dish:' + k) > 0;
+const dishDoneMine = k => (cookLog[k] | 0) > 0 || have('dish:' + k) > 0;
+const dishDone = k => dexSrc ? (dexSrc.cook[k] | 0) > 0 : dishDoneMine(k);
 function dexTabsHtml() {
   return '<div class="v-quick" style="margin:6px 0">' + [['fish', '淡水'], ['sea', '海釣'], ['bug', '蟲與蝴蝶'], ['dish', '料理'], ['crop', '作物']].map(([k, n]) =>
     '<button type="button" class="chipbtn" data-a="tab" data-c="' + k + '" aria-pressed="' + (dexTab === k ? 'true' : 'false') + '">' + n + '</button>').join('') + '</div>';
@@ -209,33 +216,33 @@ function dexTabsHtml() {
 function renderDishDex() {
   const list = recipes.slice().sort((a, b) => (a.price - b.price) || (a.key < b.key ? -1 : 1));
   const found = list.filter(rc => dishDone(rc.key)).length, total = list.reduce((t, rc) => t + (cookLog[rc.key] | 0), 0);
-  const cells = list.map(rc => {
-    const n = cookLog[rc.key] | 0, ok = dishDone(rc.key), T_ = ckTier(rc);
-    return '<div class="dexc ' + (ok ? 'yes' : 'no') + '"' + (ok ? ' role="button" tabindex="0" data-d="' + esc(rc.key) + '" data-r="1"' : '') + ' style="' + (ok ? 'border-color:#f0b27a' : '') + '">' +
+  const cells = list.filter(rc => dexKeep('dish', rc.key)).map(rc => {
+    const n = dexCook()[rc.key] | 0, ok = dishDone(rc.key), T_ = ckTier(rc), lack = dexLack('dish', rc.key);
+    return '<div class="dexc ' + (ok ? 'yes' : 'no') + (lack ? ' lack' : '') + '"' + (ok ? ' role="button" tabindex="0" data-d="' + esc(rc.key) + '" data-r="1"' : '') + ' style="' + (ok ? 'border-color:#f0b27a' : '') + '">' +
       '<canvas width="16" height="16" data-dish="' + esc(rc.key) + '"' + (ok ? '' : ' data-dim="1"') + '></canvas>' +
       '<small><b>' + (ok ? esc(rc.name) : '？？？') + '</b></small>' +
-      (ok ? '<small style="color:#a8744a">' + rc.price + ' G' + (rc.buff ? ' · ' + (BUFF_I[rc.buff] || '') + ' ' + (rc.min | 0) + '分' : '') + '</small><small>煮過 ×' + dexN(Math.max(n, 1)) + '</small>' + (starBest('dish', rc.key) ? starsHtml(starBest('dish', rc.key)) : '<span class="stars none">☆☆☆☆☆</span>')
-          : '<small style="color:#bdada5">還沒煮過</small><small style="color:#bdada5">烹飪 Lv.' + T_ + '</small>') + '</div>';
+      (ok ? '<small style="color:#a8744a">' + rc.price + ' G' + (rc.buff ? ' · ' + (BUFF_I[rc.buff] || '') + ' ' + (rc.min | 0) + '分' : '') + '</small>' + (dexSrc ? (lack ? '<small class="dxlack">你還沒有</small>' : '') : '<small>煮過 ×' + dexN(Math.max(n, 1)) + '</small>') + (starBest('dish', rc.key) ? starsHtml(starBest('dish', rc.key)) : '<span class="stars none">☆☆☆☆☆</span>')
+          : '<small style="color:#bdada5">' + dexNo('還沒煮過') + '</small><small style="color:#bdada5">烹飪 Lv.' + T_ + '</small>') + '</div>';
   }).join('');
-  dexCard.innerHTML = '<div class="shop-h"><h2>料理圖鑑</h2><span class="chip">' + found + '/' + list.length + '</span></div>' + dexTabsHtml() +
-    '<div class="row"><div class="meta" style="min-width:0"><b>我的料理紀錄</b><small>累計煮出 ' + total + ' 份 · 煮過一次就會解鎖名字、材料和 buff</small></div></div>' +
+  dexCard.innerHTML = '<div class="shop-h"><h2>' + dexTitle('料理圖鑑') + '</h2><span class="chip">' + found + '/' + list.length + '</span></div>' + dexTabsHtml() + dexTopRows('dish', list.map(x => x.key)) +
+    (dexSrc ? '' : '<div class="row"><div class="meta" style="min-width:0"><b>我的料理紀錄</b><small>累計煮出 ' + total + ' 份 · 煮過一次就會解鎖名字、材料和 buff</small></div></div>') +
     (function () { const c_ = starCount('dish', list.map(x => x.key)); return '<div class="row"><div class="meta" style="min-width:0"><b>料理品質</b><small>★5 收集 ' + c_.five + '/' + c_.tot + ' · 有星級紀錄 ' + c_.any + '/' + c_.tot + '（煮的時候零失誤、烹飪等級越高越容易出高星）</small></div></div>'; })() +
-    '<div class="row"><div class="meta" style="min-width:0"><b>圖鑑成就</b><small>集滿一半、全收集、所有甜點烘焙都煮過、累計 100 份，都有名片成就</small></div></div>' +
-    (list.length ? '<div class="dex" style="grid-template-columns:repeat(auto-fill,minmax(92px,1fr))">' + cells + '</div>' : '<p class="empty">還沒有食譜。</p>') +
+    (dexSrc ? '' : '<div class="row"><div class="meta" style="min-width:0"><b>圖鑑成就</b><small>集滿一半、全收集、所有甜點烘焙都煮過、累計 100 份，都有名片成就</small></div></div>') +
+    (cells ? '<div class="dex" style="grid-template-columns:repeat(auto-fill,minmax(92px,1fr))">' + cells + '</div>' : '<p class="empty">' + (dexSrc && dexMiss ? '這一類沒有你還缺的東西。' : '還沒有食譜。') + '</p>') +
     '<button type="button" class="btn ghost wide" data-a="close">關閉</button>';
   dexCard.querySelectorAll('canvas[data-dish]').forEach(cv => { dishIcon(cv.getContext('2d'), cv.dataset.dish); if (cv.dataset.dim) cv.style.filter = 'brightness(0) opacity(.3)'; });
 }
 function openDishDetail(key) {
   const rc = recipes.find(x => x.key === key); if (!rc || !dishDone(key)) return;
   dexSel = { dish: true, key };
-  const n = Math.max(cookLog[key] | 0, 1), ing = Object.keys(rc.ing || {}).map(k => esc(itemName(k)) + ' ×' + rc.ing[k]).join('、');
+  const n = Math.max(dexCook()[key] | 0, 1), ing = Object.keys(rc.ing || {}).map(k => esc(itemName(k)) + ' ×' + rc.ing[k]).join('、');
   const bf = rc.buff ? '<div class="dxr"><span>效果</span><span class="dxch">' + (BUFF_I[rc.buff] || '') + ' ' + esc(BUFF_N[rc.buff] || rc.buff) + ' · ' + (rc.min | 0) + ' 分鐘</span></div>' +
     '<div class="dxr"><span></span><span style="font-size:12px;color:#8a7468">' + esc(BUFF_D[rc.buff] || '') + '</span></div>' : '';
-  dexdCard.innerHTML = '<div class="dxh"><canvas width="16" height="16" data-dish="' + esc(key) + '"></canvas><div><div class="dxn">' + esc(rc.name) + '</div><small>' + rc.price + ' G · 煮過 ×' + dexN(n) + '</small></div></div>' +
-    '<div class="dxr"><span>品質</span><div style="flex:1">' + (starBest('dish', key) ? starsHtml(starBest('dish', key)) + ' <small>最高 ★' + starBest('dish', key) + '・' + STAR_N[starBest('dish', key)] + '</small>' : '<small>還沒有品質紀錄（再煮一次就會記下）</small>') + '</div></div>' +
+  dexdCard.innerHTML = '<div class="dxh"><canvas width="16" height="16" data-dish="' + esc(key) + '"></canvas><div><div class="dxn">' + esc(rc.name) + '</div><small>' + rc.price + ' G' + (dexSrc ? '' : ' · 煮過 ×' + dexN(n)) + '</small></div></div>' +
+    '<div class="dxr"><span>品質</span><div style="flex:1">' + (starBest('dish', key) ? starsHtml(starBest('dish', key)) + ' <small>最高 ★' + starBest('dish', key) + '・' + STAR_N[starBest('dish', key)] + '</small>' : '<small>' + noStarText('煮') + '</small>') + '</div></div>' +
     '<div class="dxr"><span>材料</span><span class="dxch">' + ing + '</span></div>' + bf +
     '<div class="dxr"><span>難度</span><span class="dxch">烹飪 Lv.' + ckTier(rc) + '</span></div>' +
-    (rc.descr ? '<p class="empty" style="margin:6px 0">' + esc(rc.descr) + '</p>' : '') +
+    (rc.descr ? '<p class="empty" style="margin:6px 0">' + esc(rc.descr) + '</p>' : '') + dexMineRow('dish', key) +
     '<button type="button" class="btn ghost wide" data-a="dclose">關閉</button>';
   dexdEl.hidden = false; dexdCard.focus();
   dexdCard.querySelectorAll('canvas[data-dish]').forEach(cv => dishIcon(cv.getContext('2d'), cv.dataset.dish));
@@ -245,22 +252,23 @@ const CROP_SEEN_KEY = 'rexCropSeen';
 let cropSeen = {};
 try { cropSeen = JSON.parse(localStorage.getItem(CROP_SEEN_KEY) || '{}') || {}; } catch (e) { cropSeen = {}; }
 function cropMarkSeen(k) { if (cropSeen[k]) return; cropSeen[k] = 1; try { localStorage.setItem(CROP_SEEN_KEY, JSON.stringify(cropSeen)); } catch (e) { /* 略過 */ } }
-const cropFound = k => starBest('crop', k) > 0 || have('c:' + k) > 0 || !!cropSeen[k];
+const cropFoundMine = k => (starLog[starKey('crop', k)] | 0) > 0 || have('c:' + k) > 0 || !!cropSeen[k];
+const cropFound = k => dexSrc ? (dexSrc.star[starKey('crop', k)] | 0) > 0 : cropFoundMine(k);
 function renderCropDex() {
   const list = ALLK.filter(k => CROPS[k]);
   const found = list.filter(cropFound).length;
-  const cells = list.map(k => {
-    const ok = cropFound(k), c = CROPS[k], sb = starBest('crop', k);
-    return '<div class="dexc ' + (ok ? 'yes' : 'no') + '"' + (ok ? ' role="button" tabindex="0" data-d="' + esc(k) + '" data-r="2"' : '') + ' style="' + (ok ? 'border-color:' + c.c : '') + '">' +
+  const cells = list.filter(k => dexKeep('crop', k)).map(k => {
+    const ok = cropFound(k), c = CROPS[k], sb = starBest('crop', k), lack = dexLack('crop', k);
+    return '<div class="dexc ' + (ok ? 'yes' : 'no') + (lack ? ' lack' : '') + '"' + (ok ? ' role="button" tabindex="0" data-d="' + esc(k) + '" data-r="2"' : '') + ' style="' + (ok ? 'border-color:' + c.c : '') + '">' +
       '<canvas width="16" height="16" data-crop="' + esc(k) + '"' + (ok ? '' : ' data-dim="1"') + '></canvas>' +
       '<small><b>' + (ok ? esc(c.n) : '？？？') + '</b></small>' +
-      (ok ? '<small style="color:#a8744a">' + cropPrice(k) + ' G · ' + fmtDur(growSec(k)) + '</small>' + (sb ? starsHtml(sb) : '<span class="stars none">☆☆☆☆☆</span>')
-          : '<small style="color:#bdada5">還沒收成過</small><small style="color:#bdada5">' + (c.hy ? '雜交作物' : '雜貨攤有種子') + '</small>') + '</div>';
+      (ok ? '<small style="color:#a8744a">' + cropPrice(k) + ' G · ' + fmtDur(growSec(k)) + '</small>' + (lack ? '<small class="dxlack">你還沒有</small>' : '') + (sb ? starsHtml(sb) : '<span class="stars none">☆☆☆☆☆</span>')
+          : '<small style="color:#bdada5">' + dexNo('還沒收成過') + '</small><small style="color:#bdada5">' + (c.hy ? '雜交作物' : '雜貨攤有種子') + '</small>') + '</div>';
   }).join('');
   const c_ = starCount('crop', list);
-  dexCard.innerHTML = '<div class="shop-h"><h2>作物圖鑑</h2><span class="chip">' + found + '/' + list.length + '</span></div>' + dexTabsHtml() +
+  dexCard.innerHTML = '<div class="shop-h"><h2>' + dexTitle('作物圖鑑') + '</h2><span class="chip">' + found + '/' + list.length + '</span></div>' + dexTabsHtml() + dexTopRows('crop', list) +
     '<div class="row"><div class="meta" style="min-width:0"><b>作物品質</b><small>★5 收集 ' + c_.five + '/' + c_.tot + ' · 有星級紀錄 ' + c_.any + '/' + c_.tot + '（農耕等級越高、收成前施過肥，越容易收到高星）</small></div></div>' +
-    '<div class="dex" style="grid-template-columns:repeat(auto-fill,minmax(92px,1fr))">' + cells + '</div>' +
+    (cells ? '<div class="dex" style="grid-template-columns:repeat(auto-fill,minmax(92px,1fr))">' + cells + '</div>' : '<p class="empty">' + (dexSrc && dexMiss ? '這一類沒有你還缺的東西。' : '還沒有資料。') + '</p>') +
     '<button type="button" class="btn ghost wide" data-a="close">關閉</button>';
   dexCard.querySelectorAll('canvas[data-crop]').forEach(cv => { cropIcon(cv.getContext('2d'), cv.dataset.crop); if (cv.dataset.dim) cv.style.filter = 'brightness(0) opacity(.3)'; });
 }
@@ -269,31 +277,51 @@ function openCropDetail(key) {
   dexSel = { crop: true, key };
   const sb = starBest('crop', key);
   dexdCard.innerHTML = '<div class="dxh"><canvas width="16" height="16" data-crop="' + esc(key) + '"></canvas><div><div class="dxn">' + esc(c.n) + '</div><small>' + cropPrice(key) + ' G · ' + fmtDur(growSec(key)) + '成熟</small></div></div>' +
-    '<div class="dxr"><span>品質</span><div style="flex:1">' + (sb ? starsHtml(sb) + ' <small>最高 ★' + sb + '・' + STAR_N[sb] + '</small>' : '<small>還沒有品質紀錄（再收成一次就會記下）</small>') + '</div></div>' +
+    '<div class="dxr"><span>品質</span><div style="flex:1">' + (sb ? starsHtml(sb) + ' <small>最高 ★' + sb + '・' + STAR_N[sb] + '</small>' : '<small>' + noStarText('收成') + '</small>') + '</div></div>' +
     '<div class="dxr"><span>成熟</span><span class="dxch">' + fmtDur(growSec(key)) + '（晴天要澆水，雨雪天免澆）</span></div>' +
     '<div class="dxr"><span>種子</span><span class="dxch">' + (c.hy ? '雜交或和村民交換' : '雜貨攤 ' + c.buy + ' G') + '</span></div>' +
-    '<p class="empty" style="margin:6px 0">農耕等級越高、收成前先施肥，越容易收到高星。星級只記在圖鑑，背包裡的作物不分星級、賣價不變。</p>' +
+    '<p class="empty" style="margin:6px 0">農耕等級越高、收成前先施肥，越容易收到高星。星級只記在圖鑑，背包裡的作物不分星級、賣價不變。</p>' + dexMineRow('crop', key) +
     '<button type="button" class="btn ghost wide" data-a="dclose">關閉</button>';
   dexdEl.hidden = false; dexdCard.focus();
   dexdCard.querySelectorAll('canvas[data-crop]').forEach(cv => cropIcon(cv.getContext('2d'), cv.dataset.crop));
+}
+/* ---------- 看朋友的圖鑑：跟自己的對照 ---------- */
+const dexMineHas = (kind, key) => kind === 'fish' ? (fishLog[key] | 0) > 0 : kind === 'bug' ? (bugLog[key] | 0) > 0 : kind === 'dish' ? dishDoneMine(key) : cropFoundMine(key);
+const dexFriendHas = (kind, key) => kind === 'fish' ? (dexSrc.fish[key] | 0) > 0 : kind === 'bug' ? (dexSrc.bug[key] | 0) > 0 : kind === 'dish' ? (dexSrc.cook[key] | 0) > 0 : (dexSrc.star[starKey('crop', key)] | 0) > 0;
+const dexLack = (kind, key) => !!dexSrc && dexFriendHas(kind, key) && !dexMineHas(kind, key);   // 朋友有、我還沒有
+const dexKeep = (kind, key) => !(dexSrc && dexMiss) || dexLack(kind, key);
+function dexMineRow(kind, key) {   // 詳情頁最下面：我自己這一種的狀況
+  if (!dexSrc) return '';
+  const has = dexMineHas(kind, key), sb = starLog[starKey(kind, key)] | 0, verb = { fish: '釣到', bug: '抓到', dish: '煮過', crop: '收成過' }[kind];
+  return '<div class="dxr"><span>你</span><div style="flex:1">' + (has ? '<small>你' + verb + '了</small> ' + (sb ? starsHtml(sb) + ' <small>最高 ★' + sb + '</small>' : '') : '<small style="color:#d9822b;font-weight:700">你還沒' + verb + '，照上面的資料去找吧</small>') + '</div></div>';
+}
+function dexTopRows(kind, keys) {   // 分頁下面那一列：看朋友的圖鑑 = 對照＋「只看我沒有的」；自己家書櫃打開的 = 開放給朋友看的開關
+  if (dexSrc) {
+    const fr = keys.filter(k => dexFriendHas(kind, k)).length, mine = keys.filter(k => dexMineHas(kind, k)).length, lack = keys.filter(k => dexLack(kind, k)).length;
+    return '<div class="row" style="flex-wrap:wrap;gap:6px"><div class="meta" style="min-width:0"><b>' + esc(dexSrc.name) + ' ' + fr + '/' + keys.length + ' · 你 ' + mine + '/' + keys.length + '</b><small>' + (lack ? '有 ' + lack + ' 種是你還沒有的，點進去看怎麼取得' : '這一類朋友有的你都有了') + '</small></div>' +
+      '<button type="button" class="chipbtn" data-a="miss" aria-pressed="' + (dexMiss ? 'true' : 'false') + '">只看我沒有的</button></div>';
+  }
+  if (dexShelf) return '<div class="row" style="flex-wrap:wrap;gap:6px"><div class="meta" style="min-width:0"><b>開放給朋友看</b><small>朋友到你家按書櫃，可以看到你解鎖了哪些、最高幾星（看不到數量）</small></div>' +
+    '<button type="button" class="chipbtn" data-a="share" aria-pressed="' + (dexShelf.open ? 'true' : 'false') + '"' + (dexShelf.busy ? ' disabled' : '') + '>' + (dexShelf.open ? '已開放' : '沒開放') + '</button></div>';
+  return '';
 }
 function renderDex() {
   if (dexTab === 'dish') { renderDishDex(); return; }
   if (dexTab === 'crop') { renderCropDex(); return; }
   const isBug = dexTab === 'bug', isSea = dexTab === 'sea';
-  const cat = isBug ? bugCat : fishCat.filter(f => (habitatOf(f) !== 'fresh') === isSea), log = isBug ? bugLog : fishLog;   // 淡水／海釣兩個分頁（海釣 = 出海團的魚）
+  const cat = isBug ? bugCat : fishCat.filter(f => (habitatOf(f) !== 'fresh') === isSea), log = isBug ? dexBug() : dexFish();   // 淡水／海釣兩個分頁（海釣 = 出海團的魚）
   const found = cat.filter(f => (log[f.key] | 0) > 0).length;
   const order = { legend: 0, rare: 1, uncommon: 2, common: 3, junk: 4 };
   const list = cat.slice().sort((a, b) => (order[a.rarity] - order[b.rarity]) || (b.price - a.price));
   const dat = isBug ? 'data-bug' : 'data-fish';
-  const cells = list.map(f => {
-    const n = log[f.key] | 0, rc = RARITY[f.rarity] || ['', '#a8a0a0'];
+  const cells = list.filter(f => dexKeep(isBug ? 'bug' : 'fish', f.key)).map(f => {
+    const n = log[f.key] | 0, rc = RARITY[f.rarity] || ['', '#a8a0a0'], lack = dexLack(isBug ? 'bug' : 'fish', f.key);
     const hint = !n ? '還沒抓到' : '';
     const sn = f.seasons && f.seasons !== 'any' ? ' ' + f.seasons.split(',').map(x => SEA_SHORT[x]).join('') + '季' : '';
     const when = !n && (isBug || sn) ? '<small style="color:#bdada5">' + (isBug ? ({ any: '', dawn: '清晨', day: '白天', dusk: '黃昏', night: '夜晚' }[f.phase] || '') + ({ any: '', rain: ' 雨天', clear: ' 晴天' }[f.weather] || '') : '') + sn + '</small>' : '';
-    return '<div class="dexc' + (n ? ' yes' : ' no') + '"' + (n ? ' role="button" tabindex="0" data-d="' + esc(f.key) + '" data-b="' + (isBug ? 1 : 0) + '"' : '') + ' style="' + (n ? 'border-color:' + rc[1] : '') + '"><canvas width="16" height="16" ' + dat + '="' + esc(f.key) + '"' + (n ? '' : ' data-dim="1"') + '></canvas>' +
-      '<small><b>' + (n ? esc(f.name) : '？？？') + '</b></small><small style="color:' + (n ? rc[1] : '#bdada5') + '">' + (n ? rc[0] + ' · ' + f.price + 'G' : (isBug ? '還沒抓到' : habitatOf(f) === 'mystery' ? '神秘路線限定' : '還沒釣到')) + '</small>' +
-      (n ? '<small>' + (isBug ? '抓到' : '釣到') + ' ×' + dexN(n) + (!isBug && fishRec[f.key] ? ' · 最大 ' + fishRec[f.key].best + ' cm' : '') + '</small>' + (starBest(isBug ? 'bug' : 'fish', f.key) ? starsHtml(starBest(isBug ? 'bug' : 'fish', f.key)) : '<span class="stars none">☆☆☆☆☆</span>') + dexMini(f, isBug) : when) + '</div>';
+    return '<div class="dexc' + (n ? ' yes' : ' no') + (lack ? ' lack' : '') + '"' + (n ? ' role="button" tabindex="0" data-d="' + esc(f.key) + '" data-b="' + (isBug ? 1 : 0) + '"' : '') + ' style="' + (n ? 'border-color:' + rc[1] : '') + '"><canvas width="16" height="16" ' + dat + '="' + esc(f.key) + '"' + (n ? '' : ' data-dim="1"') + '></canvas>' +
+      '<small><b>' + (n ? esc(f.name) : '？？？') + '</b></small><small style="color:' + (n ? rc[1] : '#bdada5') + '">' + (n ? rc[0] + ' · ' + f.price + 'G' : (isBug ? dexNo('還沒抓到') : habitatOf(f) === 'mystery' ? '神秘路線限定' : dexNo('還沒釣到'))) + '</small>' +
+      (n ? (dexSrc ? (lack ? '<small class="dxlack">你還沒有</small>' : '') : '<small>' + (isBug ? '抓到' : '釣到') + ' ×' + dexN(n) + (!isBug && fishRec[f.key] ? ' · 最大 ' + fishRec[f.key].best + ' cm' : '') + '</small>') + (starBest(isBug ? 'bug' : 'fish', f.key) ? starsHtml(starBest(isBug ? 'bug' : 'fish', f.key)) : '<span class="stars none">☆☆☆☆☆</span>') + dexMini(f, isBug) : when) + '</div>';
   }).join('');
   const tabs = '<div class="v-quick" style="margin:6px 0">' + [['fish', '淡水'], ['sea', '海釣'], ['bug', '蟲與蝴蝶'], ['dish', '料理'], ['crop', '作物']].map(([k, n]) =>
     '<button type="button" class="chipbtn" data-a="tab" data-c="' + k + '" aria-pressed="' + (dexTab === k ? 'true' : 'false') + '">' + n + '</button>').join('') + '</div>';
@@ -302,25 +330,25 @@ function renderDex() {
   const claimed = dexClaims[dexTab] | 0;
   let reached = 0; thr.forEach((t, i) => { if (tot > 0 && found >= t) reached = i + 1; });
   let pend = 0; for (let t = claimed; t < reached; t++) pend += REW[t];
-  const miles = isSea ? '<div class="row"><div class="meta" style="min-width:0"><b>海釣圖鑑</b><small>全部集滿可得成就「海釣圖鑑全收集」（神秘路線的魚只在神秘路線出現）</small></div></div>' : '<div class="row" style="flex-wrap:wrap;gap:6px"><div class="meta" style="min-width:0"><b>收集獎勵</b><small>' + thr.map((t, i) =>
+  const miles = dexSrc ? '' : isSea ? '<div class="row"><div class="meta" style="min-width:0"><b>海釣圖鑑</b><small>全部集滿可得成就「海釣圖鑑全收集」（神秘路線的魚只在神秘路線出現）</small></div></div>' : '<div class="row" style="flex-wrap:wrap;gap:6px"><div class="meta" style="min-width:0"><b>收集獎勵</b><small>' + thr.map((t, i) =>
     (i < claimed ? '✓ ' : '') + t + ' 種 ' + REW[i] + ' G').join(' ／ ') + '</small></div>' +
     (pend && !isSea ? '<button type="button" class="btn" data-a="claim" data-c="' + dexTab + '"' + (dexBusy ? ' disabled' : '') + '>領取 ' + pend + ' G</button>' : '') + '</div>';
   const sc_ = starCount(isBug ? 'bug' : 'fish', cat.map(x => x.key));
   let recRow = '<div class="row"><div class="meta" style="min-width:0"><b>' + (isBug ? '蟲蝶' : '魚') + '品質</b><small>★5 收集 ' + sc_.five + '/' + sc_.tot + ' · 有星級紀錄 ' + sc_.any + '/' + sc_.tot + '（' + (isBug ? '捕蟲等級越高越容易抓到高星' : '釣魚等級越高越容易釣到高星') + '）</small></div></div>';
-  if (!isBug) {
+  if (!isBug && !dexSrc) {
     const total = cat.reduce((t, f) => t + (fishLog[f.key] | 0), 0);
     let bk = null; Object.keys(fishRec).forEach(k => { if (cat.some(f => f.key === k) && (!bk || fishRec[k].best > fishRec[bk].best)) bk = k; });
     const bf = bk && cat.find(f => f.key === bk);
     recRow += '<div class="row"><div class="meta" style="min-width:0"><b>我的釣魚紀錄</b><small>累計釣到 ' + total + ' 條' + (bf ? ' · 最大紀錄：' + esc(bf.name) + ' ' + fishRec[bk].best + ' cm' : '') + '</small></div></div>';
   }
-  dexCard.innerHTML = '<div class="shop-h"><h2>' + (isBug ? '蟲蝶圖鑑' : isSea ? '海釣圖鑑' : '魚類圖鑑') + '</h2><span class="chip">' + found + '/' + cat.length + '</span></div>' + tabs + miles + recRow +
-    (cat.length ? '<div class="dex" style="grid-template-columns:repeat(auto-fill,minmax(92px,1fr))">' + cells + '</div>' : '<p class="empty">還沒有資料。</p>') +
+  dexCard.innerHTML = '<div class="shop-h"><h2>' + dexTitle(isBug ? '蟲蝶圖鑑' : isSea ? '海釣圖鑑' : '魚類圖鑑') + '</h2><span class="chip">' + found + '/' + cat.length + '</span></div>' + tabs + dexTopRows(isBug ? 'bug' : 'fish', cat.map(x => x.key)) + miles + recRow +
+    (cells ? '<div class="dex" style="grid-template-columns:repeat(auto-fill,minmax(92px,1fr))">' + cells + '</div>' : '<p class="empty">' + (dexSrc && dexMiss ? '這一類沒有你還缺的東西。' : '還沒有資料。') + '</p>') +
     '<button type="button" class="btn ghost wide" data-a="close">關閉</button>';
   dexCard.querySelectorAll('canvas[data-fish]').forEach(cv => drawFish(cv.getContext('2d'), cv.dataset.fish, !!cv.dataset.dim));
   dexCard.querySelectorAll('canvas[data-bug]').forEach(cv => drawBug(cv.getContext('2d'), cv.dataset.bug, !!cv.dataset.dim));
 }
-function openDex() { if (!ready || !me || authOpen || paused()) return; dexOpen = true; pressed.length = 0; renderDex(); dexEl.hidden = false; dexCard.focus(); }
-function closeDex() { dexOpen = false; dexEl.hidden = true; closeDexDetail(); }
+function openDex() { if (!ready || !me || authOpen || paused()) return; dexSrc = null; dexShelf = null; dexMiss = false; dexOpen = true; pressed.length = 0; renderDex(); dexEl.hidden = false; dexCard.focus(); }
+function closeDex() { dexOpen = false; dexEl.hidden = true; closeDexDetail(); dexSrc = null; dexShelf = null; dexMiss = false; }
 function dexOpenFrom(el) { if (!el) return; if (el.dataset.r === '2') openCropDetail(el.dataset.d); else if (el.dataset.r) openDishDetail(el.dataset.d); else openDexDetail(el.dataset.d, el.dataset.b === '1'); }
 dexCard.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { const el = e.target.closest('.dexc[data-d]'); if (el) { e.preventDefault(); dexOpenFrom(el); } } });
 dexdEl.addEventListener('click', e => { if (e.target === dexdEl || e.target.closest('button[data-a=dclose]')) closeDexDetail(); });
@@ -339,6 +367,8 @@ dexCard.addEventListener('click', e => {
     }).catch(err => { toast(errText(err)); resync(); }).finally(() => { dexBusy = false; if (dexOpen) renderDex(); });
     return;
   }
+  if (e.target.closest('button[data-a=miss]')) { dexMiss = !dexMiss; renderDex(); return; }
+  if (e.target.closest('button[data-a=share]')) { dexShareToggle(); return; }
   if (e.target.closest('button[data-a=close]')) closeDex();
 });
 dexEl.addEventListener('click', e => { if (e.target === dexEl) closeDex(); });

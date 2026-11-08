@@ -540,8 +540,8 @@ async function visitHouse(uid, name) {
   enterBusy = false;
 }
 function visitShowList(it) {
-  const dd = DISP[it.k], arr = dispOf(it), cat = dd.kind === 'fish' ? fishCat : bugCat;
-  const names = [];
+  const dd = DISP[it.k], arr = dispOf(it), names = [];
+  const cat = dd.kind === 'fish' ? fishCat : bugCat;
   for (let s = 0; s < dd.n; s++) if (arr[s]) { const f = cat.find(x => x.key === arr[s].k); if (f) names.push(f.name); }
   toast((defOf(it.k) || {}).name + '：' + (names.length ? names.join('、') : '還沒有展示品'), 3500);
 }
