@@ -66,6 +66,15 @@ function selectTool(i) {
   pop(pl.x, pl.y - 1, curTool().n, '#fff3b0');
 }
 paintSlots();
+/* 手機會在背景、記憶體吃緊或轉向時回收小畫布的內容，快捷列圖示（只畫一次）就變成空白，要等到切組才又出現。
+   所以：回到前景、轉向、縮放時重畫一次，平常每 2 秒也輕輕補畫一次（只有 6 個 16×16 小圖，很便宜）。 */
+function repaintAfterResume() { try { paintSlots(); if (typeof fishSprites !== 'undefined') for (const k in fishSprites) delete fishSprites[k]; } catch (e) { /* 略過 */ } }
+document.addEventListener('visibilitychange', () => { if (!document.hidden) repaintAfterResume(); });
+window.addEventListener('pageshow', repaintAfterResume);
+window.addEventListener('focus', repaintAfterResume);
+window.addEventListener('resize', repaintAfterResume);
+window.addEventListener('orientationchange', () => setTimeout(repaintAfterResume, 300));
+setInterval(() => { if (!document.hidden) paintSlots(); }, 2000);
 let lastClock = '';
 function updateClock() {
   const w = world();

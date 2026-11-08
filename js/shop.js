@@ -5,7 +5,7 @@ const shopEl = $('shop'), shopCard = $('shopcard');
 let shopBusy = false;
 let shopMode = 'store';
 const shopCats = () => SHOP_CATS.filter(c => shopMode === 'work' ? (c[0] === 'yard' || c[0] === 'up') : (c[0] === 'seed' || c[0] === 'sell'));
-function openShop(mode) { shopMode = mode === 'work' ? 'work' : 'store'; if (!shopCats().some(c => c[0] === shopCat)) { shopCat = shopMode === 'work' ? 'yard' : 'sell'; shopSel = ''; } shopOpen = true; pressed.length = 0; renderShop(); shopEl.hidden = false; shopCard.focus();
+function openShop(mode) { shopLast = { cat: '', ids: [] }; shopMode = mode === 'work' ? 'work' : 'store'; if (!shopCats().some(c => c[0] === shopCat)) { shopCat = shopMode === 'work' ? 'yard' : 'sell'; shopSel = ''; } shopOpen = true; pressed.length = 0; renderShop(); shopEl.hidden = false; shopCard.focus();
   if (shopMode === 'work' && !ycat.length) loadYard();
   if (shopMode === 'work' && !house) enqueue(() => loadHouse()).then(() => { if (shopOpen) renderShop(); }).catch(() => {}); }
 function closeShop() { shopOpen = false; shopEl.hidden = true; }
@@ -89,6 +89,7 @@ function houseExpandRow(coins) {
   return '<div class="row"><div class="meta"><b>' + cur.w + '×' + cur.h + ' → ' + nx.w + '×' + nx.h + ' 格</b><small>往右和往下變大，家具位置不變。需要：' + mats + (need > 1 ? ' · 玩家 Lv.' + need : '') + '</small></div>' +
     '<button type="button" class="btn" data-a="hexpand"' + (shopBusy || lvLock || !okMat || !okCoin ? ' disabled' : '') + '>' + (lvLock ? '玩家 Lv.' + need + ' 解鎖' : '擴建') + '</button></div>';
 }
+let shopLast = { cat: '', ids: [] };   // 上一次畫的分類與商品順序
 function renderShop() {
   const coins = me ? me.coins : 0;
   const dis = shopBusy ? ' disabled' : '';
@@ -106,7 +107,17 @@ function renderShop() {
       (cst ? '<button type="button" class="btn" data-a="tool" data-c="' + t + '"' + (shopBusy || locked || coins < cst.coins || !okMats ? ' disabled' : '') + '>' + (locked ? '玩家 Lv.' + cst.need + ' 解鎖' : cst.coins + ' G') + '</button>' : '') + '</div>';
   }).join('');
   const list = shopItems(shopCat);
-  if (!list.some(x => x.id === shopSel)) { const f = list.find(x => !x.lock) || list[0]; shopSel = f ? f.id : ''; }
+  /* 賣掉一種之後，選取改到「原本那個位置」的下一項（不要跳回第一項），清單捲動位置也保留（見下面 keepScroll） */
+  if (!list.some(x => x.id === shopSel)) {
+    const oi = shopLast.cat === shopCat ? shopLast.ids.indexOf(shopSel) : -1;
+    let f = null;
+    if (oi >= 0) for (let d = 0; d < list.length && !f; d++) { const c = list[Math.min(oi + d, list.length - 1)]; if (c && !c.lock) f = c; }
+    if (!f) f = list.find(x => !x.lock) || list[0];
+    shopSel = f ? f.id : '';
+  }
+  const sameCat = shopLast.cat === shopCat, spOld = shopCard.querySelector('.shsplit');
+  const keep = sameCat ? [shopCard.scrollTop, spOld ? spOld.scrollTop : 0, (shopCard.querySelector('.shmain') || {}).scrollTop | 0] : [0, 0, 0];   // 手機直向捲的是整張卡，橫向捲的是 .shsplit
+  shopLast = { cat: shopCat, ids: list.map(x => x.id) };
   const cur = list.find(x => x.id === shopSel) || null;
   if (cur) { const mx = shopMax(cur, coins); shopQ[cur.id] = Math.max(1, Math.min(mx, shopQ[cur.id] | 0 || 1)); shopView = { it: cur, max: mx, coins }; } else shopView = null;
   let sellKinds = 0, grand = 0;
@@ -135,6 +146,7 @@ function renderShop() {
   shopCard.innerHTML = '<div class="shop-h"><h2>' + (shopMode === 'work' ? '園藝工坊' : '雜貨攤') + '</h2><span class="chip gold">' + coins + ' G</span></div>' +
     '<div class="shsplit"><div class="shrail">' + rail + '</div><div class="shmain">' + main + '</div></div>' + sheet +
     '<button type="button" class="btn ghost wide" data-a="close">離開</button>';
+  { const sp = shopCard.querySelector('.shsplit'), sm = shopCard.querySelector('.shmain'); shopCard.scrollTop = keep[0]; if (sp) sp.scrollTop = keep[1]; if (sm) sm.scrollTop = keep[2]; }   // 重畫會讓清單回到最上面，先還原捲動位置
   { const sr = shopCard.querySelector('.shr.sel'); if (sr && sr.scrollIntoView) sr.scrollIntoView({ block: 'nearest' }); }   // 選中的商品留在小抽屜上方看得到
   shopCard.querySelectorAll('canvas[data-fish]').forEach(cv => drawFish(cv.getContext('2d'), cv.dataset.fish, false));
   shopCard.querySelectorAll('canvas[data-bug]').forEach(cv => drawBug(cv.getContext('2d'), cv.dataset.bug, false));

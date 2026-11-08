@@ -197,9 +197,12 @@ function drawFishing(now) {
 const fishSprites = {};
 function showSprite(kind, key) {
   const id = kind + ':' + key;
-  if (!fishSprites[id]) {
+  /* 手機可能把離屏小畫布的內容回收掉（魚缸裡的魚就消失），所以快取 5 秒後重畫一次；回到前景時 ui.js 也會整批清掉 */
+  const nowT = Date.now();
+  if (!fishSprites[id] || nowT - (fishSprites[id]._t || 0) > 5000) {
     const cv = document.createElement('canvas'); cv.width = 16; cv.height = 16;
     if (kind === 'bug') drawBug(cv.getContext('2d'), key, false); else drawFish(cv.getContext('2d'), key, false);
+    cv._t = nowT;
     fishSprites[id] = cv;
   }
   return fishSprites[id];
