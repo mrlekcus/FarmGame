@@ -7,7 +7,8 @@ const EMOTES = [
   { id: 'angry', ic: '💢', n: '生氣' }, { id: 'sad', ic: '😢', n: '難過' }, { id: 'sleepy', ic: '💤', n: '想睡' }, { id: 'music', ic: '🎵', n: '哼歌' },
   { id: 'what', ic: '❓', n: '疑問' }, { id: 'idea', ic: '💡', n: '靈感' }, { id: 'star', ic: '✨', n: '閃亮' }, { id: 'like', ic: '👍', n: '讚' },
   { id: 'clap', ic: '👏', n: '喝采', hide: true },   // 有人煮菜時的「喝采」按鈕用，不放進表情選單
-  { id: 'paint', ic: '🎨', n: '畫畫', hide: true }   // 在畫架上畫畫時自動顯示（art.js），不放進表情選單
+  { id: 'paint', ic: '🎨', n: '畫畫', hide: true },   // 在畫架上畫畫時自動顯示（art.js），不放進表情選單
+  { id: 'deco', ic: '🏠', n: '佈置屋子', hide: true }   // 在自己家開著「布置模式」時自動顯示（見下面 decoEmote），不放進表情選單
 ];
 const ANIMS = {
   wave: { ic: '👋', n: '揮手', dur: 1800 }, jump: { ic: '🦘', n: '跳躍', dur: 1000 }, dance: { ic: '💃', n: '跳舞', dur: 3000 },
@@ -101,6 +102,16 @@ function emoteBubble(e, cx, cy, now) {
     r('#ffffff', cx + 10, y + 8, 2, 2);
     ctx.globalAlpha = 1; return;
   }
+  if (em.id === 'deco') {   // 佈置屋子：紅屋頂小房子＋閃爍的小星星（用像素畫，不靠 emoji 字型）
+    const ox = cx + 2, oy = y + 2, bl = Math.floor(now / 380) % 2;
+    r('#e8604f', ox + 4, oy + 0, 2, 1); r('#e8604f', ox + 3, oy + 1, 4, 1); r('#e8604f', ox + 2, oy + 2, 6, 1); r('#e8604f', ox + 1, oy + 3, 8, 1);
+    r('#ff8f7f', ox + 4, oy + 0, 1, 1);
+    r('#ffd27a', ox + 2, oy + 4, 6, 4); r('#9b6a44', ox + 4, oy + 5, 2, 3);
+    const sp = bl ? '#fff6a8' : '#ffe27a';
+    r(sp, ox + 0, oy + 0, 1, 1); r(sp, ox + 9, oy + 1, 1, 1);
+    if (bl) { r(sp, ox + 0, oy + 5, 1, 1); r('#fff6a8', ox + 9, oy + 0, 1, 1); r('#fff6a8', ox + 9, oy + 2, 1, 1); } else { r('#ffe27a', ox + 9, oy + 5, 1, 1); }
+    ctx.globalAlpha = 1; return;
+  }
   ctx.font = '9px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#000';
   ctx.fillText(em.ic, cx + w / 2, y + h / 2 + 1);
@@ -122,6 +133,19 @@ function doEmote(kind, id) {
     try { net.ch.send({ type: 'broadcast', event: 'emo', payload: { i: myUid, k: kind === 'a' ? 'a' : 'e', e: id } }); } catch (e) { /* 略過 */ }
   }
 }
+/* 佈置屋子時的小房子泡泡：自己家開著「布置模式」就一直顯示（每 1.5 秒補送一次，同一間屋子的人看得到）；關掉就消失。自己剛做的別種表情不蓋掉 */
+function decoEmote() {
+  const now = performance.now();
+  if (myEmo && myEmo.id !== 'deco' && now - myEmo.at < 3200) return;
+  myEmo = { id: 'deco', at: now };
+  if (syncScene() && net && net.ok) {
+    try { net.ch.send({ type: 'broadcast', event: 'emo', payload: { i: myUid, k: 'e', e: 'deco' } }); } catch (e) { /* 略過 */ }
+  }
+}
+setInterval(() => {
+  const on = ready && me && !authOpen && scene === 'house' && house && !visiting && edit.on;
+  if (on) decoEmote(); else if (myEmo && myEmo.id === 'deco') myEmo = null;
+}, 1500);
 /* 畫畫時頭上的調色盤泡泡：art.js 在畫畫期間每 2 秒呼叫一次，泡泡就一直在；別人也看得到 */
 function paintEmote() {
   if (!ready || !me) return;
