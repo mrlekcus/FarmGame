@@ -6,6 +6,7 @@
    ・顧客：坐高腳椅點餐，也可以坐沙發、圓桌，點歌。
    ・NPC 員工豆豆會自己認領訂單做飲料；NPC 顧客（村民風 6 款）進門、點單、等餐、吃完逛休閒區、離開。
    【結算】伺服器建好 cafe_eco.sql 後：玩家當顧客點餐先扣款（送到＝回收，取消／等太久＝退款）；玩家當店員送出一杯領飲料價格 10% 的薪水（系統發，每天 GMT+8 零點重置、上限 1000 G）。
+   【村民客人】村裡的 NPC 偶爾會來店裡當客人、有各自的口頭禪，見 cafe-villagers.js。
    【開幕故事】第一次進店自動播「開張剪綵」CG，之後在穿圍裙確認窗下面按「重看開幕故事」，見 cafe-cg.js。
    伺服器函式不存在時自動維持「試營運」：不扣 G、不發 G。飲料效果只有畫面特效（吃喝動作＋光環），沒有數值加成。
    【多人同步】見 cafe-sync.js：店裡最早開店的人當店長跑模擬，其他人收快照、把操作交給店長代辦；店長離開由 uid 最小的人接手。點唱機的歌也對時到同一個播放位置。 */
@@ -114,9 +115,9 @@ const cfSay = (t, ms) => { if (cf.isBot) return; if (cf.who) cfTell(cf.who, { t:
 function cfSpawn() {
   const free = CF_SEATS.map((x, i) => i).filter(i => !cf.custs.some(c => c.seat === i) && !(cf.sit && cf.sit.kind === 'stool' && cf.sit.i === i) && !cfRemoteSeat(10 + i));
   if (!free.length || cf.custs.filter(c => !c.isPlayer).length >= 7) return;
-  const seat = free[Math.floor(Math.random() * free.length)], ks = Object.keys(CF_MENU), n = Math.floor(Math.random() * CF_NAMES.length);
-  const c = { id: cf.cid++, name: CF_NAMES[n], key: CF_KEYS[n], seat, x: 8, y: 15.35, dir: 'up', step: 0, moving: true, state: 'in', path: [], dish: ks[Math.floor(Math.random() * ks.length)], ttl: 70, max: 70, t: 0, line: null, sayT: 0, claim: 0, spot: null, rounds: 0 };
-  cf.custs.push(c);
+  const seat = free[Math.floor(Math.random() * free.length)], ks = Object.keys(CF_MENU), n = Math.floor(Math.random() * CF_NAMES.length), vk = cfVRoll();   // vk：這位客人是村民（cafe-villagers.js）
+  const c = { id: cf.cid++, name: vk ? CF_VP[vk].n : CF_NAMES[n], key: vk || CF_KEYS[n], seat, x: 8, y: 15.35, dir: 'up', step: 0, moving: true, state: 'in', path: [], dish: vk ? CF_VP[vk].dish : ks[Math.floor(Math.random() * ks.length)], ttl: 70, max: 70, t: 0, line: null, sayT: 0, claim: 0, spot: null, rounds: 0 };
+  cf.custs.push(c); if (vk) { cf.vAt = cf.now; cf.vLast = vk; cfVSay(c, 'enter'); }
   cfGo(c, [CF_SEATS[seat], 8], [CF_SEATS[seat] + .5, 7.5]);
 }
 function cfFreeSpot(c) { if (c.spot) { c.spot.o = 0; c.spot = null; } }
@@ -128,9 +129,9 @@ function cfStartRoam(c) {
   const s = f[Math.floor(Math.random() * f.length)]; s.o = 1; c.spot = s; c.state = 'roam'; c.rounds++;
   cfGo(c, s.stand, [s.x, s.y]);
 }
-function cfNextRoam(c) { if (c.rounds < 2 && Math.random() < .6) cfStartRoam(c); else cfLeave(c); }
+function cfNextRoam(c) { if (c.rounds < 2 && Math.random() < .6) cfStartRoam(c); else { cfLeave(c); cfVSay(c, 'bye'); } }
 function cfArrive(c) {
-  if (c.state === 'in') { c.state = 'wait'; cfChat(c.name, '我要一杯' + CF_MENU[c.dish].n + (c.dish === 'pancake' ? '（鬆餅）' : '')); }
+  if (c.state === 'in') { c.state = 'wait'; if (cfIsV(c)) { cfChat('豆豆', CF_VP[c.key].dd); cfVSay(c, 'order'); } else cfChat(c.name, '我要一杯' + CF_MENU[c.dish].n + (c.dish === 'pancake' ? '（鬆餅）' : '')); }
   else if (c.state === 'roam') { c.t = 7 + Math.random() * 7; if (c.spot.k === 'juke') cfChat(c.name, '來點一首歌 ♪'); }
 }
 const cfMine = () => cf.custs.find(c => c.isPlayer && c.own === myUid && c.state === 'wait');
@@ -163,7 +164,7 @@ function cfPress(s) {
       return;
     }   // 特效：沿用吃料理的動作和光環，只有畫面效果，沒有數值加成
     c.state = 'happy'; c.t = 3; c.claim = 0;
-    cfChat(c.name, ['謝謝！好好喝～', '太棒了！', '剛剛好的溫度！'][cf.served % 3]);
+    if (cfIsV(c)) cfVSay(c, 'thanks'); else cfChat(c.name, ['謝謝！好好喝～', '太棒了！', '剛剛好的溫度！'][cf.served % 3]);
     cfSay('送出一杯' + M.n + ' ' + M.ic, 1500);
     return;
   }
@@ -356,10 +357,16 @@ function cafeTick(dtMs) {
       if (c.state === 'out' && !c.path.length) { cf.custs.splice(i, 1); continue; }
     }
   }
+  cfVQueueTick();
   cf.chatT -= dt;
   if (cf.chatT <= 0) {
     const sit = cf.custs.filter(c => !c.isPlayer && (c.state === 'wait' || c.state === 'happy' || (c.state === 'roam' && !c.path.length)));
-    if (sit.length) { const c = sit[Math.floor(Math.random() * sit.length)], ln = CF_LINES[Math.floor(Math.random() * CF_LINES.length)]; c.line = { txt: ln, at: performance.now() }; cfChat(c.name, ln); }
+    if (sit.length) {
+      const c = sit[Math.floor(Math.random() * sit.length)];
+      if (Math.random() < .5 && cfVBanter(sit)) { /* 兩位村民都坐著時，優先讓他們互相搭話 */ }
+      else if (cfIsV(c)) cfVSay(c, 'chat');
+      else { const ln = CF_LINES[Math.floor(Math.random() * CF_LINES.length)]; c.line = { txt: ln, at: performance.now() }; cfChat(c.name, ln); }
+    }
     cf.chatT = 5 + Math.random() * 4;
   }
   CF_ST.rack = cfFind('rack').n; CF_ST.sink = cf.list.find(q => q.k === 'sink').d;

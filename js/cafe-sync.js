@@ -140,7 +140,7 @@ function cfOnSnap(p) {
     let c = old.get(id);
     const tx = cfNm(a.x, 0, CFW, 8), ty = cfNm(a.y, 0, CFH, 8);
     if (!c) c = { id, x: tx, y: ty, step: 0, line: null, lnTxt: null, path: [] };
-    c.tx = tx; c.ty = ty; c.name = clean(a.nm, 8) || '客人'; c.key = CF_KEYS.includes(a.k) ? a.k : CF_KEYS[0];
+    c.tx = tx; c.ty = ty; c.name = clean(a.nm, 8) || '客人'; c.key = CF_KEYS.includes(a.k) || CF_VILL.includes(a.k) ? a.k : CF_KEYS[0];
     c.seat = cfIn(a.s, -1, CF_SEATS.length - 1, -1); c.dir = CF_DIRS.includes(a.d) ? a.d : 'down'; c.state = st;
     c.dish = CF_MENU[a.di] ? a.di : 'americano'; c.ttl = cfNm(a.tt, 0, 300, 0); c.max = cfNm(a.mx, 1, 300, 70);
     c.own = typeof a.ow === 'string' && UID_RE.test(a.ow) ? a.ow : 0; c.isPlayer = c.own ? 1 : 0; c.q = cfIn(a.q, 0, 1e9, 0);
