@@ -6,6 +6,7 @@
    ・顧客：坐高腳椅點餐，也可以坐沙發、圓桌，點歌。
    ・NPC 員工豆豆會自己認領訂單做飲料；NPC 顧客（村民風 6 款）進門、點單、等餐、吃完逛休閒區、離開。
    【結算】伺服器建好 cafe_eco.sql 後：玩家當顧客點餐先扣款（送到＝回收，取消／等太久＝退款）；玩家當店員送出一杯領飲料價格 10% 的薪水（系統發，每天 GMT+8 零點重置、上限 1000 G）。
+   【開幕故事】第一次進店自動播「開張剪綵」CG，之後在穿圍裙確認窗下面按「重看開幕故事」，見 cafe-cg.js。
    伺服器函式不存在時自動維持「試營運」：不扣 G、不發 G。飲料效果只有畫面特效（吃喝動作＋光環），沒有數值加成。
    【多人同步】見 cafe-sync.js：店裡最早開店的人當店長跑模擬，其他人收快照、把操作交給店長代辦；店長離開由 uid 最小的人接手。點唱機的歌也對時到同一個播放位置。 */
 const CFW = 16, CFH = 16;
@@ -374,7 +375,7 @@ function cafeAct(x, y) {
   const k = K[y][x];
   if (k === CFG) {
     if (cfInKitchen()) { pl.x = pl.sx = CF_GATE.x; pl.y = pl.sy = CF_GATE.y + 1; pl.prog = 1; pl.face = 'down'; cf.hold = null; cfSend({ t: 'drop' }); toast('脫下圍裙，回到店裡', 1600); }
-    else { pl.x = pl.sx = CF_GATE.x; pl.y = pl.sy = CF_GATE.y - 1; pl.prog = 1; pl.face = 'down'; cf.hold = null; cfSend({ t: 'drop' }); toast('穿上圍裙！飲料要自己做（磨豆、洗杯按住動作鍵），豆豆只幫你洗杯和端餐。' + (cfEco === true ? '送出一杯領飲料價 10% 的薪水，每天最多 ' + ((cf.eco && cf.eco.cap) || 1000) + ' G' : '（試營運：不發 G）'), 4800); }
+    else { cfApronMenu(); return; }
     lastPosKey = ''; posAcc = 999; return;
   }
   if (cfInKitchen()) {
@@ -417,6 +418,7 @@ function enterCafe() {
   pl.x = pl.sx = 7; pl.y = pl.sy = CFH - 2; pl.prog = 1; pl.face = 'up'; pressed.length = 0;
   view.snap = true; fitView(); toast('歡迎光臨暖木小木屋咖啡廳'); cfJukeEnter(); cfEcoInit();
   lastPosKey = ''; posAcc = 999; trackSelf(); cfHud.hidden = false;
+  cfCgMaybe();   // 第一次進店自動播開幕 CG（cafe-cg.js）
 }
 function leaveCafe(silent) {
   if (scene !== 'cafe') return;
@@ -442,10 +444,38 @@ function cfOrderMenu() {
     '<button type="button" class="btn ghost wide" data-cf="close">不點了</button>';
 }
 function closeCfMenu() { cfOpen = false; cfEl.hidden = true; }
+
+/* ---------- 穿圍裙確認窗（清單式）：先看三道料理的價格、薪水、做法，按「穿上圍裙」才進操作間 ---------- */
+function cfApronMenu() {
+  if (cfOpen || !cf || cf.ordering) return;
+  cfOpen = true; pressed.length = 0; cfEl.hidden = false;
+  const eco = cfEco === true;
+  const rows = Object.keys(CF_MENU).map(k => {
+    const m = CF_MENU[k], pay = Math.round(m.p * 0.1);
+    return '<div style="background:#fffaf0;border:2px solid #c9a06a;border-radius:8px;padding:8px;margin:0 0 6px;color:#4a2a10">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;gap:6px;font-weight:700;font-size:14px"><span>' + m.n + '　' + m.p + ' G</span>' +
+      '<span style="background:#ffe08a;border:2px solid #b8860b;color:#5a3c00;border-radius:6px;padding:0 6px;font-size:12px;white-space:nowrap">' + (eco ? '薪水 ' + pay + ' G' : '試營運 不發 G') + '</span></div>' +
+      '<div style="font-size:12px;color:#7a5a30;margin-top:3px">' + CF_RECIPE[k] + '</div></div>';
+  }).join('');
+  cfCard.innerHTML = '<div class="shop-h"><h2>🍳 要穿上圍裙打工嗎？</h2></div>' +
+    '<p style="margin:0 0 8px;font-size:13px;line-height:1.5">飲料要自己做（磨豆、洗杯要按住動作鍵），豆豆只幫你洗杯和端餐。煮太久會焦。</p>' + rows +
+    '<p style="margin:2px 0 8px;font-size:12px;color:#7a5a30">' + (eco ? '送出一杯領飲料價 10% 的薪水，每天最多 ' + ((cf.eco && cf.eco.cap) || 1000) + ' G（GMT+8 零點重置）。' : '試營運：先不發 G。') + '</p>' +
+    '<button type="button" class="btn wide" data-cf="apron" style="margin:0 0 8px">穿上圍裙</button>' +
+    '<button type="button" class="btn ghost wide" data-cf="close" style="margin:0 0 8px">再想想</button>' +
+    '<button type="button" class="btn ghost wide" data-cf="story">📖 重看開幕故事</button>';
+}
+function cfApronGo() {
+  if (!cf || scene !== 'cafe' || cf.sit || cfInKitchen()) return;   // 窗開著時狀態變了（離座、已經在裡面）就不處理
+  pl.x = pl.sx = CF_GATE.x; pl.y = pl.sy = CF_GATE.y - 1; pl.prog = 1; pl.face = 'down'; cf.hold = null; cfSend({ t: 'drop' });
+  toast('穿上圍裙！飲料要自己做（磨豆、洗杯按住動作鍵），豆豆只幫你洗杯和端餐。' + (cfEco === true ? '送出一杯領飲料價 10% 的薪水，每天最多 ' + ((cf.eco && cf.eco.cap) || 1000) + ' G' : '（試營運：不發 G）'), 4800);
+  lastPosKey = ''; posAcc = 999;
+}
 cfEl.addEventListener('click', e => {
   const sb_ = e.target.closest('[data-song]'); if (sb_ && cf) { closeCfMenu(); cfPickSong(sb_.dataset.song); return; }
   const b = e.target.closest('[data-cf]'); if (!b || !cf) { if (e.target === cfEl) closeCfMenu(); return; }
   const k = b.dataset.cf; closeCfMenu();
+  if (k === 'apron') { cfApronGo(); return; }
+  if (k === 'story') { cfCgPlay(); return; }
   if (k === 'close' || !CF_MENU[k] || !cf.sit) return;
   const mk = () => {
     cf.ordered = true; cf.orderAt = performance.now(); cf.odish = k; cf.oq++; cfChat('你', '我要一杯' + CF_MENU[k].n);
