@@ -6,7 +6,7 @@
    對白優先用伺服器 story_get 給的 lines／outro；沒有的話才用下面 SCG_FALLBACK。
    打字機效果直接用 pet-cg.js 的 petCgType／petCgSkipType。 */
 const SCG_FALLBACK = [
-  [{ s: 'oak', t: '歡迎你來到雷克斯小村！我想先嚐嚐你種的葡萄。' }, { s: 'me', t: '剛摘下來的，請嚐嚐。' }, { s: 'oak', t: '嗯～甜得剛剛好。這個村子，就拜託你了。' }],
+  [{ s: 'oak', t: '葡萄種出來了嗎？自從你進村那天，我就一直惦記著要嚐嚐呢。' }, { s: 'me', t: '剛摘下來的，請嚐嚐。' }, { s: 'oak', t: '嗯～甜得剛剛好。這個村子，就拜託你了。' }],
   [{ s: 'gui', t: '從前祭典的蔬菜湯，我怎麼煮都不是那個味道……' }, { s: 'me', t: '需要什麼材料呢？' }, { s: 'gui', t: '新鮮蔬菜就行。啊，就是這個香氣！' }],
   [{ s: 'li', t: '我的鐵盒掉進池塘了，聽說被老鯉魚叼走了。' }, { s: 'me', t: '我來引牠出來。' }, { s: 'li', t: '哈哈，上鉤了！謝謝你。' }],
   [{ s: 'luo', t: '礦坑深處有個上鎖的鐵箱，坑道得先加固才敢進去。' }, { s: 'me', t: '需要什麼材料？' }, { s: 'luo', t: '有你幫忙，我放心多了。' }],
@@ -61,10 +61,34 @@ t=>{const p=Math.min(1,t/5);sgR('#ffd2b0',0,0,192,40);sgR('#ffe6c8',0,40,192,30)
  for(let i=0;i<14;i++){const ph=i*1.7;if(sgS(t*2.4+ph)>.2)sgR(i%2?'#fff6a8':'#fff',(i*47)%192,30+(i*29)%48,1,1)}}
 ];
 
+/* ---------- 序章「晨光進村」：新玩家第一次進遊戲自動播一次，之後可在布告欄「村莊故事」相簿重看 ---------- */
+const SCG_PRO = { title: '晨光進村', lines: [
+  { s: '', t: '（清晨。你帶著一個小包袱，走進了雷克斯小村。）' },
+  { s: 'oak', t: '哎呀，新面孔！歡迎你來到雷克斯小村。' },
+  { s: 'me', t: '我想在這裡開始新的生活。' },
+  { s: 'oak', t: '太好了！先到村裡逛逛吧。等你種出葡萄，記得拿來給我嚐嚐！' }
+] };
+function sgMe(x, y) { try { if (typeof me === 'undefined' || !me) throw 0; g.save(); g.translate(x, y - 18); g.scale(3, 3); drawPlayer(0, 6, 'down', false, 0, myChar()); g.restore(); } catch (e) { sgR('#6a9ac4', x + 12, y + 20, 24, 18); sgR('#ffe3cc', x + 10, y + 2, 28, 22); sgR('#7a4a2a', x + 10, y + 2, 28, 6); } }
+function scgPro(t) {
+  [['#ffd2b0', 0], ['#ffdcbc', 14], ['#ffe6c8', 28], ['#fff0d6', 42]].forEach(([c, y]) => sgR(c, 0, y, 192, 14));
+  sgA('#fff3b0', .3, 146, 12, 22, 22); sgR('#fff3b0', 150, 16, 14, 14);
+  [[(t * 2.2) % 240 - 30, 20], [(t * 1.4 + 120) % 240 - 30, 30]].forEach(([x, y]) => { sgA('#fff', .75, x, y, 18, 4); sgA('#fff', .75, x + 4, y - 3, 10, 3); });
+  for (let x = 0; x < 192; x++) { sgR('#b8dcb2', x, 52 + sgS(x / 17) * 4, 1, 40); sgR('#a4d39c', x, 64 + sgS(x / 11 + 2) * 3, 1, 40); }
+  sgGrass(76);
+  for (let i = 0; i < 32; i++) sgR('#e8cfa0', 70 - i * .7, 76 + i, 52 + i * 1.4, 1);
+  [[100, 40, 40], [26, 46, 34]].forEach(([x, y, w]) => { sgR('#d9b690', x, y, w, 36); sgR('#f5dfc0', x + 2, y + 2, w - 4, 34); for (let i = 0; i < 12; i++) sgR(i % 2 ? '#e88b99' : '#e07a8a', x - 6 + i, y - i, w + 12 - i * 2, 1); sgR('#b85c70', x - 6, y, w + 12, 2); sgR('#a8683a', x + w / 2 - 8, y + 14, 16, 22); sgR('#ffd34d', x + w / 2 + 4, y + 25, 2, 2); });
+  sgR('#8a6a50', 124, 22, 10, 16); sgPuff(129, 24, t, 5, 8, '#fff');
+  sgR('#7a4a28', 58, 60, 3, 24); sgR('#7a4a28', 90, 60, 3, 24); sgR('#a8683a', 54, 56, 42, 10); sgR('#fff6d8', 58, 58, 34, 6);
+  for (let i = 0; i < 7; i++) sgR('#c0603a', 62 + i * 4, 59, 2, 4);
+  const px = Math.min(76, 10 + t * 14); sgMe(px, 58 + (px < 76 ? Math.round(sgS(t * 9)) : 0));
+  if (t > 1.5) sgNpc('oak', 114, 56, t);
+  for (let i = 0; i < 8; i++) sgA('#ffc2d4', .9, (i * 37 + t * 18) % 200 - 6, (i * 23 + t * 8) % 80 + 10, 2, 1);
+}
+
 const scgSt = { beat: -1, from: -1, t0: 0 };
 let scgPlay = null;   // 重播中：{ q: [{ ch, title, s, t, first }], i, title }
 function scgDraw(beat, t) {
-  const f = SCG_SC[beat];
+  const f = beat === 'pro' ? scgPro : SCG_SC[beat];
   if (f) f(t); else { sgR('#ffd2b0', 0, 0, 192, 60); sgGrass(60); }   // 之後新增的章節還沒畫 CG 時，先用一格晨光小村頂著
 }
 function scgFrame(cv, now) {
@@ -86,7 +110,7 @@ function scgRun(cv, beat) {
 }
 function scgThumb(cv, i) {
   const c = cv.getContext('2d'); c.imageSmoothingEnabled = false; const old = g; g = c;
-  try { scgDraw(i, i === 5 ? 4.5 : 1.6); r('#000', 0, 0, 192, 4); r('#000', 0, 104, 192, 4); } catch (e) { /* 略過 */ }
+  try { scgDraw(i, i === 5 ? 4.5 : i === 'pro' ? 5 : 1.6); r('#000', 0, 0, 192, 4); r('#000', 0, 104, 192, 4); } catch (e) { /* 略過 */ }
   g = old;
 }
 const scgCanvas = beat => '<canvas data-scg="' + beat + '" width="192" height="108" style="display:block;width:100%;aspect-ratio:16/9;image-rendering:pixelated;border:3px solid var(--edge);border-radius:12px;background:#000;margin-top:8px"></canvas>';
@@ -97,6 +121,8 @@ function scgLines(c) { const a = (c.lines || []).concat(c.outro || []).filter(x 
 /* 回憶相簿：已完成的章節是彩色縮圖，還沒解鎖的變暗剪影 */
 function scgAlbumHtml(chs, d) {
   let h = '<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:8px 0">';
+  const st0 = 'border:2px solid var(--edge);border-radius:10px;overflow:hidden;background:#fff;padding:0;font:inherit;color:inherit;text-align:center;line-height:1.3;cursor:pointer';
+  h += '<button type="button" data-a="scgplay" data-c="0" style="' + st0 + '"><canvas data-th="pro" width="192" height="108" style="display:block;width:100%;aspect-ratio:16/9;image-rendering:pixelated"></canvas><span style="display:block;font-size:11px;padding:3px 2px">序章<br>' + esc(SCG_PRO.title) + '</span></button>';
   chs.forEach(c => {
     const ok = c.ch <= d, st = 'border:2px solid var(--edge);border-radius:10px;overflow:hidden;background:#fff;padding:0;font:inherit;color:inherit;text-align:center;line-height:1.3';
     const lab = '<span style="display:block;font-size:11px;padding:3px 2px">第 ' + c.ch + ' 章<br>' + (ok ? esc(c.title) : '？？？') + '</span>';
@@ -105,7 +131,7 @@ function scgAlbumHtml(chs, d) {
             : '<div style="' + st + '">' + cv + lab + '</div>';
   });
   h += '</div>';
-  if (d > 0) h += '<button type="button" class="btn wide" data-a="scgplay" data-c="all">▶ 從頭連播</button>';
+  h += '<button type="button" class="btn wide" data-a="scgplay" data-c="all">▶ 從頭連播</button>';
   return h;
 }
 
@@ -115,27 +141,27 @@ function scgPlayHtml() {
   const name = me_ ? (me ? me.name : '你') : (nq ? nq.n : '');
   const pic = me_ ? '<canvas width="16" height="22" data-me="1" style="width:48px;height:66px;flex:none;image-rendering:pixelated"></canvas>'
     : nq ? '<canvas width="16" height="20" data-npc="' + nq.k + '" style="width:48px;height:60px;flex:none;image-rendering:pixelated"></canvas>' : '';
-  return '<div class="shop-h"><h2>第 ' + ln.ch + ' 章：' + esc(ln.title) + '</h2></div>' +
+  return '<div class="shop-h"><h2>' + (ln.ch ? '第 ' + ln.ch + ' 章：' : '序章：') + esc(ln.title) + '</h2></div>' +
     '<div style="position:relative;line-height:0"><canvas id="scgcv" width="192" height="108" style="display:block;width:100%;aspect-ratio:16/9;image-rendering:pixelated;border:3px solid var(--edge);border-radius:12px;background:#000"></canvas>' +
     '<div id="scgttl" style="position:absolute;inset:3px;border-radius:9px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(0,0,0,.55);color:#fff;line-height:1.5;opacity:0;pointer-events:none;transition:opacity .5s"></div></div>' +
     '<div class="row" style="align-items:flex-start;margin-top:8px">' + pic + '<div class="meta"><b>' + esc(name) + '</b><small id="scg-txt" data-full="' + esc(ln.t) + '" style="display:block;margin-top:4px;line-height:1.5;min-height:3em"></small></div></div>' +
     '<small class="empty">' + (p.i + 1) + ' / ' + p.q.length + '</small>' +
     '<button type="button" class="btn wide" data-a="scgnext">' + (last ? '完成' : '繼續') + '</button>' +
-    '<button type="button" class="btn ghost wide" data-a="scgback">回到相簿</button>';
+    '<button type="button" class="btn ghost wide" data-a="scgback">' + (p.auto ? '跳過' : '回到相簿') + '</button>';
 }
 
 /* 畫完 innerHTML 之後呼叫：畫縮圖、啟動重播畫面、畫頭像、開始打字 */
 function scgAfter(root) {
-  root.querySelectorAll('canvas[data-th]').forEach(cv => scgThumb(cv, +cv.dataset.th));
+  root.querySelectorAll('canvas[data-th]').forEach(cv => scgThumb(cv, cv.dataset.th === 'pro' ? 'pro' : +cv.dataset.th));
   if (!scgPlay) return;
   const ln = scgPlay.q[scgPlay.i];
-  scgRun(root.querySelector('#scgcv'), ln.ch - 1);
+  scgRun(root.querySelector('#scgcv'), ln.ch ? ln.ch - 1 : 'pro');
   root.querySelectorAll('canvas[data-npc]').forEach(cv => npcIcon(cv.getContext('2d'), cv.dataset.npc));
   root.querySelectorAll('canvas[data-me]').forEach(cv => { const c2 = cv.getContext('2d'); c2.clearRect(0, 0, 16, 22); g = c2; try { drawPlayer(0, 6, 'down', false, 0, myChar()); } catch (e) { /* 略過 */ } g = ctx; });
   if (scgPlay.title) {
     scgPlay.title = false;
     const o = root.querySelector('#scgttl');
-    if (o) { o.innerHTML = '<small style="font-size:12px;letter-spacing:.2em">第 ' + ln.ch + ' 章</small><b style="font-size:20px">' + esc(ln.title) + '</b>'; requestAnimationFrame(() => { o.style.opacity = '1'; }); setTimeout(() => { if (o.isConnected) o.style.opacity = '0'; }, 1500); }
+    if (o) { o.innerHTML = '<small style="font-size:12px;letter-spacing:.2em">' + (ln.ch ? '第 ' + ln.ch + ' 章' : '序章') + '</small><b style="font-size:20px">' + esc(ln.title) + '</b>'; requestAnimationFrame(() => { o.style.opacity = '1'; }); setTimeout(() => { if (o.isConnected) o.style.opacity = '0'; }, 1500); }
   }
   petCgType(root.querySelector('#scg-txt'));
 }
@@ -144,6 +170,7 @@ function scgAfter(root) {
 function scgClick(a, c) {
   if (a === 'scgplay') {
     const d = stData ? stData.done | 0 : 0, chs = ((stData && stData.chapters) || []).filter(x => x.ch <= d && (c === 'all' || x.ch === +c)), q = [];
+    if (c === 'all' || c === '0') SCG_PRO.lines.forEach((x, j) => q.push({ ch: 0, title: SCG_PRO.title, s: x.s, t: x.t, first: j === 0 }));
     chs.forEach(ch => scgLines(ch).forEach((x, j) => q.push({ ch: ch.ch, title: ch.title, s: x.s || x[0], t: x.t || x[1], first: j === 0 })));
     if (!q.length) return true;
     scgSt.beat = -1; scgPlay = { q, i: 0, title: true }; return true;
@@ -151,9 +178,25 @@ function scgClick(a, c) {
   if (a === 'scgnext') {
     if (petCgSkipType()) return false;   // 字還沒出完：先補完，不換句
     const p = scgPlay; if (!p) return true;
-    if (p.i < p.q.length - 1) { p.i++; p.title = p.q[p.i].first; } else scgReset();
+    if (p.i < p.q.length - 1) { p.i++; p.title = p.q[p.i].first; } else { const au = p.auto; scgReset(); if (au) { closeBoard(); return false; } }
     return true;
   }
-  if (a === 'scgback') { scgReset(); return true; }
+  if (a === 'scgback') { if (scgPlay && scgPlay.auto) { scgReset(); closeBoard(); return false; } scgReset(); return true; }
   return false;
+}
+
+/* 序章首次自動播放：每個帳號只播一次（記在本機）；有別的視窗開著就等一等再播 */
+function scgProKey() { return 'dw_pro_' + (typeof authUser !== 'undefined' && authUser ? authUser : (me ? me.username : '')); }
+function scgPrologueCheck(n) {
+  n = n | 0; if (!me) return;
+  let seen = false; try { seen = !!localStorage.getItem(scgProKey()); } catch (e) { /* 略過 */ }
+  if (seen) return;
+  setTimeout(() => {
+    if (!ready || !me || authOpen) return;
+    if (paused()) { if (n < 15) scgPrologueCheck(n + 1); return; }
+    try { localStorage.setItem(scgProKey(), '1'); } catch (e) { /* 略過 */ }
+    bdOpen = true; pressed.length = 0; bdData = null; bdTab = 'story'; scgSt.beat = -1;
+    scgPlay = { q: SCG_PRO.lines.map((x, j) => ({ ch: 0, title: SCG_PRO.title, s: x.s, t: x.t, first: j === 0 })), i: 0, title: true, auto: true };
+    renderBoard(); bdEl.hidden = false; bdCard.focus();
+  }, n ? 2000 : 1500);
 }

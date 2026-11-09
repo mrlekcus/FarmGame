@@ -32,7 +32,7 @@ function renderBoard() {
 function renderStory() {
   if (!stData) return '<p class="empty">讀取中…</p>';
   const d = stData.done | 0, chs = stData.chapters || [], cur = chs.find(c => c.ch === d + 1);
-  let h = '<p class="empty">雷克斯小村的故事共 ' + chs.length + ' 章，進度 ' + d + '/' + chs.length + '。到村子裡找對應的村民對話、交付物品，故事就會繼續。頭上有「!」的人有事找你。' + (d > 0 ? '點一張回憶，就能重看那一章。' : '') + '</p>';
+  let h = '<p class="empty">雷克斯小村的故事共 ' + chs.length + ' 章，進度 ' + d + '/' + chs.length + '。到村子裡找對應的村民對話、交付物品，故事就會繼續。頭上有「!」的人有事找你。' + '點一張回憶，就能重看那一章（含序章）。' + '</p>';
   h += scgAlbumHtml(chs, d);   // 回憶相簿（js/story-cg.js）
   if (!cur) return h + '<p class="empty">目前的故事都完成了，之後還會有新章節！</p>';
   const nq = NPCS.find(q => q.k === cur.npc), lock = plv() < cur.pl;

@@ -120,7 +120,7 @@ async function loadGifts() {
     if (gs.length) { toast('🎁 收到 ' + gs.map(x => clean(x.from, 8) + ' 送的' + itemName(String(x.item))).slice(0, 3).join('、') + (gs.length > 3 ? ' 等 ' + gs.length + ' 份禮物' : '')); chime([76, 81], 0.12); refreshHud(); }
   } catch (e) { /* 伺服器還沒裝送禮功能就略過 */ }
 }
-function afterReady() { loadVisitCfg(); if (typeof vlCheck === 'function') vlCheck(); touchSeen(); loadFriends(); loadBonds(); mailLoad(true); startPresence(); loadQuests(); loadLevel(); rpc('story_get').then(d => { stData = d; }).catch(() => {}); voyageInit(); }
+function afterReady() { loadVisitCfg(); if (typeof vlCheck === 'function') vlCheck(); touchSeen(); loadFriends(); loadBonds(); mailLoad(true); startPresence(); loadQuests(); loadLevel(); rpc('story_get').then(d => { stData = d; }).catch(() => {}); voyageInit(); if (typeof scgPrologueCheck === 'function') scgPrologueCheck(); }
 function notifyFriend(uid) {
   if (!pres || !pres.ok || !uid) return;
   try { pres.ch.send({ type: 'broadcast', event: 'fr', payload: { to: uid } }); } catch (e) { /* 略過 */ }
