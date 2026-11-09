@@ -6,8 +6,11 @@ let musicOn = true, musicVol = 50;
 try { const m = JSON.parse(localStorage.getItem('dewfarm_music') || 'null'); if (m) { musicOn = m.on !== false; musicVol = clamp(+m.vol || 0, 0, 100); } } catch (e) { /* 用預設值 */ }
 /* ---- 場景音檔 BGM：農場、小村、廣場、塔羅屋各有自己的音檔（bgm 資料夾）；
         屋子沿用農場那首（從農場走進屋子不會斷掉重放）；其他地方（穀倉）或音檔讀不到時，改用程式合成的音樂。換場景時淡出舊的、淡入新的。 ---- */
-const BGM_FILES = { farm: 'bgm/bgm-farm.mp3', town: 'bgm/bgm-town.mp3', plaza: 'bgm/bgm-plaza.mp3', tarot: 'bgm/bgm-tarot.mp3', boat: 'bgm/bgm-boat.mp3' };
-const SCENE_BGM = { farm: 'farm', house: 'farm', forest: 'farm', cave: 'farm', town: 'town', plaza: 'plaza', tarot: 'tarot', boat: 'boat' };   // 場景 -> 用哪一首（沒列的場景用合成音樂）
+const BGM_FILES = { farm: 'bgm/bgm-farm.mp3', town: 'bgm/bgm-town.mp3', plaza: 'bgm/bgm-plaza.mp3', tarot: 'bgm/bgm-tarot.mp3', boat: 'bgm/bgm-boat.mp3',
+  cafe1: 'bgm/cafe-1.mp3', cafe2: 'bgm/cafe-2.mp3', cafe3: 'bgm/cafe-3.mp3', cafe4: 'bgm/cafe-4.mp3', cafe5: 'bgm/cafe-5.mp3' };   // cafe1~5：咖啡廳點唱機的歌（歌單在 cafe.js 的 CF_SONGS）
+let cfSong = '';   // 咖啡廳點唱機目前放的歌（'' = 沒點歌，沿用廣場那首）
+try { cfSong = localStorage.getItem('dewfarm_cafe_song') || ''; } catch (e) { /* 略過 */ }
+const SCENE_BGM = { farm: 'farm', house: 'farm', forest: 'farm', cave: 'farm', town: 'town', plaza: 'plaza', cafe: 'plaza', tarot: 'tarot', boat: 'boat' };   // 場景 -> 用哪一首（沒列的場景用合成音樂）
 function createSceneBgm(win, urls) {
   const AC = win.AudioContext || win.webkitAudioContext;
   if (!AC || !win.Audio) return null;
@@ -42,6 +45,19 @@ function createSceneBgm(win, urls) {
     },
     setVolume(v) { vol = Math.min(1, Math.max(0, v)); if (cur && T[cur]) fade(T[cur], lv()); },
     nudge() { if (cur && T[cur] && T[cur].el.paused) play(T[cur]); },
+    /* 對時：讓這首歌從 pos 秒的地方接著放（點唱機全店同步用）。pos 是「在 at 那一刻」的播放位置，歌是循環的所以取餘數；
+       差距小於 1.5 秒就不動它（避免一直跳）。音檔還沒載入長度時先記著，載入好再跳。 */
+    seek(name, pos, at) {
+      const t = make(name); if (!t) return;
+      t.want = { pos, at: at == null ? performance.now() : at };
+      const go = () => {
+        const w = t.want, d = t.el.duration; if (!w || !(d > 0)) return;
+        const target = (w.pos + (performance.now() - w.at) / 1000) % d, cu = t.el.currentTime, diff = Math.min(Math.abs(cu - target), d - Math.abs(cu - target));
+        t.want = null;
+        if (diff > 1.5) { try { t.el.currentTime = target; } catch (e) { /* 略過 */ } }
+      };
+      if (t.el.duration > 0) go(); else t.el.addEventListener('loadedmetadata', go, { once: true });
+    },
     hidden(h) { if (!cur || !T[cur]) return; if (h) T[cur].el.pause(); else play(T[cur]); }
   };
 }
@@ -49,6 +65,7 @@ const Bgm = createSceneBgm(window, BGM_FILES);
 let bgmGesture = false, bgmSig = '';
 /* 決定現在該放哪一種：有音檔的場景 → 音檔；其他 → 程式合成。使用者關掉音樂就都不放。 */
 function bgmName() {
+  if (scene === 'cafe' && cfSong && BGM_FILES[cfSong]) return cfSong;   // 在咖啡廳裡：點唱機的歌優先
   return SCENE_BGM[scene];
 }
 function syncBgm() {

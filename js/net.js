@@ -18,7 +18,7 @@ const ERR = {
   order_done: '這張委託已經完成了', bad_order: '沒有這張委託', max_tool: '已經是最高等級了', bad_tool: '沒有這種工具',
   no_hay: '沒有乾草了，到村裡的牧場小屋買', nothing_to_feed: '動物都吃飽了', nothing_to_collect: '現在沒有可以收的', barn_full: '穀倉住滿了（玩家升級會變大）', rock_busy: '這顆礦石還在恢復', sold_out: '今天已經買過或賣滿了', not_on_sale: '這件家具今天沒有上架', merchant_away: '旅行商人今天不在', already_fert: '已經施過肥了', story_end: '故事暫時告一段落，之後還會有新章節', yard_full: '庭院已經擺滿 60 件了', cannot_sell: '這個不能賣', visit_closed: '現在不方便拜訪', block_full: '黑名單最多 20 人', table_full: '桌上放不下了（一格最多 10 份）', eat_limit: '今天吃了太多份了，明天再來吧', buff_full: '這個效果已經滿 60 分鐘了，晚點再吃', item_cap: '這種東西已經有 999 個了，先賣掉或用掉一些吧',
   bad_kind: '種類不對', already_owned: '這個花紋已經買過了', not_owned: '這個花紋還沒買', bad_line: '牆和門只能畫成橫線或直線', bad_pos: '座標不對', tier_locked: '這個階段的擴建任務還沒開放', tier_wait: '房子剛擴建完，工人還在整理，時間到了才能再擴建', max_tier: '房子已經是最大的了',
-  no_coins: '金幣不足', daily_max: '今天的出海次數用完了', already_aboard: '你已經在一趟出海裡了', voyage_full: '船上已經滿 8 人了', voyage_closed: '這個出海團已經出發或取消了', kicked: '船長請你下船了', not_host: '只有船長可以這樣做', crew_unready: '還有人沒按準備', not_member: '你不在這趟出海裡', not_sailing: '現在沒有在航行', cooldown: '等一下再拋竿', catch_cap: '這趟已經釣到上限了', no_cast: '魚線已經失效，再拋一次', reel_early: '太快了，這條魚不算'
+  no_coins: '金幣不足', cafe_pending: '你還有一張點餐單沒結清', cafe_bad_dish: '菜單上沒有這個', cafe_too_fast: '手腳太快了，稍等一下', daily_max: '今天的出海次數用完了', already_aboard: '你已經在一趟出海裡了', voyage_full: '船上已經滿 8 人了', voyage_closed: '這個出海團已經出發或取消了', kicked: '船長請你下船了', not_host: '只有船長可以這樣做', crew_unready: '還有人沒按準備', not_member: '你不在這趟出海裡', not_sailing: '現在沒有在航行', cooldown: '等一下再拋竿', catch_cap: '這趟已經釣到上限了', no_cast: '魚線已經失效，再拋一次', reel_early: '太快了，這條魚不算'
 };
 const errText = e => {
   const m = String((e && (e.message || e.msg)) || e || '');

@@ -166,6 +166,17 @@ function updateTip() {
       else if (y <= 1 && x >= 4 && x <= 7) s = '招牌：按動作鍵，選擇前往 Lekcus 的直播或 Instagram。';
       else if (k === LK || k === TBL) s = 'Lekcus：按動作鍵打招呼、抽牌。';
     }
+  } else if (scene === 'cafe') {
+    s = '咖啡廳：坐高腳椅按動作鍵點餐；想打工就走到吧台右邊的小門穿圍裙。（有結算時：點餐扣款、送餐領薪水）';
+    if (x >= 0 && y >= 0 && x < W && y < H) {
+      const k = K[y][x];
+      if (k === BX) s = '門口：按動作鍵回廣場。';
+      else if (k === CFT) s = '高腳椅：按動作鍵坐下點餐。';
+      else if (k === CFG) s = '吧台小門：按動作鍵穿上／脫下圍裙，進出操作間。';
+      else if (k === CFSEAT) s = '座位：按動作鍵坐下休息。';
+      else if (k === CFJ) s = '音樂機：按動作鍵點歌（客人心情變好）。';
+      else if (cf && cf.by[x + ',' + y]) s = '操作間：拿食材、磨豆（按住）、咖啡機、烤箱、杯架、洗杯池（按住）、出餐口。';
+    }
   } else if (scene === 'stylist') {
     s = '店員站在櫃檯後面，面對櫃檯按動作鍵和他說話。';
     if (x >= 0 && y >= 0 && x < W && y < H) {

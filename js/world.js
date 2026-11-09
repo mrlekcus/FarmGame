@@ -226,6 +226,10 @@ const CAMP = [
 ];
 [[7, 14], [3, 16], [2, 17], [3, 18], [8, 18]].forEach(([x, y]) => { if (pkind[y][x] === TR) pkind[y][x] = G; });
 CAMP.forEach(o => { for (let y = o.y; y < o.y + o.h; y++) for (let x = o.x; x < o.x + o.w; x++) pkind[y][x] = o.seat ? BN : o.cook ? CKP : CMD; });
+/* 咖啡廳（js/cafe.js）：廣場上方的 5×4 空地（舊廣場座標 x2~6、y3~6），蓋成暖木小木屋；門在底部中間 (CFB.x+2, CFB.y+3)，站在下面的大路上面向上按動作鍵進去 */
+const CFD = 81, CFB = { x: PXO + 2, y: PYO + 3, w: 5, h: 4 };
+for (let y = CFB.y; y < CFB.y + CFB.h; y++) for (let x = CFB.x; x < CFB.x + CFB.w; x++) pkind[y][x] = HB;
+pkind[CFB.y + CFB.h - 1][CFB.x + 2] = CFD;
 const campStumpAt = (x, y) => CAMP.some(o => o.seat && o.x === x && o.y === y);
 const campAt = (x, y) => CAMP.find(o => x >= o.x && x < o.x + o.w && y >= o.y && y < o.y + o.h);
 /* ---------- 出海團的船甲板（3/4 俯視，16×12 格）：上面兩排是天空，其餘是海；甲板 x 3~12、y 4~9，一圈欄杆，左上是船艙 ----------

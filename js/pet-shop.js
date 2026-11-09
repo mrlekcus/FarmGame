@@ -564,7 +564,7 @@ function petPubRefresh(ids) {
   rpc('pet_public_many', { p_uids: ids }).then(d => { Object.keys(petPub).forEach(k => delete petPub[k]); Object.assign(petPub, d || {}); }).catch(() => {}).then(() => { petPubBusy = false; });
 }
 function petRemoteEnts(now, ents) {
-  if (!me || !syncScene() || scene === 'tarot' || scene === 'boat') return;
+  if (!me || !syncScene() || scene === 'tarot' || scene === 'cafe' || scene === 'boat') return;
   const list = []; remotes.forEach(rp => { if (hereRp(rp)) list.push(rp); });
   if (!list.length) return;
   petPubRefresh(list.map(rp => rp.id));
@@ -604,7 +604,7 @@ function petTouchSend(owner) {
   try { if (syncScene() && net && net.ok) net.ch.send({ type: 'broadcast', event: 'ptp', payload: { i: myUid, to: owner } }); } catch (e) { /* 略過 */ }
 }
 function petRemoteAt(x, y) {   // 這一格上有沒有別人的寵物（玩家本人站在這格時以玩家為優先，呼叫端先判斷）
-  if (!me || !syncScene() || scene === 'tarot' || scene === 'boat') return null;
+  if (!me || !syncScene() || scene === 'tarot' || scene === 'cafe' || scene === 'boat') return null;
   let hit = null;
   remotes.forEach(rp => {
     if (!hereRp(rp) || !petPub[rp.id]) return;

@@ -539,7 +539,7 @@ async function visitHouse(uid, name) {
   try {
     const d = await withTimeout(rpc('house_visit', { p_uid: uid }).then(x => houseDoorOf(x, uid)), 12000);
     /* 從任何場景拜訪都要先回到農場：小村、森林、山洞、穀倉、造型屋的地圖大小各不相同，不先離開的話，離開朋友家後地圖尺寸會停在錯的值，農場畫面就壞掉 */
-    if (scene === 'plaza' || scene === 'tarot') leaveVillage(true);
+    if (scene === 'plaza' || scene === 'tarot' || scene === 'cafe') leaveVillage(true);
     if (scene === 'house') leaveHouse(true);
     if (scene === 'stylist') leaveStylist(true);
     if (scene === 'cave') leaveCave(true);

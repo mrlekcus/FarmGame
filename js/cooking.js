@@ -1,7 +1,7 @@
 'use strict';
 /* 料理與烹飪小遊戲 —— 雷克斯農場。所有檔案共用同一個全域範圍，載入順序見 index.html。 */
 /* ---------- 料理：廚房灶台（家裡擺了才能用） ---------- */
-const DISHC = { rcake: '#f3d79a', stew: '#e8a05a', pie: '#f0a64a', grilled: '#c98f62', soup: '#e8c97a', escargot: '#b98a62',
+const DISHC = { americano: '#6a3a20', latte: '#d9b48a', pancake: '#e8c07a', rcake: '#f3d79a', stew: '#e8a05a', pie: '#f0a64a', grilled: '#c98f62', soup: '#e8c97a', escargot: '#b98a62',
   berryjam: '#d6455d', herbtea: '#b9d86a', hollydrink: '#e8786a', berrypie: '#7a86e0', lotussoup: '#f0d9c0', frostsoup: '#b8e8f0', lotuscake: '#f2b6cc', omelet: '#f5d04a', pudding: '#f2c987' };
 function drawDish(x, y, k) {   // 盤子上的料理（像素）；直接畫在目前的畫布上
   ob('#fffaf0', '#c9b79a', x + 2, y + 9, 12, 5);
@@ -364,7 +364,7 @@ const bfRnd = (a, b) => a + Math.random() * (b - a);
 const myVisList = () => VIS_BUFFS.filter(k => buffOn(k));
 const myVisBuffs = () => myVisList().join(',');   // 送給別人的 buff 種類，例如 "lamp,heart"
 const parseVis = v => typeof v === 'string' ? VIS_BUFFS.filter(k => v.split(',').includes(k)) : [];   // 收到的資料只認得清單裡的種類
-const bfIndoors = () => scene === 'house' || scene === 'barn' || scene === 'tarot' || scene === 'stylist' || scene === 'cave';
+const bfIndoors = () => scene === 'house' || scene === 'barn' || scene === 'tarot' || scene === 'stylist' || scene === 'cave' || scene === 'cafe';
 function bfEmit(kinds, px, py, moving, acc, dt) {
   const every = (k, ms) => { acc[k] = (acc[k] || 0) + dt; if (acc[k] < ms) return false; acc[k] = 0; return true; };
   const add = o => bfx.push(Object.assign({ l: 0, vx: 0, vy: -0.3, max: 1800, sc: scene }, o));

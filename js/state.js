@@ -47,7 +47,7 @@ function sellValue(sold, qty, price) {
 const pl = { x: 4, y: 4, sx: 4, sy: 4, prog: 1, face: 'down', step: 0 };
 const srvNow = () => Date.now() + offset;
 
-let bagOpen = false, shopOpen = false, makerOpen = false, authOpen = true, actQueued = false, actHeld = false, actPtr = -1, firstTime = false, vmOpen = false, gmOpen = false, vyOpen = false;
+let bagOpen = false, shopOpen = false, makerOpen = false, authOpen = true, actQueued = false, actHeld = false, actPtr = -1, firstTime = false, vmOpen = false, gmOpen = false, vyOpen = false, cfOpen = false;
 let pendingInvite = '';
 const pressed = [];
 let frOpen = false;
@@ -55,7 +55,7 @@ let lkOpen = false, bdOpen = false, ckOpen = false, rcOpen = false, mcOpen = fal
 let syOpen = false, lvOpen = false, cdOpen = false, dexOpen = false, qOpen = false, dsOpen = false, emOpen = false, stOpen = false, imm = false, sheetOpen = false, trOpen = false;
 let pnOpen = false, mnOpen = false, seOpen = false, mbOpen = false, seaOpen = false;   // seOpen：NPC 換種子視窗
 let petOpen = false;
-const paused = () => seOpen || mbOpen || seaOpen || anOpen || lkOpen || bdOpen || ckOpen || rcOpen || mcOpen || mnOpen || dgOpen || lvOpen || cdOpen || dexOpen || qOpen || dsOpen || pnOpen || stOpen || trOpen || (imm && sheetOpen) || frOpen || mlOpen || bagOpen || shopOpen || makerOpen || authOpen || vyOpen || vmOpen || gmOpen || fOpen || syOpen || petOpen || !ready;
+const paused = () => seOpen || mbOpen || seaOpen || anOpen || lkOpen || bdOpen || ckOpen || rcOpen || mcOpen || mnOpen || dgOpen || lvOpen || cdOpen || dexOpen || qOpen || dsOpen || pnOpen || stOpen || trOpen || (imm && sheetOpen) || frOpen || mlOpen || bagOpen || shopOpen || makerOpen || authOpen || vyOpen || vmOpen || gmOpen || fOpen || syOpen || petOpen || cfOpen || !ready;
 
 /* ---------- 小提示與特效 ---------- */
 const toastEl = $('toast');

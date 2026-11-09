@@ -185,6 +185,7 @@ function draw(now) {
   else if (scene === 'stylist') drawStylistRoom(now);
   else if (scene === 'cave') drawCaveRoom(now);
   else if (scene === 'tarot') drawTarotRoom(now);
+  else if (scene === 'cafe') drawCafeRoom(now);
   else if (scene === 'boat') drawBoatScene(now);
   else {
   for (let ty = 0; ty < H; ty++) for (let tx = 0; tx < W; tx++) {
@@ -222,7 +223,7 @@ function draw(now) {
   else if (scene === 'town') TOWN_BLD.forEach(b => drawBldg(b, now, dark > 0.15));
   else if (scene === 'forest') FOREST_BLD.forEach(b => drawBldg(b, now, dark > 0.15));
   else {
-    if (scene === 'plaza') { drawPlazaBoat(now); drawMsgBoard(now); drawPlazaCamp(now); }
+    if (scene === 'plaza') { drawPlazaBoat(now); drawMsgBoard(now); drawPlazaCamp(now); drawCafeBldg(now, dark > 0.15); }
     ctx.save(); ctx.translate(PXO * T, PYO * T);   // 塔羅攤、路燈、噴水池是舊廣場座標，位移後再畫
     drawTarotStall(now);
     if (scene === 'plaza') drawPlazaLamps(now);   // 廣場路燈（js/plaza-light.js）
@@ -253,6 +254,8 @@ function draw(now) {
           seatNameTag(ch.name, pit, px, py, '#ffffff');
         }
       } });
+    } else if (cafeSeatedNow()) {
+      ents.push({ y: ry, draw: () => cafeDrawSeated(ch, now) });
     } else if (pose && ((pose.bench && scene === 'plaza') || (pose.ground && syncScene()))) {
       ents.push({ y: ry, draw: () => {
         (pose.ground ? drawGroundSeated : drawBenchSeated)(Math.round(pl.x * T), Math.round(pl.y * T), ch);
@@ -269,6 +272,7 @@ function draw(now) {
   if (scene === 'house') houseEnts(now).forEach(en => ents.push(en));
   if (scene === 'barn') barnEnts(now, ents);
   if (scene === 'tarot') lekcusEnts(now, ents);
+  if (scene === 'cafe') cafeEnts(now, ents);
   if (scene === 'farm') { updateForage(); fgList.forEach(f => {
     if (forTaken.has(f.slot + ':' + f.i) || yardMap.has(pk(f.x, f.y))) return;
     ents.push({ y: f.y + 0.5, draw: () => { miscArt(f.x * T, f.y * T + Math.round(Math.sin(now / 500 + f.i) * 0.6), f.key); } });
@@ -288,6 +292,7 @@ function draw(now) {
   })(), draw: () => {
     const mv = Math.abs(rp.tx - rp.x) + Math.abs(rp.ty - rp.y) > 0.05;
     const px = Math.round(rp.x * T), py = Math.round(rp.y * T);
+    if (rp.w === 'c' && rp.cs && !mv && typeof cafeDrawRemote === 'function' && cafeDrawRemote(rp, now)) return;
     const seated = rp.sit && !mv, gs = rp.gsit && !mv;
     const fit = rp.fs && !mv ? seatItemAt(rp.tx, rp.ty, rp.fs) : null;
     if (fit) {
@@ -337,7 +342,7 @@ function draw(now) {
   ctx.globalAlpha = 1;
 
   drawBoatFx(now, voyFogLevel(now));
-  const indoors = scene === 'house' || scene === 'barn' || scene === 'tarot' || scene === 'stylist' || scene === 'cave';
+  const indoors = scene === 'house' || scene === 'barn' || scene === 'tarot' || scene === 'stylist' || scene === 'cave' || scene === 'cafe';
   const warm = indoors ? 0 : Math.max(0, 1 - Math.abs(w.min - 1110) / 100) * 0.2;
   if (!indoors && SEA === 'autumn') r('rgba(255,170,70,.06)', 0, 0, W * T, H * T);
   else if (!indoors && SEA === 'winter') r('rgba(215,232,255,.07)', 0, 0, W * T, H * T);
