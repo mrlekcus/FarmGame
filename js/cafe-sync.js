@@ -134,13 +134,13 @@ function cfOnSnap(p) {
     b.dir = CF_DIRS.includes(bb[2]) ? bb[2] : 'down'; b.moving = !!bb[3]; b.hold = cfCleanHold(bb[4]);
   }
   const old = new Map(cf.custs.map(c => [c.id, c])), nu = [];
-  p.cu.slice(0, 16).forEach(a => {
+  p.cu.slice(0, 16).forEach(a => { try {
     if (!a || typeof a !== 'object') return;
     const id = cfIn(a.id, 0, 1e9, -1), st = CF_STS[cfIn(a.st, 0, 4, -1)]; if (id < 0 || !st) return;
     let c = old.get(id);
     const tx = cfNm(a.x, 0, CFW, 8), ty = cfNm(a.y, 0, CFH, 8);
     if (!c) c = { id, x: tx, y: ty, step: 0, line: null, lnTxt: null, path: [] };
-    c.tx = tx; c.ty = ty; c.name = clean(a.nm, 8) || '客人'; c.key = CF_KEYS.includes(a.k) || CF_VILL.includes(a.k) ? a.k : CF_KEYS[0];
+    c.tx = tx; c.ty = ty; c.name = clean(a.nm, 8) || '客人'; c.key = CF_KEYS.includes(a.k) || CF_VKEYS.includes(a.k) ? a.k : CF_KEYS[0];
     c.seat = cfIn(a.s, -1, CF_SEATS.length - 1, -1); c.dir = CF_DIRS.includes(a.d) ? a.d : 'down'; c.state = st;
     c.dish = CF_MENU[a.di] ? a.di : 'americano'; c.ttl = cfNm(a.tt, 0, 300, 0); c.max = cfNm(a.mx, 1, 300, 70);
     c.own = typeof a.ow === 'string' && UID_RE.test(a.ow) ? a.ow : 0; c.isPlayer = c.own ? 1 : 0; c.q = cfIn(a.q, 0, 1e9, 0);
@@ -148,7 +148,7 @@ function cfOnSnap(p) {
     c.moving = !!a.mv; c.path = a.mv ? [[0, 0]] : [];
     if (typeof a.ln === 'string' && a.ln) { if (a.ln !== c.lnTxt) { c.lnTxt = a.ln; c.line = { txt: clean(a.ln, 40), at: performance.now() }; } } else c.lnTxt = null;
     nu.push(c);
-  });
+  } catch (e) { /* 這一位資料有問題就略過，其他人照常更新 */ } });
   cf.custs = nu;
   CF_SPOTS.forEach((s, i) => { s.o = (Array.isArray(p.o) && p.o[i] ? 1 : 0) || (cf.sit && cf.sit.spot === s ? 1 : 0); });
   const ph = {};

@@ -452,14 +452,50 @@ function cfOrderMenu() {
 }
 function closeCfMenu() { cfOpen = false; cfEl.hidden = true; }
 
-/* ---------- 穿圍裙確認窗（清單式）：先看三道料理的價格、薪水、做法，按「穿上圍裙」才進操作間 ---------- */
-function cfApronMenu() {
-  if (cfOpen || !cf || cf.ordering) return;
+/* ---------- 穿圍裙確認窗：三頁（操作間導覽地圖／料理做法／確認），第一次打開先看導覽 ---------- */
+const CF_GUIDE = [   // [編號, 名稱, 一句話, 格子位置（9 欄 × 5 列，對應操作間 x1~9、y2~6）, 底色]
+  [1, '咖啡豆箱', '拿咖啡豆', 'grid-column:1;grid-row:1', '#c9965a'], [2, '牛奶箱', '拿牛奶', 'grid-column:2;grid-row:1', '#f7f7f2'],
+  [3, '麵糰箱', '拿麵糰', 'grid-column:3;grid-row:1', '#f0d9a0'], [4, '磨豆機', '放豆、按住動作鍵磨', 'grid-column:4/6;grid-row:1', '#b8b8b8'],
+  [5, '咖啡機', '放磨好的豆和牛奶', 'grid-column:6/8;grid-row:1/3', '#9fb6d0'], [6, '烤箱', '放麵糰烤鬆餅', 'grid-column:8/10;grid-row:1', '#f0a860'],
+  [7, '洗杯池', '放髒杯子、按住洗', 'grid-column:1;grid-row:4', '#8cc4ec'], [8, '垃圾桶', '丟掉拿錯的東西', 'grid-column:2;grid-row:4', '#999'],
+  [9, '杯架', '拿乾淨的杯子', 'grid-column:3;grid-row:4', '#fff'], [10, '出餐口', '端飲料放這裡送客人', 'grid-column:4/6;grid-row:5', '#f4a0b4']
+];
+const CF_STEPS = {
+  americano: ['①拿 1 咖啡豆箱的豆（一次拿一個）', '②走到 4 磨豆機放進去，按住動作鍵磨，磨好再按一下拿起', '③放進 5 咖啡機；重複一次，放滿 2 份磨好的豆就自動開始煮', '④去 9 杯架拿杯子', '⑤煮好面對 5 按動作鍵，用杯子盛起（太久會焦）', '⑥端到 10 出餐口'],
+  latte: ['①磨 1 份豆（做法同美式①②）', '②磨好的豆放進 5 咖啡機', '③去 2 牛奶箱拿牛奶，也放進 5 咖啡機，兩樣到齊就開始煮', '④去 9 杯架拿杯子，煮好盛起', '⑤端到 10 出餐口'],
+  pancake: ['①去 3 麵糰箱拿麵糰', '②直接放進 6 烤箱，自動開始烤', '③去 9 杯架拿盤子，烤好立刻盛起（太久會焦）', '④端到 10 出餐口']
+};
+const cfGuideSeen = () => { try { return localStorage.getItem('cfGuide1') === '1'; } catch (e) { return false; } };
+function cfApronMenu(pg) {
+  if (!cf || cf.ordering) return;
+  if (!pg && cfOpen) return;
   cfOpen = true; pressed.length = 0; cfEl.hidden = false;
-  const eco = cfEco === true;
+  const eco = cfEco === true, bx = 'background:#fffaf0;border:2px solid #c9a06a;border-radius:8px;padding:8px;margin:0 0 6px;color:#4a2a10';
+  const bt = (k, t, ghost) => '<button type="button" class="btn' + (ghost ? ' ghost' : '') + ' wide" data-cf="' + k + '" style="margin:0 0 8px">' + t + '</button>';
+  if (!pg) pg = cfGuideSeen() ? 'main' : 'guide';
+  if (pg === 'guide') {
+    try { localStorage.setItem('cfGuide1', '1'); } catch (e) { /* 略過 */ }
+    const cells = CF_GUIDE.map(q => '<div style="' + q[3] + ';background:' + q[4] + ';border:2px solid #5a3a30;border-radius:4px;display:flex;align-items:center;justify-content:center"><span style="width:20px;height:20px;border-radius:50%;background:#e24b4a;color:#fff;font:800 12px/20px sans-serif;text-align:center">' + q[0] + '</span></div>').join('') +
+      '<div style="grid-column:9;grid-row:5;background:#d9b27a;border:2px solid #5a3a30;border-radius:4px;font:800 11px/26px sans-serif;text-align:center;color:#5a3a30">門</div>';
+    const legend = CF_GUIDE.map(q => '<div style="font-size:12px;line-height:1.5"><b>' + q[0] + ' ' + q[1] + '</b>：' + q[2] + '</div>').join('');
+    cfCard.innerHTML = '<div class="shop-h"><h2>🗺 操作間導覽</h2></div>' +
+      '<p style="margin:0 0 8px;font-size:13px;line-height:1.5">走到檯子旁、面對它，按動作鍵就能拿或放。手上一次只能拿一樣東西。</p>' +
+      '<div style="display:grid;grid-template-columns:repeat(9,1fr);grid-template-rows:repeat(5,30px);gap:2px;background:#e8cfa0;border:3px solid #8a5a4a;border-radius:8px;padding:3px;margin:0 0 8px">' + cells + '</div>' +
+      '<div style="display:grid;grid-template-columns:1fr;gap:1px;margin:0 0 10px;color:#4a2a10">' + legend + '</div>' +
+      bt('pg:recipes', '下一頁：三道料理怎麼做') + bt('apron', '直接穿上圍裙', 1) + bt('close', '再想想', 1);
+    return;
+  }
+  if (pg === 'recipes') {
+    const rows = Object.keys(CF_MENU).map(k => '<div style="' + bx + '"><div style="font-weight:700;font-size:14px;margin:0 0 3px">' + CF_MENU[k].n + '</div>' +
+      CF_STEPS[k].map(t => '<div style="font-size:12px;line-height:1.55">' + t + '</div>').join('') + '</div>').join('');
+    cfCard.innerHTML = '<div class="shop-h"><h2>☕ 三道料理怎麼做</h2></div>' + rows +
+      '<p style="margin:2px 0 8px;font-size:12px;line-height:1.5;color:#7a5a30">用完的髒杯子丟進 7 洗杯池，按住動作鍵洗乾淨（豆豆也會幫忙）。焦掉的要空手面對機器清掉。放錯東西丟 8 垃圾桶。</p>' +
+      bt('pg:main', '看完了，下一頁') + bt('pg:guide', '回上一頁：操作間導覽', 1);
+    return;
+  }
   const rows = Object.keys(CF_MENU).map(k => {
     const m = CF_MENU[k], pay = Math.round(m.p * 0.1);
-    return '<div style="background:#fffaf0;border:2px solid #c9a06a;border-radius:8px;padding:8px;margin:0 0 6px;color:#4a2a10">' +
+    return '<div style="' + bx + '">' +
       '<div style="display:flex;justify-content:space-between;align-items:center;gap:6px;font-weight:700;font-size:14px"><span>' + m.n + '　' + m.p + ' G</span>' +
       '<span style="background:#ffe08a;border:2px solid #b8860b;color:#5a3c00;border-radius:6px;padding:0 6px;font-size:12px;white-space:nowrap">' + (eco ? '薪水 ' + pay + ' G' : '試營運 不發 G') + '</span></div>' +
       '<div style="font-size:12px;color:#7a5a30;margin-top:3px">' + CF_RECIPE[k] + '</div></div>';
@@ -467,9 +503,7 @@ function cfApronMenu() {
   cfCard.innerHTML = '<div class="shop-h"><h2>🍳 要穿上圍裙打工嗎？</h2></div>' +
     '<p style="margin:0 0 8px;font-size:13px;line-height:1.5">飲料要自己做（磨豆、洗杯要按住動作鍵），豆豆只幫你洗杯和端餐。煮太久會焦。</p>' + rows +
     '<p style="margin:2px 0 8px;font-size:12px;color:#7a5a30">' + (eco ? '送出一杯領飲料價 10% 的薪水，每天最多 ' + ((cf.eco && cf.eco.cap) || 1000) + ' G（GMT+8 零點重置）。' : '試營運：先不發 G。') + '</p>' +
-    '<button type="button" class="btn wide" data-cf="apron" style="margin:0 0 8px">穿上圍裙</button>' +
-    '<button type="button" class="btn ghost wide" data-cf="close" style="margin:0 0 8px">再想想</button>' +
-    '<button type="button" class="btn ghost wide" data-cf="story">📖 重看開幕故事</button>';
+    bt('apron', '穿上圍裙') + bt('pg:guide', '🗺 新手看這裡：操作間導覽', 1) + bt('close', '再想想', 1) + bt('story', '📖 重看開幕故事', 1);
 }
 function cfApronGo() {
   if (!cf || scene !== 'cafe' || cf.sit || cfInKitchen()) return;   // 窗開著時狀態變了（離座、已經在裡面）就不處理
@@ -480,7 +514,9 @@ function cfApronGo() {
 cfEl.addEventListener('click', e => {
   const sb_ = e.target.closest('[data-song]'); if (sb_ && cf) { closeCfMenu(); cfPickSong(sb_.dataset.song); return; }
   const b = e.target.closest('[data-cf]'); if (!b || !cf) { if (e.target === cfEl) closeCfMenu(); return; }
-  const k = b.dataset.cf; closeCfMenu();
+  const k = b.dataset.cf;
+  if (k.slice(0, 3) === 'pg:') { cfApronMenu(k.slice(3)); return; }   // 圍裙窗換頁：窗不關
+  closeCfMenu();
   if (k === 'apron') { cfApronGo(); return; }
   if (k === 'story') { cfCgPlay(); return; }
   if (k === 'close' || !CF_MENU[k] || !cf.sit) return;
