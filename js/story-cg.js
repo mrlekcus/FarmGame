@@ -85,10 +85,74 @@ function scgPro(t) {
   for (let i = 0; i < 8; i++) sgA('#ffc2d4', .9, (i * 37 + t * 18) % 200 - 6, (i * 23 + t * 8) % 80 + 10, 2, 1);
 }
 
+/* ---------- 出海篇：柴犬船長的四幕劇情（碼頭完工後第一次登船自動播一次，之後可在布告欄相簿或船長選單重看）----------
+   畫面都用遊戲自己的圖：boatSide（船）、captainArt（柴犬船長）、npcArt（村民）、drawPlayer（旅人）、drawFish（海魚）、miscIcon（材料）。
+   對白格式：{ s: 'cpt'|'me'|村民 key|'' }；s:'me' 加 opts:[[旅人的回應, 船長的回覆], …] 就變成兩個選項，選了才繼續。 */
+const SCG_VOY = [
+  { title: '謝謝大家', lines: [
+    { s: 'cpt', t: '各位旅人，雷克斯號能下水，全靠大家一塊木頭、一塊石頭、一塊銅礦捐出來的。我代表這艘船——謝謝大家！' },
+    { s: 'me', opts: [['能幫上忙我很開心。', '你搬的那幾根木頭，我可都記得，汪！'], ['船看起來好棒！', '對吧！每一塊木板，都有你們的名字。']] }
+  ] },
+  { title: '海上珍魚', lines: [
+    { s: 'cpt', t: '海上藏著不少稀有的魚，有的大得像小島，有的一輩子只見得到一次。' },
+    { s: '', t: '（水下，一道巨大的魚影緩緩游過。）' },
+    { s: 'me', opts: [['真的有那麼稀有嗎？', '有的連我都只聽過傳說。釣到了，記得拿給我看看！'], ['我一定要全部釣到。', '有志氣！圖鑑，就等你來填滿了。']] }
+  ] },
+  { title: '神秘海域', lines: [
+    { s: 'cpt', t: '還有一件事。有時候，船會駛進地圖上沒有的地方。' },
+    { s: '', t: '（霧漸漸升起，遠處浮現淡淡的極光。）' },
+    { s: 'me', opts: [['那是什麼地方？', '神秘的海域，連魚都和別處不一樣。不是每趟都遇得到，遇到了就是緣分。'], ['聽起來有點危險。', '有我在，船燈不滅，就能平安回來。']] }
+  ] },
+  { title: '出港', lines: [
+    { s: 'cpt', t: '好了，話說完了！準備出發吧。' },
+    { s: 'me', opts: [['準備好了！', '好！纜繩解開——雷克斯號，出港！'], ['讓我再看大家一眼。', '去吧，大家都在岸上揮手呢。——纜繩解開，出港！']] },
+    { s: '', t: '（船身輕輕離岸，村子的炊煙越來越小。）' }
+  ] }
+];
+const sgBT = document.createElement('canvas'); sgBT.width = 128; sgBT.height = 80;
+const sgIT = document.createElement('canvas'); sgIT.width = 16; sgIT.height = 16;
+function sgBoat(x, y, t, my) { const old = g; boatSide(sgBT.getContext('2d'), t * 1000, { mystery: !!my }); g = old; g.drawImage(sgBT, Math.round(x), Math.round(y)); }
+function sgCap(x, y, t, k) { g.save(); g.translate(x, y); g.scale(k || 3, k || 3); captainArt(0, 0, t * 1000); g.restore(); }
+function sgNpcK(k, x, y, t, s) { g.save(); g.translate(x, y); g.scale(s, s); npcArt(0, 0, k, Math.floor(t * 1.6 + k.length) % 2, t * 1000 + 500); g.restore(); }
+function sgFish(key, x, y, k, a, glow) { const old = g, c2 = sgIT.getContext('2d'); drawFish(c2, key, false); g = old; if (glow) sgA(glow, .12 * a, x - 6, y - 4, 16 * k + 12, 16 * k * .6 + 8); g.globalAlpha = a; g.drawImage(sgIT, Math.round(x), Math.round(y), 16 * k, 16 * k); g.globalAlpha = 1; }
+function sgMat(key, x, y, a) { const old = g; miscIcon(sgIT.getContext('2d'), key); g = old; g.globalAlpha = Math.max(0, a); g.drawImage(sgIT, Math.round(x), Math.round(y)); g.globalAlpha = 1; }
+function sgSea(y, c1, c2, sp) { sp = sp || 90; sgR(c1, 0, y, 192, sp - y); sgR(c2, 0, sp, 192, 108 - sp); }   // sp：第二層海色從哪裡開始（要跟 boatSide 的海面對齊＝船的 y＋70）
+function sgGull(t, i) { const x = (t * 14 + i * 70) % 230 - 20, y = 14 + i * 10 + sgS(t * 3 + i) * 3, f = Math.floor(t * 4 + i) % 2; sgR('#fff', x, y + f, 3, 1); sgR('#fff', x + 3, y - f, 3, 1); }
+function sgDawn(by) { [['#ffd2b0', 0], ['#ffdcbc', 12], ['#ffe6c8', 26], ['#fff0d6', 38]].forEach(([c, y]) => sgR(c, 0, y, 192, 14)); sgA('#fff3b0', .3, 128, 10, 32, 32); sgR('#fff3b0', 136, 18, 16, 16); sgSea(46, '#4aa0e0', '#3a8ac8', 70 + by); }
+function sgPier() { sgR('#a8683a', 0, 90, 192, 6); sgR('#8a5a30', 0, 96, 192, 12); }
+const SCG_VSC = [
+  t => { sgDawn(0);
+    for (let i = 0; i < 12; i++) { const x = 4 + i * 16, y = 6 + sgS(i / 1.9) * 3; sgR('#8a6a50', x, y, 16, 1); sgR(['#e8453c', '#ffd34d', '#7fb878', '#8ac0ff'][i % 4], x + 4, y + 1, 6, 5 + Math.round(sgS(t * 3 + i))); }
+    sgGull(t, 0); sgBoat(64, 0, t); sgPier();
+    [['m:wood', 0], ['m:stone', 1], ['m:copper', 2]].forEach(([k, i]) => { const q = (t * 9 + i * 13) % 40; sgMat(k, 10 + i * 18, 58 - q, 1 - q / 40); });
+    [['oak', 100], ['gui', 122], ['mo', 144], ['li', 166]].forEach(([k, x], i) => sgNpcK(k, x, 56 + (sgS(t * 5 + i * 2) > .6 ? -2 : 0), t, 2));
+    sgCap(52, 48, t); sgMe(4, 46); },
+  t => { sgR('#bfe3f5', 0, 0, 192, 24); sgR('#e4f1ea', 0, 24, 192, 28); sgGull(t, 0); sgGull(t, 1);
+    [['#4aa0e0', 52, 8], ['#3a8ac8', 60, 18], ['#2c6aa8', 78, 14], ['#1f4f88', 92, 16]].forEach(([c, y, h]) => sgR(c, 0, y, 192, h));
+    for (let i = 0; i < 6; i++) sgA('#bfe6ff', .25, (i * 37 + t * 5) % 192, 80 + (i % 3) * 8, 2, 8);
+    sgBoat(26, -10, t);
+    sgFish('swordfish', 192 - (t * 14) % 250 + 10, 76, 2, .9, '#bfe6ff');
+    sgFish('clownfish', (t * 8) % 230 - 30, 90, 2, .9, '#ffd8a0');
+    const gx = (t * 10 + 90) % 230 - 20; sgFish('yellowfin', gx, 70, 1, 1, '#fff3b0'); for (let i = 0; i < 4; i++) if (sgS(t * 6 + i * 1.6) > 0) sgR('#fff', gx + (i * 7) % 16 - 2, 66 + (i * 5) % 10, 1, 1); },
+  t => { [['#14203a', 0], ['#1d2c4c', 14], ['#26385a', 28], ['#33496e', 40]].forEach(([c, y]) => sgR(c, 0, y, 192, 14));
+    for (let i = 0; i < 16; i++) if (sgS(t * 2 + i * 1.7) > -.3) sgR('#fff', (i * 43) % 192, (i * 17) % 36, 1, 1);
+    for (let k = 0; k < 3; k++) for (let x = 0; x < 192; x += 2) sgA(['#7fffd4', '#8ac0ff', '#c8a0ff'][k], .16, x, 8 + k * 7 + sgS(x / 22 + t * .8 + k) * 6, 2, 10);
+    sgSea(46, '#2f5f96', '#25507f'); sgFish('ghostwhale', 200 - (t * 9) % 260, 52, 4, .35, '#cfe0ff');
+    sgBoat(34, 20, t, true); const f = .6 + sgS(t * 5) * .2; sgA('#ffd34d', .25 * f, 70, 36, 30, 30);
+    for (let i = 0; i < 5; i++) { const x = ((i * 60 + t * 9) % 260) - 40; sgA('#cfe0ff', .45, x, 34 + i * 11, 80, 7); sgA('#cfe0ff', .3, x + 20, 38 + i * 11, 60, 5); }
+    sgMe(6, 50); },
+  t => { const p = Math.min(1, t / 4); [['#ffd2b0', 0], ['#ffdcbc', 12], ['#ffe6c8', 26], ['#fff0d6', 38]].forEach(([c, y]) => sgR(c, 0, y, 192, 14));
+    sgA('#fff3b0', .3, 128, 46 - p * 30 - 8, 32, 32); sgR('#fff3b0', 136, 46 - p * 30, 16, 16); sgSea(46, '#4aa0e0', '#3a8ac8', 84);
+    for (let i = 0; i < 7; i++) sgA('#fff3b0', .5, 138 + sgS(t * 2 + i) * 4, 50 + i * 5, 12 - i, 1);
+    sgGull(t, 0); sgGull(t, 1); sgBoat(60 + Math.max(0, t - 2.5) * 12, 14, t); sgPier();
+    if (t < 3) sgR('#e8d8b0', 52, 88, 20 - Math.max(0, t - 2) * 20, 1);
+    sgNpcK('oak', 46, 56, t, 2); sgNpcK('gui', 68, 56 + (sgS(t * 6) > .5 ? -2 : 0), t, 2); sgMe(4, 46); }
+];
+
 const scgSt = { beat: -1, from: -1, t0: 0 };
 let scgPlay = null;   // 重播中：{ q: [{ ch, title, s, t, first }], i, title }
 function scgDraw(beat, t) {
-  const f = beat === 'pro' ? scgPro : SCG_SC[beat];
+  const f = beat === 'pro' ? scgPro : (typeof beat === 'string' && beat[0] === 'v') ? SCG_VSC[+beat.slice(1)] : SCG_SC[beat];
   if (f) f(t); else { sgR('#ffd2b0', 0, 0, 192, 60); sgGrass(60); }   // 之後新增的章節還沒畫 CG 時，先用一格晨光小村頂著
 }
 function scgFrame(cv, now) {
@@ -110,7 +174,7 @@ function scgRun(cv, beat) {
 }
 function scgThumb(cv, i) {
   const c = cv.getContext('2d'); c.imageSmoothingEnabled = false; const old = g; g = c;
-  try { scgDraw(i, i === 5 ? 4.5 : i === 'pro' ? 5 : 1.6); r('#000', 0, 0, 192, 4); r('#000', 0, 104, 192, 4); } catch (e) { /* 略過 */ }
+  try { scgDraw(i, i === 5 ? 4.5 : i === 'pro' ? 5 : (typeof i === 'string' && i[0] === 'v') ? 3.2 : 1.6); r('#000', 0, 0, 192, 4); r('#000', 0, 104, 192, 4); } catch (e) { /* 略過 */ }
   g = old;
 }
 const scgCanvas = beat => '<canvas data-scg="' + beat + '" width="192" height="108" style="display:block;width:100%;aspect-ratio:16/9;image-rendering:pixelated;border:3px solid var(--edge);border-radius:12px;background:#000;margin-top:8px"></canvas>';
@@ -132,42 +196,56 @@ function scgAlbumHtml(chs, d) {
   });
   h += '</div>';
   h += '<button type="button" class="btn wide" data-a="scgplay" data-c="all">▶ 從頭連播</button>';
+  const vs = scgVoySeen(), vst = 'border:2px solid var(--edge);border-radius:10px;overflow:hidden;background:#fff;padding:0;font:inherit;color:inherit;text-align:center;line-height:1.3';
+  h += '<p class="empty" style="margin:12px 0 2px"><b>出海篇</b>（柴犬船長）</p><div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:8px 0">';
+  SCG_VOY.forEach((a, i) => {
+    const cv = '<canvas data-th="v' + i + '" width="192" height="108" style="display:block;width:100%;aspect-ratio:16/9;image-rendering:pixelated' + (vs ? '' : ';filter:brightness(.3) saturate(.3)') + '"></canvas>', lab = '<span style="display:block;font-size:11px;padding:3px 2px">出海篇 ' + (i + 1) + '<br>' + (vs ? esc(a.title) : '？？？') + '</span>';
+    h += vs ? '<button type="button" data-a="scgplay" data-c="v' + i + '" style="' + vst + ';cursor:pointer">' + cv + lab + '</button>' : '<div style="' + vst + '">' + cv + lab + '</div>';
+  });
+  h += '</div>' + (vs ? '<button type="button" class="btn wide" data-a="scgplay" data-c="voy">▶ 重看出海劇情</button>' : '<small class="empty">第一次登上雷克斯號就會解鎖。</small>');
   return h;
 }
 
 /* 重播畫面：上面 CG（章節開頭有標題卡）、下面頭像＋對白（一個字一個字出現） */
 function scgPlayHtml() {
   const p = scgPlay, ln = p.q[p.i], last = p.i >= p.q.length - 1, me_ = ln.s === 'me', nq = me_ ? null : NPCS.find(q => q.k === ln.s);
-  const name = me_ ? (me ? me.name : '你') : (nq ? nq.n : '');
+  const name = me_ ? (me ? me.name : '你') : (ln.s === 'cpt' ? '柴犬船長' : nq ? nq.n : '');
   const pic = me_ ? '<canvas width="16" height="22" data-me="1" style="width:48px;height:66px;flex:none;image-rendering:pixelated"></canvas>'
-    : nq ? '<canvas width="16" height="20" data-npc="' + nq.k + '" style="width:48px;height:60px;flex:none;image-rendering:pixelated"></canvas>' : '';
-  return '<div class="shop-h"><h2>' + (ln.ch ? '第 ' + ln.ch + ' 章：' : '序章：') + esc(ln.title) + '</h2></div>' +
+    : ln.s === 'cpt' ? '<canvas width="16" height="16" data-cpt="1" style="width:48px;height:48px;flex:none;image-rendering:pixelated"></canvas>' : nq ? '<canvas width="16" height="20" data-npc="' + nq.k + '" style="width:48px;height:60px;flex:none;image-rendering:pixelated"></canvas>' : '';
+  return '<div class="shop-h"><h2>' + (ln.ch ? '第 ' + ln.ch + ' 章：' : (ln.tag ? ln.tag + '：' : '序章：')) + esc(ln.title) + '</h2></div>' +
     '<div style="position:relative;line-height:0"><canvas id="scgcv" width="192" height="108" style="display:block;width:100%;aspect-ratio:16/9;image-rendering:pixelated;border:3px solid var(--edge);border-radius:12px;background:#000"></canvas>' +
     '<div id="scgttl" style="position:absolute;inset:3px;border-radius:9px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(0,0,0,.55);color:#fff;line-height:1.5;opacity:0;pointer-events:none;transition:opacity .5s"></div></div>' +
-    '<div class="row" style="align-items:flex-start;margin-top:8px">' + pic + '<div class="meta"><b>' + esc(name) + '</b><small id="scg-txt" data-full="' + esc(ln.t) + '" style="display:block;margin-top:4px;line-height:1.5;min-height:3em"></small></div></div>' +
+    '<div class="row" style="align-items:flex-start;margin-top:8px">' + pic + '<div class="meta"><b>' + esc(name) + '</b><small id="scg-txt" data-full="' + esc(ln.opts ? '你想怎麼回應？' : ln.t) + '" style="display:block;margin-top:4px;line-height:1.5;min-height:3em"></small></div></div>' +
     '<small class="empty">' + (p.i + 1) + ' / ' + p.q.length + '</small>' +
-    '<button type="button" class="btn wide" data-a="scgnext">' + (last ? '完成' : '繼續') + '</button>' +
+    (ln.opts ? ln.opts.map((o, k) => '<button type="button" class="btn wide" data-a="scgpick" data-c="' + k + '">' + esc(o[0]) + '</button>').join('') : '<button type="button" class="btn wide" data-a="scgnext">' + (last ? '完成' : '繼續') + '</button>') +
     '<button type="button" class="btn ghost wide" data-a="scgback">' + (p.auto ? '跳過' : '回到相簿') + '</button>';
 }
 
 /* 畫完 innerHTML 之後呼叫：畫縮圖、啟動重播畫面、畫頭像、開始打字 */
 function scgAfter(root) {
-  root.querySelectorAll('canvas[data-th]').forEach(cv => scgThumb(cv, cv.dataset.th === 'pro' ? 'pro' : +cv.dataset.th));
+  root.querySelectorAll('canvas[data-th]').forEach(cv => scgThumb(cv, isNaN(+cv.dataset.th) ? cv.dataset.th : +cv.dataset.th));
   if (!scgPlay) return;
   const ln = scgPlay.q[scgPlay.i];
-  scgRun(root.querySelector('#scgcv'), ln.ch ? ln.ch - 1 : 'pro');
+  scgRun(root.querySelector('#scgcv'), ln.beat || (ln.ch ? ln.ch - 1 : 'pro'));
+  root.querySelectorAll('canvas[data-cpt]').forEach(cv => captainPortrait(cv.getContext('2d')));
   root.querySelectorAll('canvas[data-npc]').forEach(cv => npcIcon(cv.getContext('2d'), cv.dataset.npc));
   root.querySelectorAll('canvas[data-me]').forEach(cv => { const c2 = cv.getContext('2d'); c2.clearRect(0, 0, 16, 22); g = c2; try { drawPlayer(0, 6, 'down', false, 0, myChar()); } catch (e) { /* 略過 */ } g = ctx; });
   if (scgPlay.title) {
     scgPlay.title = false;
     const o = root.querySelector('#scgttl');
-    if (o) { o.innerHTML = '<small style="font-size:12px;letter-spacing:.2em">' + (ln.ch ? '第 ' + ln.ch + ' 章' : '序章') + '</small><b style="font-size:20px">' + esc(ln.title) + '</b>'; requestAnimationFrame(() => { o.style.opacity = '1'; }); setTimeout(() => { if (o.isConnected) o.style.opacity = '0'; }, 1500); }
+    if (o) { o.innerHTML = '<small style="font-size:12px;letter-spacing:.2em">' + (ln.ch ? '第 ' + ln.ch + ' 章' : (ln.tag || '序章')) + '</small><b style="font-size:20px">' + esc(ln.title) + '</b>'; requestAnimationFrame(() => { o.style.opacity = '1'; }); setTimeout(() => { if (o.isConnected) o.style.opacity = '0'; }, 1500); }
   }
   petCgType(root.querySelector('#scg-txt'));
 }
 
 /* 布告欄卡片上的按鈕：處理完回傳 true，由呼叫的人重畫 */
 function scgClick(a, c) {
+  if (a === 'scgplay' && (c === 'voy' || /^v\d$/.test(c))) { const q = scgVoyQ(c === 'voy' ? -1 : +c.slice(1)); if (!q.length) return true; scgSt.beat = -1; scgPlay = { q, i: 0, title: true }; return true; }
+  if (a === 'scgpick') {
+    const p = scgPlay, ln = p && p.q[p.i]; if (!ln || !ln.opts || !ln.opts[+c]) return false;
+    const o = ln.opts[+c], base = { ch: ln.ch, tag: ln.tag, title: ln.title, beat: ln.beat, first: false };
+    p.q.splice(p.i, 1, Object.assign({}, base, { s: 'me', t: o[0] }), Object.assign({}, base, { s: 'cpt', t: o[1] })); p.title = false; return true;
+  }
   if (a === 'scgplay') {
     const d = stData ? stData.done | 0 : 0, chs = ((stData && stData.chapters) || []).filter(x => x.ch <= d && (c === 'all' || x.ch === +c)), q = [];
     if (c === 'all' || c === '0') SCG_PRO.lines.forEach((x, j) => q.push({ ch: 0, title: SCG_PRO.title, s: x.s, t: x.t, first: j === 0 }));
@@ -199,4 +277,28 @@ function scgPrologueCheck(n) {
     scgPlay = { q: SCG_PRO.lines.map((x, j) => ({ ch: 0, title: SCG_PRO.title, s: x.s, t: x.t, first: j === 0 })), i: 0, title: true, auto: true };
     renderBoard(); bdEl.hidden = false; bdCard.focus();
   }, n ? 2000 : 1500);
+}
+
+/* ---------- 出海篇：播放入口 ---------- */
+function scgVoyKey() { return 'dw_voy_' + (typeof authUser !== 'undefined' && authUser ? authUser : (me ? me.username : '')); }
+function scgVoySeen() { try { return !!localStorage.getItem(scgVoyKey()); } catch (e) { return false; } }
+function scgVoyQ(only) {   // only：-1＝四幕全播，0~3＝只播那一幕
+  const q = [];
+  SCG_VOY.forEach((a, k) => { if (only >= 0 && only !== k) return; a.lines.forEach((x, j) => q.push({ ch: 0, tag: '出海篇', title: a.title, beat: 'v' + k, s: x.s, t: x.t, opts: x.opts, first: j === 0 })); });
+  return q;
+}
+function scgVoyOpen(auto) {
+  bdOpen = true; pressed.length = 0; bdData = null; bdTab = 'story'; scgSt.beat = -1;
+  scgPlay = { q: scgVoyQ(-1), i: 0, title: true, auto: !!auto };
+  renderBoard(); bdEl.hidden = false; bdCard.focus();
+}
+/* 第一次登上雷克斯號：自動播一次（每個帳號一次，記在本機）；有別的視窗開著就等一等 */
+function scgVoyCheck(n) {
+  n = n | 0; if (!me || scgVoySeen()) return;
+  setTimeout(() => {
+    if (!ready || !me || authOpen || !voyAboard()) return;
+    if (paused()) { if (n < 15) scgVoyCheck(n + 1); return; }
+    try { localStorage.setItem(scgVoyKey(), '1'); } catch (e) { /* 略過 */ }
+    scgVoyOpen(true);
+  }, n ? 2000 : 1200);
 }

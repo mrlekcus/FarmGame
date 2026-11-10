@@ -201,6 +201,7 @@ function voyEntered(v, back) {
   voyRender(); voyRenderNotes();
   if (v.status === 'sailing') toast(v.mystery ? '回到船上了（神秘路線）' : '回到船上了', 2200);
   else toast(voyIsHost() ? '登船了！等朋友加入，準備好就出發' : '登船了！按「準備」讓船長知道', 3200);
+  if (typeof scgVoyCheck === 'function') scgVoyCheck();   // 第一次登船：播出海篇劇情 CG
 }
 /* 離開船：由 scenes.js 的 leaveBoat 呼叫 */
 function voyLeft() {
@@ -593,6 +594,7 @@ function renderVoyModal() {
     const open = [...voy.notes.values()].filter(n => !n.closed && srvNow() < n.deadline + 1500);
     if (open.length && !aboard) h += '<p class="empty" style="margin:8px 0 2px"><b>正在招募</b></p>' + open.map(n => '<div class="giftrow"><span>' + esc(n.host) + ' · ' + VOY_TIER[n.tier] + ' · ' + n.n + '/' + n.cap + ' 人</span><button type="button" class="btn small" data-a="join" data-id="' + esc(n.id) + '"' + (n.n >= n.cap ? ' disabled' : '') + '>加入</button></div>').join('');
   }
+  if (typeof scgVoySeen === 'function' && scgVoySeen()) h += '<button type="button" class="btn ghost wide" data-a="vstory">📖 重看出海劇情</button>';
   h += '<button type="button" class="btn ghost wide" data-a="close">先不出海</button>';
   voyCard.innerHTML = h;
   const pc = $('voy-port'); if (pc) { boatSide(pc.getContext('2d'), performance.now(), { still: true }); g = ctx; }
@@ -629,6 +631,7 @@ voyCard.addEventListener('click', e => {
   if (!b) return;
   const a = b.dataset.a;
   if (a === 'close') closeVoyModal();
+  else if (a === 'vstory') { closeVoyModal(); scgVoyOpen(true); }
   else if (a === 'open') voyOpenVoyage(0);
   else if (a === 'gmopen') voyOpenVoyage(+b.dataset.t);
   else if (a === 'join') voyJoin(b.dataset.id);
