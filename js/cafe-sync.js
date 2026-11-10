@@ -27,7 +27,7 @@ function cfRoleTick() {
   const nowp = performance.now();
   if (cf.role === 'fol') {
     const gone = !cf.peers.some(rp => rp.id === cf.hostId);
-    if (nowp - cf.lastSnap > 4500 || (gone && nowp - cf.lastSnap > 2000)) { cf.role = null; cf.hostId = ''; cf.nullAt = nowp; }
+    if (nowp - cf.lastSnap > 8000 || (gone && nowp - cf.lastSnap > 3500)) { cf.role = null; cf.hostId = ''; cf.nullAt = nowp; }
   }
   if (!cf.role) {
     if (!cf.peers.length) { cfBecomeHost(); return; }
@@ -42,7 +42,7 @@ function cfBecomeHost() {
   if (had) cfRehome();
 }
 function cfYield() {   // 有更早開店的人：我退成跟隨者，丟掉自己的模擬，等他的快照
-  cf.role = 'fol'; cf.hold = null; cf.holds = {}; cf.custs = []; cf.bot.hold = null; cf.bot.sync = 0; cf.synced = false; cf.hudKey = '';
+  cf.role = 'fol'; cf.hold = null; cf.holds = {}; cf.custs.forEach(c => { c.path = []; c.moving = false; }); cf.bot.hold = null; cf.bot.sync = 0; cf.synced = false; cf.hudKey = '';
   CF_SPOTS.forEach(s => { s.o = 0; });
 }
 /* 接手：快照裡的顧客沒有路徑，重新幫他們找路 */
@@ -67,7 +67,7 @@ function cfAddPlayerOrder(uid, name, seat, dish, q) {
   if (cf.custs.some(c => c.isPlayer && c.own === uid && c.state === 'wait')) return true;
   if (cf.custs.some(c => c.seat === seat && c.state !== 'gone')) return false;
   cf.custs.push({ id: cf.cid++, name, isPlayer: 1, own: uid, q: q | 0, seat, x: CF_SEATS[seat] + .5, y: 7.5, path: [], state: 'wait', dish, ttl: 90, max: 90, t: 0, claim: 0, born: cf.now });
-  cf.snapAcc = 0;
+  cf.force = 1; cf.snapAcc = Math.min(cf.snapAcc, .05);
   return true;
 }
 function cfBoost() {
@@ -110,7 +110,13 @@ function cfSnapTick(dt) {
   if (!cf.peers.length) return;
   cf.snapAcc -= dt;
   if (cf.snapAcc > 0) return;
-  cf.snapAcc = .25; cfSend(cfSnap());
+  const nowp = performance.now(), gap = nowp - (cf.sendAt || 0);
+  if (gap < 200) { cf.snapAcc = (200 - gap) / 1000; return; }   // 最快每 0.2 秒一份，避免超過連線每秒訊息上限被丟包
+  const s = cfSnap();
+  const sig = JSON.stringify(Object.assign({}, s, { cu: s.cu.map(c => Object.assign({}, c, { tt: 0 })) }));   // 耐心條跟隨者自己會倒數，不算變動
+  cf.snapAcc = .25;
+  if (!cf.force && sig === cf.sig && gap < 1000) return;   // 沒變化就先不送，但至少每秒一份當心跳
+  cf.force = 0; cf.sig = sig; cf.sendAt = nowp; cfSend(s);
 }
 function cfOnSnap(p) {
   if (typeof p.hs !== 'number' || !isFinite(p.hs)) return;
@@ -192,7 +198,7 @@ function onCafeMsg(p) {
   const t = p.t;
   if (t === 'song') { setTimeout(() => { if (cf && cfJukeSrv !== false) cfJukeFetch(); }, 500); return; }   // 有人換歌：馬上去伺服器對時
   if (t === 'snap') { if (!p.to || p.to === myUid) cfOnSnap(p); return; }
-  if (t === 'hello') { if (cf.role === 'host') cf.snapAcc = 0; return; }
+  if (t === 'hello') { if (cf.role === 'host') { cf.force = 1; cf.snapAcc = Math.min(cf.snapAcc, .05); } return; }
   if (cf.role === 'host') {   // 店長：代辦別人的操作
     const rp = remotes.get(p.i); if (!rp || !hereRp(rp)) return;
     if (t === 'drop') { delete cf.holds[p.i]; return; }

@@ -10,7 +10,7 @@ async function boot() {
     setBoot(lib ? '還沒設定連線' : '無法載入連線元件', lib ? '請把 index.html 最上面的 SUPABASE_URL 與 SUPABASE_KEY 換成你自己專案的值。' : '請檢查網路後重新整理頁面。');
     return;
   }
-  sb = lib.createClient(SUPABASE_URL, SUPABASE_KEY);
+  sb = lib.createClient(SUPABASE_URL, SUPABASE_KEY, { realtime: { params: { eventsPerSecond: 20 } } });
   setMode('in');
   setBoot('載入中…');
   let sess = null;

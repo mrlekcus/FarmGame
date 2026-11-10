@@ -290,6 +290,10 @@ function planPath(tx, ty, force) {
 }
 /* 點到可以「動手」的東西：野外採集物（農場）、拿著捕蟲網時點到的蟲蝶。回傳要動手的那一格，不是就回 null */
 function tapTarget(tx, ty) {
+  if (scene === 'house' && house && !edit.on) {   // 平放的家具（體重計）是可以走上去的格子，直接點會變成走到它上面、什麼都沒發生；改成走到旁邊面向它，再按一次動作鍵
+    const lx = tx - RX, ly = ty - RY, it = lx >= 0 && lx < RW && ly >= 0 && ly < RH ? itemAtLocal(lx, ly) : null;
+    if (it && it.k === 'scale' && BATH_ACT[it.k] && (defOf(it.k) || {}).layer === 'flat' && !(pose && pose.id === it.id)) return [tx, ty, 'item'];
+  }
   if (scene === 'farm' && !yardMap.has(pk(tx, ty)) && fgList.some(f => f.x === tx && f.y === ty && !forTaken.has(f.slot + ':' + f.i))) return [tx, ty, 'fg'];
   if (scene === 'farm') { const p = plots.get(pk(tx, ty)); if (p && p.crop && ripeNow(p)) return [tx, ty, 'crop']; }   // 熟了的作物也一樣：走到旁邊直接收
   if (scene === 'farm' && curTool().crop) { const p = plots.get(pk(tx, ty)); if (p && !p.crop) return [tx, ty, 'plant']; }   // 裝備種子：點翻好的空田，走到旁邊直接播種
