@@ -9,6 +9,8 @@ const MB_COLS = ['#ffe27a', '#ffb3c7', '#a9d4ff', '#b8ecb0'];
 const MB_JX = [0, 1, -1, 0, 1, 0, -1, 1, 0, -1, 1, 0], MB_JY = [0, -1, 0, 1, 0, -1, 1, 0, -1, 0, 0, 1];
 const mbEl = $('mbm'), mbCard = $('mbcard');
 let mbData = null, mbAt = 0, mbLoading = false, mbSel = -1, mbColor = 0, mbBusy = false, mbText = '', mbCText = '', mbErr = '', mbInfo = '';
+/* 手機切到背景再回來，請求可能永遠不回應：沒有逾時的話 mbLoading 會一直是 true，留言板永遠停在「讀取中」，貼上去的排隊也被卡死 */
+const mbRpc = (name, args) => Promise.race([rpc(name, args), new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 15000))]);
 const mbCom = {};   // 便利貼 id → 留言陣列（點開才向伺服器要）
 let mbGullAt = -1e9, mbFloatAt = -1e9;   // 海鷗飛過、舊便利貼漂走的動畫起點（performance.now）
 
@@ -27,7 +29,7 @@ async function mbLoad() {
   if (mbLoading) return;
   mbLoading = true; mbAt = Date.now();
   let ok = true;
-  try { mbApply(await rpc('msg_list'), false); } catch (e) { ok = false; mbAt = Date.now() - MB_REFRESH + 60000; }   // 失敗就一分鐘後再試
+  try { mbApply(await mbRpc('msg_list'), false); } catch (e) { ok = false; mbAt = Date.now() - MB_REFRESH + 60000; }   // 失敗就一分鐘後再試
   mbLoading = false;
   if (mbOpen) {
     mbErr = ok ? '' : '讀取失敗，畫面可能不是最新的，請按「重新整理」';
@@ -38,7 +40,7 @@ async function mbLoad() {
 
 async function mbLoadCom(id) {
   try {
-    const r = await rpc('msg_comments', { p_id: id });
+    const r = await mbRpc('msg_comments', { p_id: id });
     mbCom[id] = (r && r.comments) || [];
   } catch (e) { if (!mbCom[id]) mbCom[id] = []; }
   const sn = mbData && mbData.notes[mbSel];
@@ -125,6 +127,8 @@ function mbRender() {
   }
   if (mbErr) h += '<p class="empty" style="color:#d4504a">' + esc(mbErr) + '</p>';
   else if (mbInfo) h += '<p class="empty">' + esc(mbInfo) + '</p>';
+  const vs = ((document.querySelector('script[src*="msgboard.js"]') || {}).src || '').match(/v=([\w]+)/);
+  h += '<p class="empty" style="font-size:11px;opacity:.6">板上 ' + notes.length + ' 張・' + (mbAt ? new Date(mbAt).toLocaleTimeString() : '未讀取') + ' 更新・版本 ' + (vs ? vs[1] : '?') + '</p>';
   mbCard.innerHTML = h + '<div class="v-quick" style="margin-top:6px"><button type="button" class="btn ghost" data-a="refresh">重新整理</button><button type="button" class="btn ghost" data-a="close">離開</button></div>';
 }
 mbCard.addEventListener('input', e => {
@@ -147,14 +151,14 @@ mbCard.addEventListener('click', async e => {
     if (!t) { mbErr = '先寫點內容再貼'; mbRender(); return; }
     mbBusy = true; mbRender();
     try {
-      mbApply(await enqueue(() => rpc('msg_post', { p_text: t, p_color: mbColor })), true);
+      mbApply(await enqueue(() => mbRpc('msg_post', { p_text: t, p_color: mbColor })), true);
       mbText = ''; mbSel = 0; mbFloatAt = performance.now(); toast('貼好了！');
     } catch (err) { mbErr = errText(err); }
     mbBusy = false; if (mbOpen) mbRender(); return;
   }
   if (a === 'like') {
     mbBusy = true; mbRender();
-    try { mbApply(await enqueue(() => rpc('msg_like', { p_id: +c })), true); }
+    try { mbApply(await enqueue(() => mbRpc('msg_like', { p_id: +c })), true); }
     catch (err) { mbErr = errText(err); }
     mbBusy = false; if (mbOpen) mbRender(); return;
   }
@@ -163,7 +167,7 @@ mbCard.addEventListener('click', async e => {
     if (!t) { mbErr = '先寫點內容再留言'; mbRender(); return; }
     mbBusy = true; mbRender();
     try {
-      const r = await enqueue(() => rpc('msg_comment', { p_id: +c, p_text: t }));
+      const r = await enqueue(() => mbRpc('msg_comment', { p_id: +c, p_text: t }));
       if (r && r.comments) mbCom[+c] = r.comments;
       if (r && r.notes) mbApply(r, true);
       mbCText = ''; toast('留言了！');
@@ -174,7 +178,7 @@ mbCard.addEventListener('click', async e => {
     mbBusy = true; mbRender();
     try {
       const fn = a === 'tear' ? 'msg_tear' : a === 'gmdel' ? 'gm_msg_remove' : a === 'gmcdel' ? 'gm_msg_comment_remove' : 'gm_msg_mute';
-      const r = await enqueue(() => rpc(fn, a === 'gmmute' ? { p_id: +c, p_hours: 24 } : { p_id: +c }));
+      const r = await enqueue(() => mbRpc(fn, a === 'gmmute' ? { p_id: +c, p_hours: 24 } : { p_id: +c }));
       if (r && r.notes) { mbApply(r, true); if (a !== 'gmcdel') mbSel = -1; }
       if (a === 'gmcdel') { const sn = mbData && mbData.notes[mbSel]; if (sn) { delete mbCom[sn.id]; mbLoadCom(sn.id); } }
       mbInfo = a === 'tear' ? '已撕掉' : '已處理';

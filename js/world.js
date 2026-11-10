@@ -314,7 +314,12 @@ function pathDone(a) {
 }
 function tapMove(e) {
   let [tx, ty] = tileFromEvent(e);
-  if (scene === 'plaza' && ty === MB_Y - 1 && tx >= MB_X && tx < MB_X + MB_W) ty = MB_Y;   // 碼頭留言板的圖往上蓋到上面那一排；點到圖的上半部也算點到板子，不然會變成走到板子後面
+  if (scene === 'plaza' && tx >= MB_X && tx < MB_X + MB_W && ty >= MB_Y - 1 && ty < MB_Y + MB_H) {
+    /* 碼頭留言板的圖往上蓋到上面那一排；點到圖的上半部也算點到板子，不然會變成走到板子後面。
+       中間兩欄的四周都走不到（上面是水、下面是地圖邊的樹、左右是板子自己），手指點在板子正中央就會「走不到」；
+       所以不管點到板子哪一格，一律改成最近的左右兩端那一欄，走到板子側面再面向它。 */
+    ty = MB_Y; tx = tx - MB_X < MB_W / 2 ? MB_X : MB_X + MB_W - 1;
+  }
   if (catchShown) { hideCatch(); return; }   // 釣到魚、抓到蟲的視窗開著：點一下就收起來
   if (fishing) {   // 釣魚中：有咬鉤就收竿；等待中點水面不理它；點別的地方才算收竿走開
     if (fishing.phase === 'bite') { actQueued = true; return; }
