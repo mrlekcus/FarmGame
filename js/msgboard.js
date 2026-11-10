@@ -14,8 +14,9 @@ let mbGullAt = -1e9, mbFloatAt = -1e9;   // 海鷗飛過、舊便利貼漂走的
 
 const mbMaxId = d => d && d.notes && d.notes.length ? Math.max(...d.notes.map(n => n.id)) : 0;
 function mbApply(d, own) {
-  const prev = mbData, pm = mbMaxId(prev), nm = mbMaxId(d);
+  const prev = mbData, pm = mbMaxId(prev), nm = mbMaxId(d), sid = prev && prev.notes[mbSel] ? prev.notes[mbSel].id : null;
   mbData = d; mbAt = Date.now();
+  if (sid != null) mbSel = d.notes.findIndex(n => n.id === sid);   // 資料刷新後，選中的便利貼用 id 找回來，不會因為排序變動而點到別張
   if (prev && nm > pm) {   // 有新的便利貼：海鷗飛過；板子滿了就有一張舊的漂走
     const now = performance.now();
     if (!own) mbGullAt = now;
@@ -25,9 +26,14 @@ function mbApply(d, own) {
 async function mbLoad() {
   if (mbLoading) return;
   mbLoading = true; mbAt = Date.now();
-  try { mbApply(await rpc('msg_list'), false); } catch (e) { mbAt = Date.now() - MB_REFRESH + 60000; }   // 失敗就一分鐘後再試
+  let ok = true;
+  try { mbApply(await rpc('msg_list'), false); } catch (e) { ok = false; mbAt = Date.now() - MB_REFRESH + 60000; }   // 失敗就一分鐘後再試
   mbLoading = false;
-  if (mbOpen) mbRender();
+  if (mbOpen) {
+    mbErr = ok ? '' : '讀取失敗，畫面可能不是最新的，請按「重新整理」';
+    mbRender();
+    const sn = ok && mbData && mbData.notes[mbSel]; if (sn) mbLoadCom(sn.id);   // 順便把選中那張的留言也更新
+  }
 }
 
 async function mbLoadCom(id) {
@@ -38,6 +44,9 @@ async function mbLoadCom(id) {
   const sn = mbData && mbData.notes[mbSel];
   if (mbOpen && sn && sn.id === id) mbRender();
 }
+
+/* 從別的裝置／分頁／App 切回來時，資料超過 30 秒就重讀（不然會停在離開前的舊畫面） */
+document.addEventListener('visibilitychange', () => { if (!document.hidden && me && ready && !mbLoading && mbData && Date.now() - mbAt > 30000) mbLoad(); });
 
 /* ---------- 世界裡的板子 ---------- */
 function drawMsgBoard(now) {
@@ -77,7 +86,7 @@ function drawMsgBoard(now) {
 /* ---------- 面板 ---------- */
 function openMsgBoard() {
   if (!ready || !me || authOpen || paused() || mbOpen) return;
-  mbOpen = true; pressed.length = 0; mbSel = -1; mbErr = ''; mbInfo = ''; mbRender(); mbEl.hidden = false; mbCard.focus();
+  mbOpen = true; pressed.length = 0; mbSel = -1; mbErr = ''; mbInfo = ''; if (mbData && Date.now() - mbAt > 30000) mbData = null; mbRender(); mbEl.hidden = false; mbCard.focus();   // 舊資料超過 30 秒就先顯示「讀取中」，不拿舊畫面當真
   mbLoad();
 }
 function closeMsgBoard() { mbOpen = false; mbEl.hidden = true; }
@@ -105,7 +114,7 @@ function mbRender() {
       '<div class="v-quick" style="margin-bottom:6px">' + (locked ? '<span class="mblk">♥ ' + (sn.likes | 0) + '</span>' : '<button type="button" class="btn small mblike' + (liked ? ' on' : ' ghost') + '" data-a="like" data-c="' + sn.id + '"' + (mbBusy ? ' disabled' : '') + '>' + (liked ? '♥' : '♡') + ' ' + (sn.likes | 0) + '</button>') +
       (sn.mine ? '<button type="button" class="btn small" data-a="tear" data-c="' + sn.id + '"' + (mbBusy ? ' disabled' : '') + '>撕掉（次數照算）</button>' : '') +
       (me && me.gm ? '<button type="button" class="btn small ghost" data-a="gmdel" data-c="' + sn.id + '">GM：移除</button><button type="button" class="btn small ghost" data-a="gmmute" data-c="' + sn.id + '">GM：禁言作者 24 小時</button>' : '') + '</div>';
-    h += '<div class="mbcm">' + (cms == null ? '<p class="empty">留言讀取中…</p>' : cms.length ? cms.map(m => '<div class="mbc"><b>' + esc(m.name) + '</b>' + esc(m.t) + '<small>' + mbAgo(m.ts) + '</small>' + (me && me.gm ? '<button type="button" class="mbx" data-a="gmcdel" data-c="' + m.id + '" aria-label="GM：移除留言">✕</button>' : '') + '</div>').join('') : '<p class="empty">還沒有留言。</p>') + '</div>';
+    h += '<div class="mbcm">' + (cms == null ? '<p class="empty">留言讀取中…</p>' : cms.length ? cms.map(m => '<div class="mbc"><b>' + esc(m.name) + (m.mine ? '（我）' : '') + '</b>' + esc(m.t) + '<small>' + mbAgo(m.ts) + '</small>' + (me && me.gm ? '<button type="button" class="mbx" data-a="gmcdel" data-c="' + m.id + '" aria-label="GM：移除留言">✕</button>' : '') + '</div>').join('') : '<p class="empty">還沒有留言。</p>') + '</div>';
     if (!locked) h += '<div class="mbform"><input type="text" id="mbcin" maxlength="' + MB_CLEN + '" placeholder="留言（最多 ' + MB_CLEN + ' 字，今天還能留 ' + (d ? d.cleft | 0 : 0) + ' 次）" value="' + esc(mbCText) + '"><button type="button" class="btn small" data-a="comment" data-c="' + sn.id + '"' + (mbBusy ? ' disabled' : '') + '>留言</button></div>';
   } else h += '<p class="empty">點一張便利貼看完整內容。板子滿了，新的貼上去，最舊的那張會被海風吹走。</p>';
   if (locked) h += '<p class="empty">玩家 Lv.' + minpl + ' 才能留言，現在可以先看大家貼了什麼。</p>';
