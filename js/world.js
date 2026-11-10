@@ -314,6 +314,7 @@ function pathDone(a) {
 }
 function tapMove(e) {
   let [tx, ty] = tileFromEvent(e);
+  if (scene === 'plaza' && ty === MB_Y - 1 && tx >= MB_X && tx < MB_X + MB_W) ty = MB_Y;   // 碼頭留言板的圖往上蓋到上面那一排；點到圖的上半部也算點到板子，不然會變成走到板子後面
   if (catchShown) { hideCatch(); return; }   // 釣到魚、抓到蟲的視窗開著：點一下就收起來
   if (fishing) {   // 釣魚中：有咬鉤就收竿；等待中點水面不理它；點別的地方才算收竿走開
     if (fishing.phase === 'bite') { actQueued = true; return; }
