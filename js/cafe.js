@@ -453,18 +453,11 @@ function cfOrderMenu() {
 function closeCfMenu() { cfOpen = false; cfEl.hidden = true; }
 
 /* ---------- 穿圍裙確認窗：三頁（操作間導覽地圖／料理做法／確認），第一次打開先看導覽 ---------- */
-const CF_GUIDE = [   // [編號, 名稱, 一句話, 格子位置（9 欄 × 5 列，對應操作間 x1~9、y2~6）, 底色]
-  [1, '咖啡豆箱', '拿咖啡豆', 'grid-column:1;grid-row:1', '#c9965a'], [2, '牛奶箱', '拿牛奶', 'grid-column:2;grid-row:1', '#f7f7f2'],
-  [3, '麵糰箱', '拿麵糰', 'grid-column:3;grid-row:1', '#f0d9a0'], [4, '磨豆機', '放豆、按住動作鍵磨', 'grid-column:4/6;grid-row:1', '#b8b8b8'],
-  [5, '咖啡機', '放磨好的豆和牛奶', 'grid-column:6/8;grid-row:1/3', '#9fb6d0'], [6, '烤箱', '放麵糰烤鬆餅', 'grid-column:8/10;grid-row:1', '#f0a860'],
-  [7, '洗杯池', '放髒杯子、按住洗', 'grid-column:1;grid-row:4', '#8cc4ec'], [8, '垃圾桶', '丟掉拿錯的東西', 'grid-column:2;grid-row:4', '#999'],
-  [9, '杯架', '拿乾淨的杯子', 'grid-column:3;grid-row:4', '#fff'], [10, '出餐口', '端飲料放這裡送客人', 'grid-column:4/6;grid-row:5', '#f4a0b4']
-];
-const CF_STEPS = {
-  americano: ['①拿 1 咖啡豆箱的豆（一次拿一個）', '②走到 4 磨豆機放進去，按住動作鍵磨，磨好再按一下拿起', '③放進 5 咖啡機；重複一次，放滿 2 份磨好的豆就自動開始煮', '④去 9 杯架拿杯子', '⑤煮好面對 5 按動作鍵，用杯子盛起（太久會焦）', '⑥端到 10 出餐口'],
-  latte: ['①磨 1 份豆（做法同美式①②）', '②磨好的豆放進 5 咖啡機', '③去 2 牛奶箱拿牛奶，也放進 5 咖啡機，兩樣到齊就開始煮', '④去 9 杯架拿杯子，煮好盛起', '⑤端到 10 出餐口'],
-  pancake: ['①去 3 麵糰箱拿麵糰', '②直接放進 6 烤箱，自動開始烤', '③去 9 杯架拿盤子，烤好立刻盛起（太久會焦）', '④端到 10 出餐口']
-};
+/* 導覽圖、編號說明、料理流程都直接讀手冊「咖啡廳」章節（manual.js 的 MN），圍裙窗和手冊永遠同一份內容 */
+const cfMnIdx = () => MN.findIndex(c => c.id === 'cafe');
+const CF_DISH_ART = { americano: 'art:cafeam', latte: 'art:cafela', pancake: 'art:cafepa' };
+const cfMnShot = img => { const c = MN[cfMnIdx()]; return c && c.shots.find(sh => sh.img === img); };
+function cfMnBlock(img) { const c = MN[cfMnIdx()], sh = cfMnShot(img); return c && sh ? mnShotHTML(sh, c) : ''; }
 const cfGuideSeen = () => { try { return localStorage.getItem('cfGuide1') === '1'; } catch (e) { return false; } };
 function cfApronMenu(pg) {
   if (!cf || cf.ordering) return;
@@ -473,24 +466,22 @@ function cfApronMenu(pg) {
   const eco = cfEco === true, bx = 'background:#fffaf0;border:2px solid #c9a06a;border-radius:8px;padding:8px;margin:0 0 6px;color:#4a2a10';
   const bt = (k, t, ghost) => '<button type="button" class="btn' + (ghost ? ' ghost' : '') + ' wide" data-cf="' + k + '" style="margin:0 0 8px">' + t + '</button>';
   if (!pg) pg = cfGuideSeen() ? 'main' : 'guide';
+  const manualBt = bt('manual:' + pg, '📖 看手冊完整說明', 1);
   if (pg === 'guide') {
     try { localStorage.setItem('cfGuide1', '1'); } catch (e) { /* 略過 */ }
-    const cells = CF_GUIDE.map(q => '<div style="' + q[3] + ';background:' + q[4] + ';border:2px solid #5a3a30;border-radius:4px;display:flex;align-items:center;justify-content:center"><span style="width:20px;height:20px;border-radius:50%;background:#e24b4a;color:#fff;font:800 12px/20px sans-serif;text-align:center">' + q[0] + '</span></div>').join('') +
-      '<div style="grid-column:9;grid-row:5;background:#d9b27a;border:2px solid #5a3a30;border-radius:4px;font:800 11px/26px sans-serif;text-align:center;color:#5a3a30">門</div>';
-    const legend = CF_GUIDE.map(q => '<div style="font-size:12px;line-height:1.5"><b>' + q[0] + ' ' + q[1] + '</b>：' + q[2] + '</div>').join('');
     cfCard.innerHTML = '<div class="shop-h"><h2>🗺 操作間導覽</h2></div>' +
       '<p style="margin:0 0 8px;font-size:13px;line-height:1.5">走到檯子旁、面對它，按動作鍵就能拿或放。手上一次只能拿一樣東西。</p>' +
-      '<div style="display:grid;grid-template-columns:repeat(9,1fr);grid-template-rows:repeat(5,30px);gap:2px;background:#e8cfa0;border:3px solid #8a5a4a;border-radius:8px;padding:3px;margin:0 0 8px">' + cells + '</div>' +
-      '<div style="display:grid;grid-template-columns:1fr;gap:1px;margin:0 0 10px;color:#4a2a10">' + legend + '</div>' +
-      bt('pg:recipes', '下一頁：三道料理怎麼做') + bt('apron', '直接穿上圍裙', 1) + bt('close', '再想想', 1);
+      '<div style="margin:0 0 10px">' + cfMnBlock('art:cafekit') + '</div>' +
+      bt('pg:recipes', '下一頁：三道料理怎麼做') + bt('apron', '直接穿上圍裙', 1) + manualBt + bt('close', '再想想', 1);
+    mnWireImgs(cfCard); cfCard.scrollTop = 0;
     return;
   }
   if (pg === 'recipes') {
-    const rows = Object.keys(CF_MENU).map(k => '<div style="' + bx + '"><div style="font-weight:700;font-size:14px;margin:0 0 3px">' + CF_MENU[k].n + '</div>' +
-      CF_STEPS[k].map(t => '<div style="font-size:12px;line-height:1.55">' + t + '</div>').join('') + '</div>').join('');
+    const rows = Object.keys(CF_MENU).map(k => '<div style="' + bx + '"><div style="font-weight:700;font-size:14px;margin:0 0 6px">' + CF_MENU[k].n + '</div>' + cfMnBlock(CF_DISH_ART[k]) + '</div>').join('');
     cfCard.innerHTML = '<div class="shop-h"><h2>☕ 三道料理怎麼做</h2></div>' + rows +
-      '<p style="margin:2px 0 8px;font-size:12px;line-height:1.5;color:#7a5a30">用完的髒杯子丟進 7 洗杯池，按住動作鍵洗乾淨（豆豆也會幫忙）。焦掉的要空手面對機器清掉。放錯東西丟 8 垃圾桶。</p>' +
-      bt('pg:main', '看完了，下一頁') + bt('pg:guide', '回上一頁：操作間導覽', 1);
+      '<p style="margin:2px 0 8px;font-size:12px;line-height:1.5;color:#7a5a30">' + esc((MN[cfMnIdx()] || {}).tip || '') + '</p>' +
+      bt('pg:main', '看完了，下一頁') + bt('pg:guide', '回上一頁：操作間導覽', 1) + manualBt;
+    mnWireImgs(cfCard); cfCard.scrollTop = 0;
     return;
   }
   const rows = Object.keys(CF_MENU).map(k => {
@@ -516,6 +507,13 @@ cfEl.addEventListener('click', e => {
   const b = e.target.closest('[data-cf]'); if (!b || !cf) { if (e.target === cfEl) closeCfMenu(); return; }
   const k = b.dataset.cf;
   if (k.slice(0, 3) === 'pg:') { cfApronMenu(k.slice(3)); return; }   // 圍裙窗換頁：窗不關
+  if (k.slice(0, 7) === 'manual:') {   // 跳去手冊咖啡廳章節：先關窗（手冊在窗開著時會被 paused() 擋住），手冊關掉後回到原本那一頁
+    const pg = k.slice(7);
+    closeCfMenu();
+    openManual(cfMnIdx(), () => { if (cf && scene === 'cafe' && !cfOpen) cfApronMenu(pg); });
+    if (!mnOpen && cf) cfApronMenu(pg);   // 手冊打不開（被別的視窗擋住）：直接回原本那一頁
+    return;
+  }
   closeCfMenu();
   if (k === 'apron') { cfApronGo(); return; }
   if (k === 'story') { cfCgPlay(); return; }

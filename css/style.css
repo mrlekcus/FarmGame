@@ -910,6 +910,7 @@ body.fl canvas#game{touch-action:none;-webkit-touch-callout:none;-webkit-user-se
 .mn-shot{position:relative;max-width:100%;border:3px solid;border-radius:14px;overflow:hidden;background:#f1e7d3;min-height:120px;width:100%;display:flex;align-items:center;justify-content:center}
 .mn-shot img.px,.mn-th img.px{image-rendering:pixelated}
 .mn-shot img{display:block;width:100%;height:auto}
+.mn-shot.ok{min-height:0}
 .mn-shot.no img{display:none}.mn-shot.no .mn-pin{display:none}.mn-shot.no{width:100%!important}
 .mn-miss{display:none;color:var(--muted);font-size:13px;padding:40px 0}.mn-shot.no .mn-miss{display:block}
 .mn-pin{position:absolute;transform:translate(-50%,-50%);width:24px;height:24px;border-radius:50%;background:var(--pink);color:#fff;border:2px solid #fff;box-shadow:0 2px 0 var(--pink-deep);font:700 13px/20px var(--f-display);text-align:center;font-style:normal;pointer-events:none}
