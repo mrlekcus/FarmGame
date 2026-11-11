@@ -201,8 +201,8 @@ function renderCard() {
   if (!cd) h += '<p class="empty">' + esc(cdMsg || '讀取中…') + '</p>' + (cdMsg ? '<button type="button" class="btn wide" data-a="retry">重試</button>' : '');
   else if (cd.self && cdLocked && !cdGift) h += cdLockedPage(cdGot());
   else if (cdGift) {
-    const items = Object.keys(inv).filter(k => /^(c|fish|bug):[a-z0-9_]+$/.test(k) && have(k) > 0);
-    h += '<p class="empty">選一樣送給 ' + esc(cd.name) + '（每天最多送 3 份，一次送 1 個）</p>' + (cdMsg ? '<p class="mk-msg">' + esc(cdMsg) + '</p>' : '') +
+    const items = Object.keys(inv).filter(k => giftOk(k) && have(k) > 0);
+    h += '<p class="empty">選一樣送給 ' + esc(cd.name) + '（每天最多送 3 份，一次送 1 個；稀有、傳說的魚和蟲蝶不能送）</p>' + (cdMsg ? '<p class="mk-msg">' + esc(cdMsg) + '</p>' : '') +
       (items.length ? items.map(k => '<div class="giftrow"><span>' + esc(itemName(k)) + ' ×' + have(k) + '</span><button type="button" class="btn small" data-a="give" data-k="' + esc(k) + '">送出</button></div>').join('') : '<p class="empty">背包裡沒有可以送的作物、魚或蟲蝶。</p>');
   } else {
     const st = cd.stats || {}, got = new Set((cd.ach || []).concat(cd.self ? voyAchSelf().concat(cdCookSelf(), cdDishSelf(), cdStarSelf()) : [])), pins = (cd.badges || []).filter(x => ACH.some(a => a.id === x));   // 置頂已經由伺服器檢查過，出海成就是遊戲端算的，不能再用 got 過濾
@@ -282,7 +282,7 @@ cdCard.addEventListener('click', async e => {
   else if (a === 'aback') { cdCat = ''; cdMsg = ''; renderCard(); }
   else if (a === 'give') {
     const k = b.dataset.k; b.disabled = true;
-    try { const r = await rpc('gift_send', { p_uid: cd.uid, p_item: k }); if (r.inv) Object.assign(inv, r.inv); cdMsg = '已送出 ' + itemName(k) + '！今天還能送 ' + (r.left | 0) + ' 份'; refreshHud(); }
+    try { const r = await rpc('gift_send', { p_uid: cd.uid, p_item: k }); if (r.inv) Object.assign(inv, r.inv); cdMsg = '已送出 ' + itemName(k) + '！' + (typeof r.left === 'number' ? '今天還能送 ' + r.left + ' 份' : ''); refreshHud(); }
     catch (err) { cdMsg = errText(err); }
     renderCard();
   }
@@ -306,4 +306,6 @@ cdCard.addEventListener('click', async e => {
     renderCard();
   }
 });
+/* 送禮限制：稀有、傳說的魚和蟲蝶不能送（作物都可以）；伺服器的 gift_send／mail_send 也要擋 */
+const giftOk = k => { const m = /^(c|fish|bug):([a-z0-9_]+)$/.exec(k); if (!m) return false; if (m[1] === 'c') return true; const f = (m[1] === 'fish' ? fishCat : bugCat).find(x => x.key === m[2]); return !(f && (f.rarity === 'rare' || f.rarity === 'legend')); };
 cdEl.addEventListener('click', e => { if (e.target === cdEl) closeCard(); });

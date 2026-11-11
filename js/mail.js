@@ -131,11 +131,12 @@ function renderMail() {
     if (!fl.length) h += '<p class="empty">還沒有好友。先到好友頁加好友，才能寄明信片。</p>';
     else {
       if (!fl.some(f => f.uid === mlTo)) mlTo = fl[0].uid;
+      if (mlItem && !(giftOk(mlItem) && have(mlItem) > 0)) mlItem = '';   // 選過的禮物已經沒有（或不能送）：下拉會跳回「不附禮物」，不能還偷偷帶著舊的選擇寄出
       const pr = (ml.cards.find(c => c.key === mlPick) || { price: 1 }).price;
       h += '<label class="mllab">寄給</label><select id="ml-to" class="nameinput">' + fl.map(f => '<option value="' + esc(f.uid) + '"' + (f.uid === mlTo ? ' selected' : '') + '>' + esc(f.name) + '（@' + esc(f.username) + '）</option>').join('') + '</select>' +
         '<label class="mllab">選明信片</label><div class="mlgrid">' + ml.cards.map(c => '<button type="button" class="mlpick' + (c.key === mlPick ? ' on' : '') + '" data-a="pick" data-k="' + esc(c.key) + '"><canvas width="64" height="40" data-card="' + esc(c.key) + '"></canvas><b>' + esc(c.name) + '</b><small>' + c.price + ' G</small></button>').join('') + '</div>' +
-        '<label class="mllab">附上禮物（選填，每張明信片只能附 1 個；一天最多 3 份）</label><select id="ml-item" class="nameinput"><option value="">不附禮物</option>' +
-        Object.keys(inv).filter(k => /^(c|fish|bug):[a-z0-9_]+$/.test(k) && have(k) > 0).map(k => '<option value="' + esc(k) + '"' + (k === mlItem ? ' selected' : '') + '>' + esc(itemName(k)) + '（寄 1 個，持有 ' + have(k) + '）</option>').join('') + '</select>' +
+        '<label class="mllab">附上禮物（選填，每張明信片只能附 1 個；一天最多 3 份；稀有、傳說的魚和蟲蝶不能送）</label><select id="ml-item" class="nameinput"><option value="">不附禮物</option>' +
+        Object.keys(inv).filter(k => giftOk(k) && have(k) > 0).map(k => '<option value="' + esc(k) + '"' + (k === mlItem ? ' selected' : '') + '>' + esc(itemName(k)) + '（寄 1 個，持有 ' + have(k) + '）</option>').join('') + '</select>' +
         '<label class="mllab">寫幾句話（最多 200 字）</label><textarea id="ml-msg" class="nameinput mltext" maxlength="200" rows="4" placeholder="今天農場的蘿蔔長得很好，改天一起釣魚吧！">' + esc(mlMsg) + '</textarea>' +
         '<button type="button" class="btn wide" data-a="send"' + (mlBusy || !me || me.coins < pr ? ' disabled' : '') + '>寄出（' + pr + ' G' + (mlItem ? '，附 ' + itemName(mlItem) + ' ×1' : '') + '）</button>';
     }

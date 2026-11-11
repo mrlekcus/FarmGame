@@ -405,7 +405,10 @@ function petFollowEnts(now, ents) {
     f.wel = null; f.x = Math.max(0, pl.x - 1); f.y = pl.y; f.tr = []; f.still = t;
   }
   if (pl.x !== f.px || pl.y !== f.py) { f.tr.push([f.px, f.py]); if (f.tr.length > 2) f.tr.shift(); f.px = pl.x; f.py = pl.y; }
-  if (pl.x !== f.lx || pl.y !== f.ly) { f.lx = pl.x; f.ly = pl.y; f.moveAt = t; f.goal = null; f.trick = null; f.nextGoal = Math.max(f.nextGoal || 0, t + 15000); f.fDots = f.fBall = 0; }
+  if (pl.x !== f.lx || pl.y !== f.ly) {
+    f.lx = pl.x; f.ly = pl.y; f.moveAt = t; f.nextGoal = Math.max(f.nextGoal || 0, t + 15000); f.fDots = f.fBall = 0;
+    if (petMode() === 'close') { f.goal = null; f.trick = null; }   // 貼身模式：玩家一動就跟上；自由走動／待在家：寵物正在玩玩具、做把戲就讓牠做完，不被玩家走動打斷
+  }
   const gl = petHomeGoal(f, t);
   let play = null;
   if (gl && gl.at) {
@@ -829,16 +832,21 @@ function petHomeGoal(f, t) {
   if (!its.length) return null;
   return (f.goal = petMakeGoal(its[Math.floor(Math.random() * its.length)]));
 }
-/* 依家具建立「去玩」的目標（隨機挑一種動作）；走不到就回傳 null */
+/* 依家具建立「去玩」的目標（隨機挑一種動作）。
+   空間小的時候：站位依序找 右／左／下／上 任一格走得到的空位；四周都被擋住就直接「待在玩具那一格上」玩，不再報「走不到」。
+   所有動作都縮在「站的那一格＋玩具本身」裡面，不會再往外擴到牆壁或其他家具。 */
 function petMakeGoal(it) {
   const d = dimsOf(it.k, it.r | 0); if (!d) return null;
-  const tx = RX + it.x, ty = RY + it.y, gy = ty + d.h - 1, v = 1 + Math.floor(Math.random() * 3);
-  let gx, gyy;
-  if (it.k === 'pettoyd' && v === 2) { gx = tx; gyy = gy; }        // 躲貓貓：躲在隧道後面，不必走得進去
-  else if (it.k === 'pettoyb' || it.k === 'petbowl') { gx = tx; gyy = gy + 1; }   // 貓跳台、飯碗：站在正下方
-  else { gx = tx + d.w; gyy = gy; }                                // 其他：站在右邊
-  if (!(it.k === 'pettoyd' && v === 2) && !walkable(gx, gyy)) return null;
-  return { x: gx, y: gyy, k: it.k, v, at: 0, ox: tx * T, oy: ty * T, w: d.w, h: d.h, gy: gy };
+  const tx = RX + it.x, ty = RY + it.y, gy = ty + d.h - 1, tunnel = it.k === 'pettoyd', lowFirst = it.k === 'pettoyb' || it.k === 'petbowl';
+  let v = 1 + Math.floor(Math.random() * 3);
+  const Rt = [tx + d.w, gy], Lt = [tx - 1, gy], Bm = [tx, gy + 1], B2 = [tx + d.w - 1, gy + 1], Up = [tx, ty - 1];
+  const order = lowFirst ? [Bm, B2, Rt, Lt, Up] : [Rt, Lt, Bm, B2, Up];
+  let c = null;
+  for (let i = 0; i < order.length; i++) { const q = order[i]; if (walkable(q[0], q[1])) { c = q; break; } }
+  if (tunnel && (!c || c[1] !== gy)) v = 2;                 // 隧道：旁邊沒有空位就只做「躲貓貓」（躲在隧道後面，完全不佔位）
+  const ov = !c || (tunnel && v === 2);                     // 沒位子（或躲貓貓）：直接待在玩具那一格
+  const gx = ov ? tx : c[0], gyy = ov ? gy : c[1];
+  return { x: gx, y: gyy, k: it.k, v, at: 0, ox: tx * T, oy: ty * T, w: d.w, h: d.h, gy: gy, ov: ov };
 }
 /* 面向玩具按動作鍵：叫寵物馬上過去玩 */
 function petPlayAt(it) {
@@ -875,45 +883,42 @@ function petKf(a, u, step) {   // 關鍵格之間做平滑插值，回傳每個�
   return a[i0].map((v, j) => v + (a[i1][j] - v) * k);
 }
 const petSpk = (x, y) => { r('#ffe680', x, y - 1, 1, 3); r('#ffe680', x - 1, y, 3, 1); };
-const PET_DUR = { pettoya: [0, 5200, 5200, 5000], pettoyb: [0, 5400, 5200, 5400], pettoyc: [0, 4800, 5000, 5000], pettoyd: [0, 5000, 5400, 4200], petbowl: [0, 2800, 2800, 2800] };
+const PET_DUR = { pettoya: [0, 4700, 4700, 4500], pettoyb: [0, 5400, 4700, 5400], pettoyc: [0, 4300, 4500, 4500], pettoyd: [0, 4600, 5400, 4100], petbowl: [0, 2800, 2800, 2800] };
 const PET_BALL = (x, y) => { r('rgba(90,60,40,.18)', x, y + 5, 5, 1); ob('#ff7a6c', '#b8403a', x, y, 5, 5); r('#ffd34d', x, y + 2, 5, 1); };
 const PET_YARN = (x, y, sq) => { ob('#8f7fe0', '#6a5cc0', x, y + sq, 6, 6); r('#b9acf2', x + 1, y + 1 + sq, 2, 1); };
+/* 玩耍動作：寵物以「站的那一格」(ax, ay) 為中心，幅度最多約 ±4 像素；道具畫在玩具上或寵物身邊。
+   s＝面向玩具的方向（玩具在右邊＝1，在左邊＝-1）；貓跳台的「爬上去／跳上跳下」只在跳台自己那一欄上下動。 */
 function petPlayFrame(f, gl, t) {
-  const u = t - gl.at, base = gl.gy * T, ox = gl.ox, oy = gl.oy, v = gl.v || 1, dur = gl.short ? 1600 : (PET_DUR[gl.k] || [0, 4000, 4000, 4000])[v];
+  const u = t - gl.at, base = gl.gy * T, ox = gl.ox, oy = gl.oy, wpx = gl.w * T, v = gl.v || 1, dur = gl.short ? 1600 : (PET_DUR[gl.k] || [0, 4000, 4000, 4000])[v];
   if (u > dur) return { done: true };
-  const R_ = { done: false, sortY: f.y + 0.01 };
+  const ax = gl.px0, ay = gl.py0;
+  const sd = gl.ov ? 0 : (ax + 8 <= ox ? -1 : ax + 8 >= ox + wpx ? 1 : 0), s = sd > 0 ? -1 : 1;   // sd：寵物在玩具的左(-1)／右(1)／上下或重疊(0)
+  const R_ = { done: false, sortY: gl.ov ? gl.gy + 1.02 : f.y + 0.01 };
   const put = (px, py, draw, face) => { f.x = px / T; if (face) f.face = face; return Object.assign(R_, { px, py, draw }); };
   const still = (px, py) => put(px, py, (L, now) => { petB(L, px, py, { pose: 'front', now, dir: f.face }); });
   if (gl.short || gl.k === 'petbowl') return still(gl.px0, gl.py0 + (gl.k === 'petbowl' ? (Math.floor(u / 300) % 2) : 0));
-  const AP = 500;   // 走到定位／離開用的過場（毫秒）
-  const tween = (S, mid, end) => {   // 前 AP：從原位走到起點；最後 AP：走回去（end 為空就不走回）
+  const AP = 500;   // 貓跳台用：走到定位／離開用的過場（毫秒）
+  const tween = (S, mid, end) => {
     if (u < AP) { const px = Math.round(petLerp(gl.px0, S[0], u / AP)), py = Math.round(petLerp(gl.py0, S[1], u / AP)); return put(px, py, (L, now) => { petB(L, px, py, { pose: 'side', now, dir: S[0] >= gl.px0 ? 1 : -1 }); }, S[0] >= gl.px0 ? 1 : -1); }
     if (end && u > dur - AP) { const k = (u - (dur - AP)) / AP, px = Math.round(petLerp(end[0], gl.px0, k)), py = Math.round(petLerp(end[1], gl.py0, k)); return put(px, py, (L, now) => { petB(L, px, py, { pose: 'side', now, dir: gl.px0 >= end[0] ? 1 : -1 }); }); }
     return mid(u - AP);
   };
-  /* ===== 玩具籃 ===== */
+  const at = (px, py, dir, extra, pose) => put(px, py, (L, now) => { petB(L, px, py, { pose: pose || 'side', now, dir }); if (extra) extra(); }, dir);
+  /* ===== 玩具籃（原地玩，幅度很小） ===== */
   if (gl.k === 'pettoya') {
     if (v === 1) {   // 叼球甩頭
-      const S = [ox + 18, base];
-      return tween(S, uu => {
-        const sh = uu < 1400 ? 0 : [1, -1, 1, -1][Math.floor(uu / 220) % 4], px = S[0] + sh, mx = px - 2, my = base + 8;
-        const k = Math.max(0, Math.min(1, (uu - 600) / 600)), bx = Math.round(uu < 600 ? ox + 3 : petLerp(ox + 3, mx, k)), by = Math.round(uu < 600 ? base + 3 : petLerp(base + 3, my, k));
-        return put(px, S[1], (L, now) => { petB(L, px, S[1], { pose: 'side', now, dir: -1 }); PET_BALL(bx, by); if (uu > 1500 && sh > 0) petSpk(px - 6, base - 2); }, -1);
-      }, S);
+      const sh = u < 1000 ? 0 : [1, -1, 1, -1][Math.floor(u / 220) % 4], px = ax + sh, mx = s > 0 ? px + 13 : px - 2, my = ay + 8;
+      const k = Math.max(0, Math.min(1, (u - 300) / 600)), bx = Math.round(u < 300 ? ox + 3 : petLerp(ox + 3, mx, k)), by = Math.round(u < 300 ? base + 3 : petLerp(base + 3, my, k));
+      return at(px, ay, s, () => { PET_BALL(bx, by); if (u > 1000 && sh > 0) petSpk(s > 0 ? px - 4 : px + 18, ay - 2); });
     }
-    if (v === 2) {   // 追球
-      return (() => {
-        const ph = u / 700, bx = Math.round(ox + T * gl.w + 4 + 24 * (0.5 - 0.5 * Math.cos(ph))), dir = Math.sin(ph) >= 0 ? 1 : -1, px = bx - 11 * dir;
-        return put(px, base, (L, now) => { petB(L, px, base, { pose: 'side', now, dir }); PET_BALL(bx, base + 9); }, dir);
-      })();
+    if (v === 2) {   // 撥球：球只在這一格裡來回滾
+      const ph = u / 700, k = 0.5 - 0.5 * Math.cos(ph), bx = Math.round(ax + 5 + 6 * k), dir = Math.sin(ph) >= 0 ? 1 : -1, px = ax + Math.round(3 * Math.sin(ph));
+      return at(px, ay, dir, () => PET_BALL(bx, ay + 9));
     }
-    const S = [ox + 22, base];   // 翻肚打滾
-    return tween(S, uu => {
-      const k = Math.floor(uu / 700) % 6, rot = [0, 90, 180, 180, 270, 0][k];
-      return put(S[0], S[1], (L, now) => { petXf(L, S[0], S[1], { pose: 'front', rot, happy: k > 1, now }); if (k === 2 || k === 3) { petSpk(S[0] - 4, base - 4); petSpk(S[0] + 18, base - 2); } });
-    }, S);
+    const k = Math.floor(u / 700) % 6, rot = [0, 90, 180, 180, 270, 0][k];   // 翻肚打滾（原地）
+    return put(ax, ay, (L, now) => { petXf(L, ax, ay, { pose: 'front', rot, happy: k > 1, now }); if (k === 2 || k === 3) { petSpk(ax - 1, ay - 4); petSpk(ax + 15, ay - 2); } });
   }
-  /* ===== 貓跳台（1×2） ===== */
+  /* ===== 貓跳台（1×2）：全部在跳台那一欄附近 ===== */
   if (gl.k === 'pettoyb') {
     if (v === 1) {   // 爬上頂層，坐著，再爬下來
       const tx = ox + 2, ty = oy - 10; let px, py, pose = 'front';
@@ -924,14 +929,14 @@ function petPlayFrame(f, gl, t) {
       const dir = u < 1000 ? (tx >= gl.px0 ? 1 : -1) : u < 4400 ? -1 : (gl.px0 >= tx ? 1 : -1);
       return put(px, py, (L, now) => { petB(L, px, py, { pose, now, dir }); }, dir);
     }
-    if (v === 2) {   // 抓柱磨爪
-      const S = [ox + 12, base - 1];
+    if (v === 2) {   // 抓柱磨爪（貼著柱子，只超出跳台右邊 8 像素）
+      const S = [ox + 8, base - 1];
       return tween(S, uu => {
         const k = Math.floor(uu / 350) % 6, py_ = oy + [10, 13, 16, 13, 10, 13][k];
         return put(S[0], S[1], (L, now) => { petXf(L, S[0], S[1], { pose: 'side', dir: -1, sy: 1.12, now }); r('#fff3d6', ox + 10, py_, 2, 2); if (k % 2 === 0) { r('rgba(255,255,255,.8)', ox + 9, py_ + 3, 1, 1); r('rgba(255,255,255,.8)', ox + 8, py_ + 5, 1, 1); } }, -1);
       }, S);
     }
-    const KF = [[-18, 16], [-10, 8], [2, 0], [12, 0], [14, 10], [16, 16]], PS = ['front', 'side', 'front', 'side', 'side', 'front'], PD = [1, 1, 1, -1, -1, -1];   // 跳上跳下
+    const KF = [[-4, 16], [-2, 8], [2, 0], [7, 0], [8, 10], [6, 16]], PS = ['front', 'side', 'front', 'side', 'side', 'front'], PD = [1, 1, 1, -1, -1, -1];   // 跳上跳下（左右只各超出 4～8 像素）
     const S = [ox + KF[0][0], base];
     return tween(S, uu => {
       const sp = 650, k = petKf(KF, uu, sp), idx = Math.min(5, Math.floor(uu / sp)), arc = Math.sin(Math.PI * ((uu / sp) % 1)) * (uu < 5 * sp ? 6 : 0);
@@ -939,55 +944,50 @@ function petPlayFrame(f, gl, t) {
       return put(px, py, (L, now) => { petB(L, px, py, { pose: PS[idx], dir: PD[idx], now }); }, PD[idx]);
     }, [ox + KF[5][0], base]);
   }
-  /* ===== 拔河繩與毛線球 ===== */
+  /* ===== 拔河繩與毛線球（原地，只有繩子拉長一點） ===== */
   if (gl.k === 'pettoyc') {
-    if (v === 1) {   // 拔河
-      const k = Math.floor(u / 350) % 6, dx = [0, 2, 3, 2, 3, 1][k], px = ox + 26 + dx;
-      return put(px, base, (L, now) => {
-        petB(L, px, base, { pose: 'side', now, dir: -1 });
-        const x1 = ox + 14, y1 = base + 8, x2 = px + 2, y2 = base + 7 + (k % 2), n = Math.max(1, x2 - x1);
-        for (let i = 0; i <= n; i++) r('#ff7a6c', x1 + i, Math.round(y1 + (y2 - y1) * i / n), 1, 1);
-        r('rgba(120,90,70,.6)', px + 16, base + 4, 3, 1); r('rgba(120,90,70,.6)', px + 17, base + 7, 4, 1); r('rgba(120,90,70,.6)', px + 16, base + 10, 3, 1);
-      }, -1);
+    if (v === 1) {   // 拔河：往後拉最多 3 像素
+      const k = Math.floor(u / 350) % 6, dx = [0, 2, 3, 2, 3, 1][k], px = ax - s * dx;
+      const x1 = s > 0 ? ox + 4 : ox + 12, x2 = s > 0 ? px + 14 : px + 2, xa = Math.min(x1, x2), xb = Math.max(x1, x2), n = Math.max(1, xb - xa);
+      return at(px, ay, s, () => {
+        for (let i = 0; i <= n; i++) r('#ff7a6c', xa + i, Math.round(ay + 8 + (k % 2) * (i / n)), 1, 1);
+        const bx = s > 0 ? px - 3 : px + 16; r('rgba(120,90,70,.6)', bx, ay + 4, 3, 1); r('rgba(120,90,70,.6)', bx, ay + 7, 4, 1); r('rgba(120,90,70,.6)', bx, ay + 10, 3, 1);
+      });
     }
-    if (v === 2) {   // 撲毛線球
-      const S = [ox + 22, base];
-      return tween(S, uu => {
-        const k = Math.floor(uu / 500) % 6, F = [[0.78, 0], [0.78, 0], [1.15, -9], [1.1, -14], [0.8, 0], [1, 0]][k];
-        return put(S[0], S[1], (L, now) => { PET_YARN(ox + 34, base + 8, k >= 4 ? 1 : 0); petXf(L, S[0], S[1], { pose: 'side', dir: 1, sy: F[0], now }); if (k === 4) { petSpk(ox + 38, base + 4); petSpk(ox + 30, base + 6); } }, 1);
-      }, S);
+    if (v === 2) {   // 撲毛線球（球就放在玩具上）
+      const k = Math.floor(u / 500) % 6, F = [0.78, 0.78, 1.15, 1.1, 0.8, 1][k], yx = s > 0 ? ox + 9 : ox + 1;
+      return put(ax, ay, (L, now) => { PET_YARN(yx, ay + 8, k >= 4 ? 1 : 0); petXf(L, ax, ay, { pose: 'side', dir: s, sy: F, now }); if (k === 4) { petSpk(yx + 4, ay + 4); petSpk(yx - 3, ay + 6); } }, s);
     }
-    const KP = [[12, 20], [18, 26], [26, 34], [34, 42], [28, 34], [20, 26]];   // 滾毛線球：[寵物 x, 球 x]
-    const S = [ox + KP[0][0], base];
-    return tween(S, uu => {
-      const sp = 650, k = petKf(KP, uu % (5 * sp), sp), px = Math.round(ox + k[0]), bx = Math.round(ox + k[1]), dir = (uu % (5 * sp)) < 3 * sp ? 1 : -1;
-      return put(px, base, (L, now) => { for (let i = 0; i <= bx - (ox + 16); i++) r('#8f7fe0', ox + 16 + i, base + 10 + Math.round(2 * i / Math.max(1, bx - ox - 16)), 1, 1); PET_YARN(bx, base + 9, 0); petB(L, px, base, { pose: 'side', now, dir }); }, dir);
-    }, [ox + KP[0][0], base]);
+    const ph = u / 650, px = ax + Math.round(3 * Math.sin(ph)), bx = Math.round(ax + 5 + 5 * Math.sin(ph + 1.2)), dir = Math.cos(ph) >= 0 ? 1 : -1;   // 滾毛線球：球只在這一格裡滾
+    return put(px, ay, (L, now) => {
+      const x1 = ox + 8, xa = Math.min(x1, bx), xb = Math.max(x1, bx), n = Math.max(1, xb - xa);
+      for (let i = 0; i <= n; i++) r('#8f7fe0', xa + i, ay + 10 + Math.round(2 * i / n), 1, 1);
+      PET_YARN(bx, ay + 9, 0); petB(L, px, ay, { pose: 'side', now, dir });
+    }, dir);
   }
-  /* ===== 條紋隧道（2×1） ===== */
+  /* ===== 條紋隧道（2×1）：從自己站的那一邊鑽進去、再從同一邊出來 ===== */
   if (gl.k === 'pettoyd') {
-    if (v === 2) {   // 躲貓貓
-      const k = Math.floor(u / 900) % 6, hh = [14, 9, 3, 3, 9, 14][k], px = ox + 20, py = oy - 10 + hh;
+    const vv = sd === 0 ? 2 : v, inx = ox + 8;   // inx＝完全躲進隧道裡的位置
+    if (vv === 2) {   // 躲貓貓：躲在隧道後面探頭（不需要旁邊有空位）
+      const k = Math.floor(u / 900) % 6, hh = [14, 9, 3, 3, 9, 14][k], px = ox + 8, py = oy - 10 + hh;
       return Object.assign(put(px, py, (L, now) => {
         g.save(); g.beginPath(); g.rect(px - 4, oy - 26, 24, 34); g.clip(); petB(L, px, py, { pose: 'front', now, happy: k === 3 }); g.restore();
       }, 1), { sortY: gl.gy + 0.005 });
     }
-    if (v === 1) {   // 鑽進去從另一頭出來
-      const KF = [[32, 1], [24, 1], [14, 1], [2, 1], [-12, 1], [-16, 1]];
-      return (() => {
-        const k = petKf(KF, Math.min(u, 4999), 800), px = Math.round(ox + k[0]), done = u > 4300;
-        return put(px, base, (L, now) => { petOutside(ox, ox + T * gl.w, () => petB(L, px, base, { pose: done ? 'front' : 'side', dir: -1, now, happy: done })); }, -1);
-      })();
+    if (vv === 1) {   // 鑽進去，從同一邊再出來
+      const fr = petKf([[0], [0.5], [1], [1], [0.5], [0]], Math.min(u, 4000), 800)[0], px = Math.round(ax + (inx - ax) * fr), out = u >= 4000, dir = u < 2000 ? s : -s;
+      return put(px, ay, (L, now) => { petOutside(ox, ox + wpx, () => petB(L, px, ay, { pose: out ? 'front' : 'side', dir, now, happy: out })); }, dir);
     }
-    // 衝出隧道
-    if (u < 700) return put(ox + 10, base, () => { r('#ffe680', ox + 14, base - 6, 1, 3); r('#ffe680', ox + 14, base - 2, 1, 1); });
-    const KD = [[22, 0, 1.1, 1], [34, -2, 1.25, 0.9], [42, -10, 1.15, 0.95], [42, 0, 0.9, 1.1], [40, 0, 1, 1]];
-    const k = petKf(KD, Math.min(u - 700, 3999), 700), px = Math.round(ox + k[0]), py = Math.round(base + k[1]), late = u > 2600;
+    // 衝出隧道：從裡面衝到旁邊站的那一格，開心跳一下
+    const mk = (x, y, w_) => r('rgba(120,90,70,.6)', x, y, w_, 1), wx = s > 0 ? ox - 5 : ox + wpx + 2;
+    if (u < 700) return put(inx, ay, () => { r('#ffe680', ox + 14, ay - 6, 1, 3); r('#ffe680', ox + 14, ay - 2, 1, 1); });
+    const KD = [[0, 0, 1.1, 1], [0.7, -2, 1.25, 0.9], [1, -8, 1.15, 0.95], [1, 0, 0.9, 1.1], [1, 0, 1, 1]];
+    const k = petKf(KD, Math.min(u - 700, 3399), 700), px = Math.round(inx + (ax - inx) * k[0]), py = Math.round(ay + k[1]), late = u > 2600;
     return put(px, py, (L, now) => {
-      petOutside(ox, ox + T * gl.w, () => petXf(L, px, py, { pose: late ? 'front' : 'side', dir: 1, sx: k[2], sy: k[3], happy: late, now }));
-      if (u > 700 && u < 2300) { r('rgba(120,90,70,.6)', ox - 6, base + 4, 3, 1); r('rgba(120,90,70,.6)', ox - 5, base + 7, 4, 1); r('rgba(120,90,70,.6)', ox - 6, base + 10, 3, 1); }
-      if (u > 3800) petSpk(ox + 58, base - 2);
-    }, 1);
+      petOutside(ox, ox + wpx, () => petXf(L, px, py, { pose: late ? 'front' : 'side', dir: -s, sx: k[2], sy: k[3], happy: late, now }));
+      if (u > 700 && u < 2300) { mk(wx, ay + 4, 3); mk(wx + 1, ay + 7, 4); mk(wx, ay + 10, 3); }
+      if (u > 3000) petSpk(ax + 4, ay - 3);
+    }, -s);
   }
   return { done: true };
 }
