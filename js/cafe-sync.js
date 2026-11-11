@@ -98,6 +98,7 @@ function cfSnap() {
   const nowp = performance.now(), b = cf.bot, rs = {}, ph = {};
   Object.keys(cf.res).forEach(u => { rs[u] = [cf.res[u].r, cf.res[u].q]; });
   Object.keys(cf.holds).forEach(u => { ph[u] = cf.holds[u]; });
+  if (cf.hold && cfInKitchen() && !cf.sit) ph[myUid] = cf.hold;   // 店長自己手上拿的東西也要送出去，不然其他人看不到店長拿了什麼
   return {
     t: 'snap', hs: cf.hs,
     st: cf.list.map(s => [s.state, cfR2(s.prog), cfR2(s.burn), s.dish || 0, s.n, s.d, s.item ? s.item.t : 0, s.items.join(',')]),

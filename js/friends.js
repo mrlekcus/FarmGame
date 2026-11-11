@@ -4,7 +4,7 @@
 const frEl = $('frmenu'), frCard = $('frcard');
 let fr = { friends: [], incoming: [], outgoing: [], max: 50 }, frTarget = null, frConfirm = '', frMsg = '';
 let seenMap = {}, onlineMap = new Map(), pres = null, lastWhere = '', whereTimer = 0, frBusy = false;
-const WHERE = { farm: '在農場', plaza: '在廣場', house: '在屋子裡', boat: '在出海' };
+const WHERE = { farm: '在農場', plaza: '在廣場', house: '在屋子裡', boat: '在出海', cafe: '在咖啡廳', town: '在小村', forest: '在森林', cave: '在山洞', barn: '在穀倉', stylist: '在造型店', tarot: '在水晶球帳篷' };   // 要跟 scene 的值一一對應，沒列到的場景會被當成「在農場」
 const isFriend = uid => fr.friends.some(f => f.uid === uid);
 /* ---------- 友情等級：只靠雙人互動動作升級，每對好友每天只算第一次（伺服器 friend_act_*） ---------- */
 const BOND_NEED = [0, 0, 3, 10, 25, 50];
