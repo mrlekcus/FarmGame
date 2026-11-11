@@ -12,6 +12,7 @@ function hoeOne(x, y, mode, loud) {
   if (K[y][x] !== G) return false;
   const key = pk(x, y), p = plots.get(key);
   if (mode === 'till' && !p) {
+    if (yardMap.has(key)) { if (loud) pop(x, y, '這格有庭院裝飾，先收回才能翻土', '#ffb3a8'); return false; }   // 田區裡也能擺木欄了：鋤頭不能把有裝飾的格子翻成田
     if (!farmable(x, y)) { if (loud) pop(x, y, '這裡不能耕種', '#ffb3a8'); return false; }
     if (plots.size >= plotCap()) { if (loud) pop(x, y, '田地到上限了（玩家升級會增加）', '#ffb3a8'); return false; }
     plots.set(key, { crop: null, grown: 0, tick: srvNow(), wet: null }); dust(x, y);
@@ -143,6 +144,7 @@ function act() {
   if (scene === 'cafe') { cafeAct(x, y); return; }
   const k = K[y][x], key = pk(x, y), p = plots.get(key), t = curTool();
   if (yardMode && scene === 'farm' && !visiting && (grassTile(x, y) || yardMap.has(pk(x, y)))) { yardAct(x, y); return; }   // 庭院佈置模式：動作鍵＝擺放／收回
+  if (scene === 'farm' && yardMap.get(key) === 'bench') { takeYardBench(x, y); return; }   // 庭院長椅：面向它按動作鍵坐下，再按一次或按方向鍵起身
   if (k === GT) { openVMenu(); return; }
   if (k === DR) { enterHouse(); return; }
   if (k === SH) { openShop(); return; }

@@ -65,11 +65,35 @@ function addLog(name, text, mine, sys) {
     b.textContent = name; sp.textContent = ' ' + text;
     line.appendChild(b); line.appendChild(sp);
   }
+  const nearBottom = vLog.scrollHeight - vLog.scrollTop - vLog.clientHeight < 48;   // 還貼在最底才跟著捲；往上翻舊訊息的人不要被拉走
+  const prevTop = vLog.scrollTop, prevH = vLog.scrollHeight;
   vLog.appendChild(line);
   if (!sys) { try { feedPush(name, text, mine); } catch (e) { /* 略過 */ } }
   while (vLog.children.length > 60) vLog.removeChild(vLog.firstChild);
-  vLog.scrollTop = vLog.scrollHeight;
+  if (mine || nearBottom) { vLog.scrollTop = vLog.scrollHeight; logNewHide(); }
+  else {
+    // 刪掉最舊的行會讓內容上移：補回被刪掉的高度，畫面維持在讀的位置
+    const cut = prevH + line.offsetHeight - vLog.scrollHeight;
+    if (cut > 0) vLog.scrollTop = Math.max(0, prevTop - cut);
+    if (!sys) logNewShow();
+  }
 }
+/* 「↓ 新訊息」提示：讀舊訊息時有人說話，不跳走，只在底部冒出一顆小按鈕，點了才回到最新 */
+let logNewBtn = null;
+function logNewInit() {
+  if (logNewBtn || !vLog.parentNode) return;
+  const wrap = document.createElement('div');
+  wrap.style.cssText = 'position:relative;min-width:0';
+  vLog.parentNode.insertBefore(wrap, vLog); wrap.appendChild(vLog);
+  logNewBtn = document.createElement('button');
+  logNewBtn.type = 'button'; logNewBtn.hidden = true; logNewBtn.textContent = '↓ 新訊息';
+  logNewBtn.style.cssText = 'position:absolute;left:50%;bottom:8px;transform:translateX(-50%);padding:4px 12px;border-radius:999px;border:2px solid var(--edge);background:#fff;font-size:12px;font-weight:700;box-shadow:0 2px 6px rgba(0,0,0,.18);z-index:2';
+  logNewBtn.addEventListener('click', () => { vLog.scrollTop = vLog.scrollHeight; logNewHide(); });
+  wrap.appendChild(logNewBtn);
+  vLog.addEventListener('scroll', () => { if (vLog.scrollHeight - vLog.scrollTop - vLog.clientHeight < 48) logNewHide(); }, { passive: true });
+}
+const logNewShow = () => { logNewInit(); if (logNewBtn) logNewBtn.hidden = false; };
+const logNewHide = () => { if (logNewBtn) logNewBtn.hidden = true; };
 const addSys = text => addLog('', text, false, true);
 
 function renderVillage() {
@@ -280,7 +304,7 @@ function startNet(rm, priv, tries) {
 }
 function enterPlaza(info) {
   roomInfo = info; scene = 'plaza'; K = pkind; W = PLW; H = PLH; pose = null;
-  remotes.clear(); vLog.innerHTML = ''; myBubble = null; myShow = null; lastPosKey = ''; posAcc = 0;
+  remotes.clear(); vLog.innerHTML = ''; logNewHide(); myBubble = null; myShow = null; lastPosKey = ''; posAcc = 0;
   pl.x = pl.sx = PXO + 10; pl.y = pl.sy = PLH - 3; pl.prog = 1; pl.face = 'up'; pressed.length = 0; view.snap = true; fitView();
   vPanel.hidden = false; renderVillage();
   addSys(info.kind === 'public' ? '歡迎來到公開廣場，和路過的朋友打個招呼吧。' : '私人村的邀請碼是 ' + info.code + '，把它傳給朋友就能進來。');

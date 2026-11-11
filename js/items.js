@@ -21,7 +21,7 @@ function yardArt(px, py, key, now, night) {
 }
 function yardIcon(c2d, key) { g = c2d; g.clearRect(0, 0, 16, 16); yardArt(0, 0, key, 0, false); g = ctx; }
 /* 面向的格子能不能擺庭院裝飾（要和 SQL _yard_ok 一致；客戶端更嚴：只能是空草地） */
-const yardOkLocal = (x, y) => grassTile(x, y) && !farmable(x, y) && !plots.has(pk(x, y)) && !yardMap.has(pk(x, y)) && x <= 18;
+const yardOkLocal = (x, y) => grassTile(x, y) && !plots.has(pk(x, y)) && !yardMap.has(pk(x, y)) && x <= 18;   // 田區範圍內還沒翻土的空草地也可以擺（圍田用的木欄）；只有已翻的田和已擺的裝飾上不行
 function yardAct(x, y) {
   if (featLocked('yard', x, y)) return;
   const here = yardMap.get(pk(x, y));
@@ -33,7 +33,7 @@ function yardAct(x, y) {
   const mine = Object.keys(inv).filter(k => /^y:/.test(k) && inv[k] > 0);
   let key = yardSel && have('y:' + yardSel) > 0 ? yardSel : (mine[0] || '').slice(2);
   if (!key) { pop(x, y, '沒有庭院裝飾，去村長家的園藝工坊買', '#ffb3a8'); return; }
-  if (!yardOkLocal(x, y)) { pop(x, y, '這裡不能擺（要空草地，不含田地區）', '#ffb3a8'); return; }
+  if (!yardOkLocal(x, y)) { pop(x, y, '這裡不能擺（要空草地，翻好的田和已擺的裝飾上不行）', '#ffb3a8'); return; }
   yardMap.set(pk(x, y), key); inv['y:' + key] = have('y:' + key) - 1;
   pop(x, y, '擺上' + itemName('y:' + key), '#c9f0a8'); dust(x, y);
   act2('yard_place', { p_key: key, p_x: x, p_y: y }, null, e => { yardMap.delete(pk(x, y)); return false; });

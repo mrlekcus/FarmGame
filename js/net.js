@@ -6,7 +6,7 @@ const ERR = {
   level_locked: '等級還不夠，還沒解鎖', gift_self: '不能送給自己', bad_gift: '這個東西不能送', gift_limit: '今天送出的禮物已經 3 份了，明天再送吧', claim_first: '先領取附的禮物才能刪除', gift_empty: '背包裡已經沒有這個了',
   quest_not_done: '任務還沒完成', quest_claimed: '這個獎勵已經領過了', bad_quest: '沒有這個任務',
   not_authenticated: '登入已過期，請重新登入', no_profile: '還沒建立角色',
-  not_farmable: '這裡不能耕種', too_many_plots: '田地數量到上限了', has_crop: '上面還有作物',
+  not_farmable: '這裡不能耕種', yard_here: '這格有庭院裝飾，先收回才能翻土', too_many_plots: '田地數量到上限了', has_crop: '上面還有作物',
   not_tilled: '這裡還沒翻土', occupied: '這裡已經有作物', no_seed: '沒有這種種子了',
   voy_closed: '碼頭暫時關閉中，請晚一點再來', voy_unbuilt: '出海碼頭還沒蓋好，到廣場岸邊的告示牌一起捐材料吧', build_done: '碼頭已經完工了', build_full: '這項材料這個階段已經收滿了', build_lack: '背包裡沒有這個材料', bad_qty: '數量不對', tree_wait: '這棵樹還沒長回來', bad_tree: '沒有這棵樹', not_ready: '還沒長好', nothing_to_harvest: '這裡沒有作物', not_enough_coins: '金幣不夠',
   nothing_to_sell: '沒有東西可以賣', bad_qty: '數量不對', bad_crop: '沒有這種作物',

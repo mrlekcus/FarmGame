@@ -256,7 +256,7 @@ function draw(now) {
       } });
     } else if (cafeSeatedNow()) {
       ents.push({ y: ry, draw: () => cafeDrawSeated(ch, now) });
-    } else if (pose && ((pose.bench && scene === 'plaza') || (pose.ground && syncScene()))) {
+    } else if (pose && ((pose.bench && (scene === 'plaza' || (pose.yard && scene === 'farm'))) || (pose.ground && syncScene()))) {
       ents.push({ y: ry, draw: () => {
         (pose.ground ? drawGroundSeated : drawBenchSeated)(Math.round(pl.x * T), Math.round(pl.y * T), ch);
         nameTag(ch.name, Math.round(pl.x * T) + 8, Math.round(pl.y * T) - 7, '#ffffff');

@@ -447,6 +447,13 @@ function takeBench(x, y) {
   pl.x = pl.sx = x; pl.y = pl.sy = y; pl.prog = 1; pl.face = 'down'; pressed.length = 0;
   lastPosKey = ''; posAcc = 999; trackSelf();
 }
+/* 農場的庭院長椅（庭院裝飾 bench）：和廣場長椅同一套坐姿，只是留在農場；長椅被收回就自動起身 */
+function takeYardBench(x, y) {
+  if (pose || fishing) return;
+  pose = { type: 'sit', bench: true, yard: true, yk: pk(x, y), ox: pl.x, oy: pl.y, face0: pl.face, tile: 0, t: 0 };
+  pl.x = pl.sx = x; pl.y = pl.sy = y; pl.prog = 1; pl.face = 'down'; pressed.length = 0;
+  lastPosKey = ''; posAcc = 999; trackSelf();
+}
 function drawBenchSeated(px, py, ch) {
   g.save(); g.beginPath(); g.rect(px - 4, py - 14, 24, 24); g.clip();
   drawPlayer(px, py - 2, 'down', false, 0, ch);
@@ -573,7 +580,7 @@ function visitShowList(it) {
 function joinHouseRoom(ownerUid) {
   if (!ownerUid || !sb) return;
   remotes.clear(); myBubble = null; lastPosKey = ''; posAcc = 999;
-  vLog.innerHTML = ''; vPanel.hidden = false;
+  vLog.innerHTML = ''; logNewHide(); vPanel.hidden = false;
   startNet('house-' + ownerUid, false);
   renderVillage();
   addSys(ownerUid === myUid ? '你的家連上了，朋友來拜訪時可以在這裡聊天。' : '來到朋友的家了，可以和屋子裡的人聊天。');

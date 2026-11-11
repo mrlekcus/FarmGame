@@ -186,7 +186,8 @@ function update(dt) {
   if (pose) {                                   // 坐著或躺著：家具被搬走、離開屋子或按方向鍵就起身
     const furn = !pose.bench && !pose.ground;             // 坐家具／躺床才需要檢查家具還在不在
     const pit = furn && scene === 'house' && house ? house.items.find(i => i.id === pose.id) : null;
-    if (pose.ground ? !syncScene() : scene !== (pose.bench ? 'plaza' : 'house')) pose = null;
+    if (pose.ground ? !syncScene() : scene !== (pose.bench ? (pose.yard ? 'farm' : 'plaza') : 'house')) pose = null;
+    else if (pose.yard && yardMap.get(pose.yk) !== 'bench') standUp();   // 坐著的庭院長椅被收回去了
     else if (furn && (!pit || pit.x !== pose.ix || pit.y !== pose.iy)) standUp();
     else {
       pose.t += dt;

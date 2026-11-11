@@ -201,7 +201,7 @@ function enterBoat(v, back) {
   hideCatch(); fishing = null; cooking = null;
   pose = null; scene = 'boat'; K = dkind; W = BTW; H = BTH;
   critters.length = 0; critSlot = -1;
-  remotes.clear(); vLog.innerHTML = ''; myBubble = null; myShow = null; lastPosKey = ''; posAcc = 0;
+  remotes.clear(); vLog.innerHTML = ''; logNewHide(); myBubble = null; myShow = null; lastPosKey = ''; posAcc = 0;
   const idx = Math.max(0, (v.members || []).findIndex(m => m.uid === myUid)), sl = DECK_SLOTS[idx % DECK_SLOTS.length];
   pl.x = pl.sx = sl[0]; pl.y = pl.sy = sl[1]; pl.prog = 1; pl.face = 'up'; pressed.length = 0;
   view.snap = true; fitView();
