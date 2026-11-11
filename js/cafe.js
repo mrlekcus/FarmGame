@@ -8,14 +8,14 @@
    【結算】伺服器建好 cafe_eco.sql 後：玩家當顧客點餐先扣款（送到＝回收，取消／等太久＝退款）；玩家當店員送出一杯領飲料價格 10% 的薪水（系統發，每天 GMT+8 零點重置、上限 1000 G）。
    【村民客人】村裡的 NPC 偶爾會來店裡當客人、有各自的口頭禪，見 cafe-villagers.js。
    【開幕故事】第一次進店自動播「開張剪綵」CG，之後在穿圍裙確認窗下面按「重看開幕故事」，見 cafe-cg.js。
-   伺服器函式不存在時自動維持「試營運」：不扣 G、不發 G。飲料效果只有畫面特效（吃喝動作＋光環），沒有數值加成。
+   伺服器函式不存在時自動維持「試營運」：不扣 G、不發 G。玩家當顧客付款後餐點送到，伺服器（cafe_order_done）會發真正的 buff（種類和分鐘數放在 cafe_cfg.buffs，見 cafe_buff.sql）；試營運時只有畫面特效。
    【多人同步】見 cafe-sync.js：店裡最早開店的人當店長跑模擬，其他人收快照、把操作交給店長代辦；店長離開由 uid 最小的人接手。點唱機的歌也對時到同一個播放位置。 */
 const CFW = 16, CFH = 16;
 const CFX = 82, CFV = 83, CFG = 84, CFT = 85, CFJ = 86, CFSEAT = 87;   // CFX 擺設／檯面（走不進去） CFV 出餐口 CFG 吧台小門 CFT 高腳椅 CFJ 音樂機 CFSEAT 沙發與圓桌的座位
 const CF_MENU = {
-  americano: { n: '美式咖啡', p: 80, bn: '喝完冒出速度光環', ic: '👟', aura: 'swift' },
-  latte: { n: '拿鐵', p: 120, bn: '喝完冒出愛心光環', ic: '💕', aura: 'heart' },
-  pancake: { n: '蜂蜜鬆餅', p: 130, bn: '吃完冒出蝴蝶光環', ic: '🦋', aura: 'bug' }
+  americano: { n: '美式咖啡', p: 80, bn: '走路變快 15 分鐘', ic: '👟', aura: 'swift' },
+  latte: { n: '拿鐵', p: 120, bn: '釣魚運氣變好 15 分鐘', ic: '🎣', aura: 'fish' },
+  pancake: { n: '蜂蜜鬆餅', p: 130, bn: '捕蟲網變大 15 分鐘', ic: '🦋', aura: 'bug' }
 };
 const CF_RECIPE = { americano: '咖啡豆 ×2 → 磨豆機（按住）→ 咖啡機 → 杯子盛起', latte: '咖啡豆磨好 ＋ 牛奶 → 咖啡機 → 杯子盛起', pancake: '麵糰 → 直接放烤箱 → 盤子盛起' };
 const CF_NAMES = ['小米', '阿豆', '奶茶', '布丁', '小橘', '麻糬'], CF_KEYS = ['xiaomi', 'adou', 'naicha', 'buding', 'xiaoju', 'mochi'];
@@ -162,7 +162,7 @@ function cfPress(s) {
       c.state = 'gone';
       if (c.own === myUid) { cfPayEnd(true); cf.ordered = false; toast('你的' + M.n + '送到了！', 2000); playEat(h.dish, M.aura); } else { cfTell(c.own, { t: 'srv', d: h.dish }); cfResult(c.own, 's', c.q); }
       return;
-    }   // 特效：沿用吃料理的動作和光環，只有畫面效果，沒有數值加成
+    }   // NPC 客人只有畫面特效；玩家自己的 buff 在 cfPayEnd 由伺服器發
     c.state = 'happy'; c.t = 3; c.claim = 0;
     if (cfIsV(c)) cfVSay(c, 'thanks'); else cfChat(c.name, ['謝謝！好好喝～', '太棒了！', '剛剛好的溫度！'][cf.served % 3]);
     cfSay('送出一杯' + M.n + ' ' + M.ic, 1500);
@@ -446,7 +446,7 @@ function cfOrderMenu() {
   if (cfOpen || !cf || cf.ordering) return;
   cfOpen = true; pressed.length = 0;
   cfEl.hidden = false;
-  cfCard.innerHTML = '<div class="shop-h"><h2>🧾 點餐</h2></div><p style="margin:0 0 8px;font-size:13px;line-height:1.5">' + (cfEco === true ? '點餐會先扣款；等太久、中途離開會退款。' : '試營運：先不收費。') + '餐點送到後會出現喝下去的特效。</p>' +
+  cfCard.innerHTML = '<div class="shop-h"><h2>🧾 點餐</h2></div><p style="margin:0 0 8px;font-size:13px;line-height:1.5">' + (cfEco === true ? '點餐會先扣款；等太久、中途離開會退款。' : '試營運：先不收費。') + (cfEco === true ? '餐點送到後會出現喝下去的特效，還會得到 15 分鐘的效果（每道餐點下面有寫）。' : '餐點送到後會出現喝下去的特效。') + '</p>' +
     Object.keys(CF_MENU).map(k => '<button type="button" class="btn wide" data-cf="' + k + '" style="margin:0 0 8px;text-align:left">' + CF_MENU[k].n + '　' + CF_MENU[k].p + ' G　' + CF_MENU[k].ic + CF_MENU[k].bn + '</button>').join('') +
     '<button type="button" class="btn ghost wide" data-cf="close">不點了</button>';
 }
@@ -554,7 +554,8 @@ function cfEcoInit() {
 /* 點餐單結清：ok = 送到了（錢回收）；!ok = 取消或等太久（退款） */
 function cfPayEnd(ok) {
   if (cfEco !== true || !cf || !cf.ordered) return;
-  rpc('cafe_order_done', { p_ok: !!ok }).then(r => { cfApplyCoins(r); if (!ok && r && r.refund > 0) toast('點餐已退款 +' + r.refund + ' G', 2200); }).catch(() => { /* 下次進店會自動退 */ });
+  rpc('cafe_order_done', { p_ok: !!ok }).then(r => { cfApplyCoins(r);
+    if (ok && r && r.buff && r.until) { buffs[r.buff] = +r.until; try { updateBuffChip(); } catch (e) { /* 略過 */ } toast('效果：' + (BUFF_N[r.buff] || r.buff), 2200); } if (!ok && r && r.refund > 0) toast('點餐已退款 +' + r.refund + ' G', 2200); }).catch(() => { /* 下次進店會自動退 */ });
 }
 /* 店員送出一杯：領薪水 */
 function cfWage(dish) {

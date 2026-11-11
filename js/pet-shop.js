@@ -4,7 +4,7 @@ Object.assign(ERR, {
   pet_locked: '寵物店還在蓋，等你把材料湊齊、付完工錢就能領養囉', pet_built: '寵物店已經蓋好了', pet_item_full: '這種材料已經夠了，換別種吧', pet_daily_full: '今天這種材料捐滿了，明天再來', pet_mat_missing: '材料還沒湊齊',
   pet_not_met: '先走進店裡，和阿喵姊姊聊聊吧', pet_has: '你已經有一隻寵物了，要換的話先送回領養處', pet_none: '你還沒有寵物', pet_owned: '你已經有這個了',
   pet_full: '牠現在吃得很飽，等一下再餵吧', pet_tired: '牠今天玩累了，明天再來吧', pet_no_bowl: '要先買飯碗才能放飼料',
-  pet_no_toy: '要先買玩具才能玩', not_gm: '只有 GM 可以這樣做'
+  pet_no_toy: '要先買玩具才能玩', pet_name_bad: '名字要 1～8 個字，不能有特殊符號', pet_name_same: '這已經是牠的名字囉', not_gm: '只有 GM 可以這樣做'
 });
 let petMine = null, petData = null, petBusy = false, petPick = null, petMsg = '';
 const PET_NEED_N = { 'm:wood': '木頭', 'm:stone': '石頭', 'm:copper': '銅礦' };
@@ -15,6 +15,25 @@ document.body.appendChild(petEl);
 const petCard = petEl.querySelector('#petcard');
 
 function petLookOf(breedKey) { return (typeof petOf === 'function' && petOf(breedKey)) || null; }
+const petEsc = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+function petNameEnt(ents, nm, fy, bx, by) {   // 寵物腳下的名字牌（自己的、別人的、朋友家裡的都用這個）
+  nm = nm ? String(nm).slice(0, 8) : ''; if (!nm) return;
+  ents.push({ y: fy + 5.5, draw: () => nameTag(nm, bx + 8, by + T + 4, '#ffd6e2') });
+}
+let petNameEdit = false;   // 改名輸入框開著（寵物列、照顧面板共用）
+async function petRename(nm) {
+  nm = String(nm || '').trim().replace(/\s+/g, ' ');
+  if (!nm || [...nm].length > 8 || /[<>&"'`\\]/.test(nm)) { toast('名字要 1～8 個字，不能有特殊符號'); return false; }
+  if (petMine && nm === petMine.name) { toast('這已經是牠的名字囉'); return false; }
+  try {
+    const r = await enqueue(() => rpc('pet_rename', { p_name: nm }));
+    const n2 = (r && (r.name || (r.pet && r.pet.name))) || nm;
+    if (petMine) petMine.name = n2; if (petData && petData.pet) petData.pet.name = n2;
+    petPubAt = 0; petBcast('pren', { i: myUid });   // 叫旁邊的人馬上重讀，不用等 30 秒
+    toast('牠現在叫「' + n2 + '」了'); return true;
+  } catch (er) { const msg = String(er && er.message); toast(/does not exist|PGRST202|42883/.test(msg) ? '改名功能還沒開放' : errText(er)); return false; }
+}
+function onPetRename(p) { if (p && typeof p.i === 'string' && p.i !== myUid) petPubAt = 0; }
 function petPaint(root) {   // 把 data-pk 的 canvas 畫上寵物
   root.querySelectorAll('canvas[data-pk]').forEach(cv => {
     const L = petLookOf(cv.dataset.pk), c = cv.getContext('2d'); if (!L) return;
@@ -102,7 +121,7 @@ function petRender() {
   else if (petMsg) h += '<p style="margin:0;text-align:center;font-weight:800">' + petMsg + '</p>';
   const left = Math.max(0, p.fedUntil - srvNow()), fedPct = p.fed ? Math.max(5, Math.min(100, Math.round(left / (12 * 3600000) * 100))) : 4;   // 飽足 12 小時封頂（和寵物資料卡一樣）
   const noFood = have('p:food') < 1;
-  h += '<div class="ps-card"><div class="ps-top">' + petCv(p.breed) + '<div class="meta"><b class="ps-name">' + p.name + '</b><small>' + (L ? L.breed + '・' + L.coat : '') + '</small></div></div>' +
+  h += '<div class="ps-card"><div class="ps-top">' + petCv(p.breed) + '<div class="meta"><b class="ps-name">' + petEsc(p.name) + '</b><small>' + (L ? L.breed + '・' + L.coat : '') + '</small></div></div>' +
     '<div class="ps-stats"><div class="ps-st"><div><span>🍖 飽足</span><span class="' + (p.fed ? '' : 'ps-bad') + '">' + (p.fed ? '約剩 ' + petHrs(p.fedUntil) : '肚子餓了') + '</span></div><div class="bar"><i style="width:' + fedPct + '%;background:#ff8fa8"></i></div></div>' +
     '<div class="ps-st"><div><span>💗 親密</span><span>' + p.bond + '</span></div><div class="bar"><i style="width:' + ((p.bond % 10) * 10 || (p.bond ? 100 : 0)) + '%;background:#ffb04a"></i></div></div></div>' +
     '<div class="ps-foot"><span>飯碗存量 ' + p.bowl + ' / 3</span><span>背包飼料 ' + have('p:food') + '</span></div></div>' +
@@ -117,6 +136,7 @@ function petRender() {
       return '<button type="button" class="ps-g' + (own ? ' own' : '') + (poor ? ' poor' : '') + '" data-pa="buy" data-k="' + k + '" data-n="1"' + (own || poor ? ' disabled' : '') + '>' +
         (own ? '<span class="ps-own">✓ 已擁有</span>' : '') + '<span class="ps-ico"><img src="' + petIcon(key, dim) + '" alt=""></span><b>' + nm + '</b><small>' + dim[0] + '×' + dim[1] + '</small>' + (own ? '' : '<span class="ps-price">' + price + ' G</span>') + '</button>';
     }).join('') + '</div>' +
+    '<button type="button" class="ps-link" data-pa="rename">✎ 幫牠改名字</button>' +
     '<button type="button" class="ps-link" data-pa="replay">回顧劇情</button>' +
     '<button type="button" class="ps-link" data-pa="return">送回領養處</button>' + close;
   petCard.innerHTML = h; paintClerk(); petPaint(petCard);
@@ -160,6 +180,10 @@ petCard.addEventListener('click', ev => {
   const b = ev.target.closest('[data-pa]'); if (!b || b.disabled) return;
   const a = b.dataset.pa, k = b.dataset.k, n = b.dataset.n;
   if (a === 'close') closePetShop();
+  else if (a === 'rename') {
+    const nm = prompt('幫牠取新名字（1～8 字）', petMine ? petMine.name : '');
+    if (nm != null) petRename(nm).then(ok => { if (ok) petRender(); });
+  }
   else if (a === 'replay') { petReplay = true; petStoryAt = 0; petCgReset(); petRender(); }
   else if (a === 'story') { if (petCgSkipType()) return; if (petStoryAt < PET_STORY.length - 1) { petStoryAt++; petRender(); } else if (petReplay) { petReplay = false; petRender(); } else petCall('pet_meet', {}, () => {}); }
   else if (a === 'storyskip') { if (petReplay) { petReplay = false; petRender(); } else petCall('pet_meet', {}, () => {}); }
@@ -374,6 +398,7 @@ function petFollowEnts(now, ents) {
       f.x = w.x; f.y = w.y; f.px = pl.x; f.py = pl.y; f.tr = []; f.still = t; f.nextGoal = t + 15000; f.moveAt = t; f.lx = pl.x; f.ly = pl.y;
       const bx = Math.round(w.x * T), by = Math.round(w.y * T);
       ents.push({ y: w.y + 0.01, draw: () => petB(Lw, bx, by - w.jump, { pose: w.pose, now, dir: w.face }) });
+      petNameEnt(ents, petMine.name, w.y, bx, by);
       if (w.emo) { const age = t - f.wel.t0; ents.push({ y: w.y + 6, draw: () => petEmoDraw(w.emo, bx + 1, by - 15 - w.jump + Math.round(Math.sin(age / 260))) }); }
       return;
     }
@@ -427,6 +452,7 @@ function petFollowEnts(now, ents) {
     else petB(L, bx, by - jump, { pose, now, dir: f.face });
   } });
   if (trk && (trk.k === 'shake' || trk.k === 'fire')) ents.push({ y: f.y + 5, draw: () => petTrickTop(trk, bx, by, trk.jump, trk.dir ? trk.dir : f.face) });
+  petNameEnt(ents, petMine.name, play ? play.sortY : f.y, bx, by);
   if (f.emo && f.emo.until > t) {
     const e = f.emo, age = t - e.at, bob = Math.round(Math.sin(age / 260)), pop_ = age < 160 ? 3 : 0;
     ents.push({ y: f.y + 6, draw: () => { petEmoDraw(e.k, bx + 1, by - 15 + bob + pop_); } });
@@ -509,7 +535,8 @@ function petBarRender() {
   const bag = have('p:food');
   const btn = (a, ic, n, dis, tip) => '<button type="button" class="pb-b" data-b="' + a + '"' + (dis ? ' disabled' : '') + '><img src="' + petBIcon(ic) + '" alt="">' + tip + (n != null ? ' <small>' + n + '</small>' : '') + '</button>';
   petBar.innerHTML = '<button type="button" class="pb-x" data-b="x" aria-label="關閉">✕</button>' +
-    '<div class="pb-h"><canvas class="pb-pt" width="24" height="24" data-pk="' + p.breed + '"></canvas><div class="pb-m" style="font-size:16px">' + p.name + '<small><span style="color:#d9667f">♥</span> 親密 ' + p.bond + '</small></div></div>' +
+    '<div class="pb-h"><canvas class="pb-pt" width="24" height="24" data-pk="' + p.breed + '"></canvas><div class="pb-m" style="font-size:16px">' + petEsc(p.name) + ' <button type="button" class="pb-ed" data-b="rename" aria-label="改名">✎</button><small><span style="color:#d9667f">♥</span> 親密 ' + p.bond + '</small></div></div>' +
+    (petNameEdit ? '<div class="pb-nm"><input id="pb-nin" maxlength="8" value="' + petEsc(p.name) + '" placeholder="1～8 字"><button type="button" data-b="rensave">儲存</button><button type="button" data-b="rencancel">取消</button></div>' : '') +
     '<div><div class="pb-r"><span>飽足</span><span>' + (left > 0 ? petHrs(p.fedUntil) : '肚子餓了！') + '</span></div><div class="pb-bar"><i style="width:' + pct + '%"></i></div></div>' +
     (function () { const lv = petLvOf(p.bond), nx = PET_LVB[lv], pv = PET_LVB[lv - 1], pc = nx ? Math.round((p.bond - pv) / (nx - pv) * 100) : 100;
       return '<div><div class="pb-r"><span>♥ 親密 Lv.' + lv + '</span><span>' + (nx ? p.bond + ' / ' + nx : '已滿級') + '</span></div><div class="pb-bar"><i style="width:' + pc + '%;background:#ffb04a"></i></div></div>'; })() +
@@ -519,21 +546,29 @@ function petBarRender() {
     '<div class="pb-sec">🐾 外出時</div><div class="pb-seg">' + [['stay', '🏠 留在家', '只在家裡'], ['close', '🐾 貼身', '緊跟在後'], ['free', '🌿 自由走動', '在你附近逛']].map(m => '<button type="button" data-b="mode:' + m[0] + '" class="' + (petMode() === m[0] ? 'on' : '') + '">' + m[1] + '<small>' + m[2] + '</small></button>').join('') + '</div>' +
     '<div class="pb-sec">🎪 才藝<small> 身邊的人都看得到</small></div><div class="pb-tr">' + PET_TRICKS.map(x => { const ok = petLvOf(p.bond) >= x.lv; return '<button type="button" data-b="trick:' + x.k + '"' + (ok ? '' : ' disabled') + '>' + x.ic + ' ' + x.n + (ok ? '' : '<small>Lv.' + x.lv + '</small>') + '</button>'; }).join('') + '</div>';
   petPaint(petBar);
+  if (petNameEdit) { const i = petBar.querySelector('#pb-nin'); if (i && document.activeElement !== i) { i.focus(); i.select(); } }
 }
 async function petBarOpen() {
   if (!ready || !me || paused()) return;
   try { petData = await enqueue(() => rpc('pet_get')); petMine = petData.pet || null; } catch (e) { toast(errText(e)); return; }
   if (!petMine) { toast('你還沒有寵物'); return; }
   petBarOn = true; petBar.hidden = false; petBarRender();
-  clearInterval(petBarTimer); petBarTimer = setInterval(() => { if (!petBarOn) petBarClose(); else petBarRender(); }, 30000);
+  clearInterval(petBarTimer); petBarTimer = setInterval(() => { if (!petBarOn) petBarClose(); else if (!petNameEdit) petBarRender(); }, 30000);
 }
-function petBarClose() { petBarOn = false; petBar.hidden = true; clearInterval(petBarTimer); }
+function petBarClose() { petNameEdit = false; petBarOn = false; petBar.hidden = true; clearInterval(petBarTimer); }
 function petBarToggle() { if (petBarOn) petBarClose(); else petBarOpen(); }
 addEventListener('keydown', e => { if (e.key === 'Escape' && petBarOn) petBarClose(); });
 petBar.addEventListener('pointerdown', e => e.stopPropagation());
+petBar.addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter' && e.target.id === 'pb-nin') { const b = petBar.querySelector('[data-b="rensave"]'); if (b) b.click(); } else if (e.key === 'Escape' && petNameEdit) { petNameEdit = false; petBarRender(); } });
 petBar.addEventListener('click', async e => {
   const b = e.target.closest('[data-b]'); if (!b || b.disabled || petBarBusy) return;
   const k = b.dataset.b; if (k === 'x') { petBarClose(); return; }
+  if (k === 'rename') { petNameEdit = true; petBarRender(); return; }
+  if (k === 'rencancel') { petNameEdit = false; petBarRender(); return; }
+  if (k === 'rensave') {
+    petBarBusy = true; const ok = await petRename((petBar.querySelector('#pb-nin') || {}).value); petBarBusy = false;
+    if (ok) petNameEdit = false; petBarRender(); return;
+  }
   if (/^trick:/.test(k)) { petDoTrick(k.slice(6)); return; }
   if (/^mode:/.test(k)) {   // 外出設定：存到伺服器，其他玩家也看得到一致的結果
     const m = k.slice(5); if (m === petMode()) return;
@@ -592,6 +627,7 @@ function petRemoteEnts(now, ents) {
     const bx = Math.round((f.x + (trk ? trk.ox : 0)) * T), by = Math.round((f.y + (trk ? trk.oy : 0)) * T);
     ents.push({ y: f.y + 0.01, draw: () => { if (trk) petTrickDraw(L, bx, by, jump, pose, now, trk.dir ? trk.dir : f.face, trk); else petB(L, bx, by - jump, { pose, now, dir: f.face }); } });
     if (trk && (trk.k === 'shake' || trk.k === 'fire')) ents.push({ y: f.y + 5, draw: () => petTrickTop(trk, bx, by, jump, trk.dir ? trk.dir : f.face) });
+    petNameEnt(ents, pb.name, f.y, bx, by);
     if (f.emo && f.emo.until > t) {
       const e = f.emo, age = t - e.at, bob = Math.round(Math.sin(age / 260)), pop_ = age < 160 ? 3 : 0;
       ents.push({ y: f.y + 6, draw: () => { petEmoDraw(e.k, bx + 1, by - 15 - jump + bob + pop_); } });
@@ -717,6 +753,7 @@ function petHostEnts(now, ents) {
   if (play) { bx = play.px; by = play.py; }
   if (W.spot.type === 'bed') { const sx = W.spot.x * T, sy = W.spot.y * T; ents.push({ y: W.spot.y + 0.005, draw: () => { r('#b9704a', sx - 3, sy + 9, 22, 7); r('#e8b894', sx - 2, sy + 8, 20, 6); } }); }
   ents.push({ y: play ? play.sortY : f.y + 0.01, draw: () => { if (play) { play.draw(L, now); return; } petB(L, bx, by - jump, { pose, now, dir: f.face }); } });
+  petNameEnt(ents, W.pb.name, play ? play.sortY : f.y, bx, by);
   if (f.emo && f.emo.until > t) {
     const e = f.emo, age = t - e.at, bob = Math.round(Math.sin(age / 260)), pop_ = age < 160 ? 3 : 0;
     ents.push({ y: f.y + 6, draw: () => { petEmoDraw(e.k, bx + 1, by - 15 - jump + bob + pop_); } });

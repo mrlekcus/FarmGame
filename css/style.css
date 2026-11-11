@@ -1309,3 +1309,10 @@ body.imm .camhint{display:block}
 /* 書櫃：看朋友的圖鑑，朋友有、我還沒有的格子 */
 .dexc.lack{box-shadow:0 0 0 2px #ffd34d}
 .dxlack{color:#d9822b!important;font-weight:700}
+
+/* 寵物改名：寵物列名字旁的 ✎、改名輸入列 */
+.pb-ed{border:0;background:none;cursor:pointer;font-size:13px;padding:0 4px;opacity:.7}
+.pb-ed:hover{opacity:1}
+.pb-nm{display:flex;gap:6px;align-items:center;margin:2px 0 6px}
+.pb-nm input{flex:1;min-width:0;padding:6px 8px;border:3px solid var(--edge);border-radius:10px;font:inherit}
+.pb-nm button{border:3px solid var(--edge);border-radius:10px;background:#fff;font:inherit;font-weight:800;padding:5px 8px;cursor:pointer}

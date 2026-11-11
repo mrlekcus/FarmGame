@@ -259,6 +259,7 @@ function startNet(rm, priv, tries) {
       .on('broadcast', { event: 'fx' }, m => onFx(m && m.payload))
       .on('broadcast', { event: 'hrf' }, m => onHouseRefresh(m && m.payload))
       .on('broadcast', { event: 'ptp' }, m => onPetTouch(m && m.payload))
+      .on('broadcast', { event: 'pren' }, m => onPetRename(m && m.payload))
       .on('broadcast', { event: 'pwl' }, m => onPetWelcome(m && m.payload))
       .on('broadcast', { event: 'pgl' }, m => onPetGoal(m && m.payload))
       .on('broadcast', { event: 'ptk' }, m => onPetTrick(m && m.payload))
