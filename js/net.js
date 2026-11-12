@@ -70,6 +70,7 @@ function applyState(d) {
   Object.keys(MINE_FALLBACK).forEach(k => { if (!itemMeta[k]) itemMeta[k] = { key: k, price: 0, buy: 0, ...MINE_FALLBACK[k] }; });
   Object.keys(ITEM_FALLBACK).forEach(k => { if (!itemMeta[k]) itemMeta[k] = { key: k, price: 0, buy: 0, ...ITEM_FALLBACK[k] }; });   // 乾草、蛋、奶、毛、肥料：伺服器沒給就用內建名稱   // 伺服器的物品表沒有礦物時，用內建的中文名稱和圖示（背包才看得到）
   featNeed = { ...featNeed, ...(d.featneed || {}) };
+  featNeed.swamp = Math.max(featNeed.swamp | 0, 6);   // 霧語沼澤至少玩家 Lv.6（伺服器沒回傳或較低都以這裡為準）
   featNeed.mine = Math.max(featNeed.mine | 0, 4); featNeed.cave = Math.max(featNeed.cave | 0, 4);   // 山洞、採礦至少玩家 Lv.4（伺服器舊值較低也以這裡為準）
   fishRec = d.fishrec || {}; if (Array.isArray(d.ycat) && d.ycat.length) ycat = d.ycat; storyDone = d.story | 0;
   yardMap = new Map(); (d.yard || []).forEach(q => yardMap.set(pk(q.x, q.y), q.k));

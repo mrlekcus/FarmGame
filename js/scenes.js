@@ -63,6 +63,45 @@ function forestAct(x, y) {
   if (k === TR) { pop(x, y, '一棵大樹', '#ffffff'); return; }
 }
 
+/* ---------- 霧語沼澤：廣場西邊的石拱門進去，玩家 Lv.6 才能進入。單人場景（不連線），有新的魚和蟲蝶 ---------- */
+let swampBack = null;   // 離開沼澤要回哪個廣場：{ kind, code }；null = 公開廣場
+function enterSwamp() {
+  if (scene !== 'plaza') return;
+  swampBack = roomInfo ? { kind: roomInfo.kind, code: roomInfo.code } : { kind: 'public' };
+  leaveVillage(true);                      // 先安靜地離開廣場（停掉連線）；人會被放回農場，下面馬上換成沼澤
+  hideCatch(); fishing = null;
+  pose = null; scene = 'swamp'; K = skind; W = SWW; H = SWH; if (typeof petSync === 'function') petSync();
+  critters.length = 0; critSlot = -1;
+  pl.x = pl.sx = SWW - 2; pl.y = pl.sy = 7; pl.prog = 1; pl.face = 'left'; pressed.length = 0;
+  view.snap = true; fitView(); toast('來到霧語沼澤');
+}
+function leaveSwamp(silent) {
+  if (scene !== 'swamp') return;
+  const back = swampBack; swampBack = null;
+  critters.length = 0; critSlot = -1; hideCatch(); fishing = null;
+  scene = 'farm'; K = kind; W = BW; H = BH;
+  pl.x = pl.sx = 18; pl.y = pl.sy = 5; pl.prog = 1; pl.face = 'left'; pressed.length = 0;
+  view.snap = true; fitView();
+  if (silent) return;
+  plazaSpawn = [SWG_SPAWN[0], SWG_SPAWN[1], 'right'];   // 回到廣場時站在石拱門前
+  if (back && back.kind === 'private' && back.code) joinVillage('private_join', back.code); else joinVillage('public');
+  toast('回到廣場');
+}
+function swampAct(x, y) {
+  if (x < 0 || y < 0 || x >= W || y >= H) return;
+  const k = K[y][x], t = curTool();
+  if (catchShown) { hideCatch(); return; }
+  if (fishing) { fishAct(); return; }
+  if (k === SWG) { leaveSwamp(); return; }
+  if (t.id === 'net' && critters.length) { swingNet(x, y); return; }   // 蟲在水面上（水黽）時，面向水面也要能揮網
+  if (k === WA) { if (t.id === 'rod') startFish(x, y); else if (t.id === 'net') swingNet(x, y); else pop(x, y, '這是沼澤的湖（換成釣竿就能釣魚）', '#cfe8f7'); return; }
+  if (k === SWS) { toast('告示牌：霧語小徑——湖邊的水裡和蘆葦叢裡，有外面看不到的魚和蟲蝶。'); return; }
+  if (k === SWR) { pop(x, y, '長滿青苔的岩石', '#ffffff'); return; }
+  if (k === SWP) { pop(x, y, '古老的石柱', '#ffffff'); return; }
+  if (t.id === 'net') { swingNet(x, y); return; }
+  if (k === TR) { pop(x, y, '一棵大樹', '#ffffff'); return; }
+}
+
 /* ---------- 山洞：森林北邊，裡面有 6 顆礦石 ---------- */
 function enterCave() {
   if (scene !== 'forest') return;
@@ -189,6 +228,7 @@ function quietToFarm() {                 // 從任何場景安靜地回到農場
   if (scene === 'plaza' || scene === 'tarot' || scene === 'cafe') leaveVillage(true);
   if (scene === 'house') leaveHouse(true);
   if (scene === 'stylist') leaveStylist(true);
+  if (scene === 'swamp') leaveSwamp(true);
   if (scene === 'cave') leaveCave(true);
   if (scene === 'forest') leaveForest(true);
   if (scene === 'town') leaveTown(true);

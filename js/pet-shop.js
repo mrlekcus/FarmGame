@@ -212,7 +212,7 @@ function petSync(force) {
 
 /* ---------- 跟班寵物：在農場、小村、森林、廣場、自己家跟在玩家後面走 ---------- */
 const petFol = { x: 0, y: 0, tr: [], px: -1, py: -1, scene: '', t: 0, still: 0, face: 1, moving: false, happyUntil: 0, nextBubble: 0, goal: null, nextGoal: 0, moveAt: 0, lx: -1, ly: -1, emo: null, fDots: 0, fBall: 0, items: -1, seenR: {} };
-const PET_SCENES = { farm: 1, town: 1, forest: 1, plaza: 1, house: 1 };   // 進自己的家也會跟進來（去朋友家也會跟去，朋友看得到）
+const PET_SCENES = { farm: 1, town: 1, forest: 1, swamp: 1, plaza: 1, house: 1 };   // 進自己的家也會跟進來（去朋友家也會跟去，朋友看得到）
 /* 外出設定（存在伺服器 pets.fmode）：stay 留在家／close 貼身／free 自由走動（預設）。留在家時只有在自己家裡看得到牠 */
 const petMode = () => { const m = petMine && petMine.mode; return m === 'stay' || m === 'close' ? m : 'free'; };
 function petShown() { return !!(petMine && petUnlocked && ready && PET_SCENES[scene]) && (petMode() !== 'stay' || (scene === 'house' && !visiting)); }

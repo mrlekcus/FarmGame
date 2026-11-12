@@ -139,6 +139,9 @@ function updateTip() {
     if (x >= 0 && y >= 0 && x < W && y < H) {
       const rp = remoteAt(x, y);
       if (K[y][x] === GT) s = '出口：按動作鍵回農場。';
+      else if (K[y][x] === SWG) s = plv() < featNeed.swamp ? '石拱門（西邊出口）：玩家 Lv.' + featNeed.swamp + ' 才能通過。' : '石拱門（西邊出口）：按動作鍵進入霧語沼澤（有新的魚和蟲蝶）。';
+      else if (K[y][x] === SWS) s = '告示牌：霧語小徑。按動作鍵看看寫了什麼。';
+      else if (K[y][x] === SWP) s = '古老的石柱。';
       else if (rp) s = '這是 ' + rp.name + '。';
       else if (K[y][x] === WA) s = curTool().id === 'rod' ? '池塘：按動作鍵拋竿釣魚。' : '池塘。（換成釣竿就能釣魚）';
       else if (K[y][x] === FR) s = '噴水池。';
@@ -201,6 +204,18 @@ function updateTip() {
       else if (k === NP) s = (npcAt(x, y) || {}).n + '：按動作鍵對話。';
       else if (k === HB) s = '山壁，很厚實。';
       else if (k === WA) s = curTool().id === 'rod' ? '森林的池塘：按動作鍵拋竿釣魚。' : '森林的池塘。（換成釣竿就能釣魚）';
+      else if (curTool().id === 'net') s = critters.length ? '捕蟲網：蟲蝶靠近時，面向牠按動作鍵揮網！' : '捕蟲網：這一輪的蟲蝶都被你抓光了。每 5 分鐘會有新的一輪。';
+    }
+  } else if (scene === 'swamp') {
+    s = '霧語沼澤：蘆葦叢和湖面上有只在這裡才有的蟲蝶，湖裡有新的魚（站在棧橋或岸邊，面向水面拋竿）。';
+    if (x >= 0 && y >= 0 && x < W && y < H) {
+      const k = K[y][x];
+      if (k === SWG) s = '出口：按動作鍵回廣場。';
+      else if (k === SWS) s = '告示牌：按動作鍵看看寫了什麼。';
+      else if (k === SWR) s = '長滿青苔的岩石。';
+      else if (k === SWP) s = '古老的石柱。';
+      else if (k === PR) s = '棧橋：可以站在上面，面向水面拋竿。';
+      else if (k === WA) s = curTool().id === 'rod' ? '沼澤的湖：按動作鍵拋竿釣魚（這裡的魚只在霧語沼澤釣得到）。' : '沼澤的湖。（換成釣竿就能釣魚；水面上有時會有水黽，用捕蟲網揮牠）';
       else if (curTool().id === 'net') s = critters.length ? '捕蟲網：蟲蝶靠近時，面向牠按動作鍵揮網！' : '捕蟲網：這一輪的蟲蝶都被你抓光了。每 5 分鐘會有新的一輪。';
     }
   } else if (scene === 'town') {

@@ -305,7 +305,9 @@ function startNet(rm, priv, tries) {
 function enterPlaza(info) {
   roomInfo = info; scene = 'plaza'; K = pkind; W = PLW; H = PLH; pose = null;
   remotes.clear(); vLog.innerHTML = ''; logNewHide(); myBubble = null; myShow = null; lastPosKey = ''; posAcc = 0;
-  pl.x = pl.sx = PXO + 10; pl.y = pl.sy = PLH - 3; pl.prog = 1; pl.face = 'up'; pressed.length = 0; view.snap = true; fitView();
+  { const sp = plazaSpawn; plazaSpawn = null;   // 從霧語沼澤回來時站在石拱門前，其他時候站在南邊大門
+    pl.x = pl.sx = sp ? sp[0] : PXO + 10; pl.y = pl.sy = sp ? sp[1] : PLH - 3; pl.prog = 1; pl.face = sp ? sp[2] : 'up'; }
+  pressed.length = 0; view.snap = true; fitView();
   vPanel.hidden = false; renderVillage();
   addSys(info.kind === 'public' ? '歡迎來到公開廣場，和路過的朋友打個招呼吧。' : '私人村的邀請碼是 ' + info.code + '，把它傳給朋友就能進來。');
   startNet(info.room, true);

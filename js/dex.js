@@ -192,7 +192,7 @@ function openDexDetail(key, isBug) {
   } else {
     const on = c.seasons === 'any' ? DEX_SEA4 : c.seasons.split(','), p = DEX_PH[c.phase];
     const seg = p ? p[3].map(a => '<div style="left:' + (a[0] / 24 * 100) + '%;width:' + ((a[1] - a[0]) / 24 * 100) + '%"></div>').join('') : '<div style="left:0;width:100%"></div>';
-    const zone = isBug ? (c.zone === 'forest' ? '只在森林' : '農場、森林') : (c.zone === 'forest' ? '森林池塘、廣場魚池' : '農場池塘、森林池塘、廣場魚池');
+    const zone = isBug ? (c.zone === 'forest' ? '只在森林' : c.zone === 'swamp' ? '只在霧語沼澤' : '農場、森林') : (c.zone === 'forest' ? '森林池塘、廣場魚池' : c.zone === 'swamp' ? '只在霧語沼澤的湖' : '農場池塘、森林池塘、廣場魚池');
     rows = '<div class="dxr"><span>季節</span><div class="dxsq">' + DEX_SEA4.map(x => '<div class="' + (on.includes(x) ? 'on' : '') + '">' + SEA_SHORT[x] + '</div>').join('') + '</div></div>' +
       '<div class="dxr"><span>時間</span><div style="flex:1"><div class="dxbar">' + seg + '</div><div class="dxtk"><span>0</span><span>6</span><span>12</span><span>18</span><span>24</span></div><small>' + (p ? p[0] + ' ' + p[2] : '全天都可以') + '</small></div></div>' +
       '<div class="dxr"><span>天氣</span><span class="dxch">' + ({ rain: '雨天才有', clear: '晴天才有' }[c.weather] || '晴雨都可以') + '</span></div>' +

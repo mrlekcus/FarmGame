@@ -112,11 +112,12 @@ const BF_ART = {
   moth:     { a: '#cdbca4', b: '#b8a68c', o: '#7a6a58', sp: '#8a7a66', moth: true },
   luna:     { a: '#b8f0c0', b: '#9fe0ab', o: '#5f9a6e', sp: '#ffd27a', tail: true, moth: true }
 };
-const BUG_FLY = { dragonfly: 1, firefly: 1, forestbee: 1 };
+const BUG_FLY = { dragonfly: 1, firefly: 1, forestbee: 1, morpho: 1, mothlune: 1, damsel: 1, wintermoth: 1, icefly: 1 };   // 霧語沼澤的藍閃蝶、月紋蛾、青豆娘也會飛
 const isFlyer = key => !!BF_ART[key] || !!BUG_FLY[key];
 /* 在 (ox, oy) 畫一隻；呼叫前要先把 g 設好。dim = 沒抓過的剪影 */
 function bugPix(key, fr, ox, oy, dim) {
   const DIM = '#cdbfb8';
+  if (typeof swampBugPix === 'function' && swampBugPix(key, fr, ox, oy, dim)) return;   // 霧語沼澤的新蟲蝶（js/art/swamp.js）
   const P = (c, x, y, w = 1, h = 1) => r(dim ? DIM : c, ox + x, oy + y, w, h);
   const RR = (c, x, y, w, h) => { P(c, x + 1, y, w - 2, h); P(c, x, y + 1, w, h - 2); };
   const OB = (c, o, x, y, w, h) => { RR(o, x, y, w, h); RR(c, x + 1, y + 1, w - 2, h - 2); };

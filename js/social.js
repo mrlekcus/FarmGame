@@ -549,6 +549,7 @@ async function visitHouse(uid, name) {
     if (scene === 'plaza' || scene === 'tarot' || scene === 'cafe') leaveVillage(true);
     if (scene === 'house') leaveHouse(true);
     if (scene === 'stylist') leaveStylist(true);
+    if (scene === 'swamp') leaveSwamp(true);
     if (scene === 'cave') leaveCave(true);
     if (scene === 'forest') leaveForest(true);
     if (scene === 'town') leaveTown(true);

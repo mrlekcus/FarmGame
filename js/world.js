@@ -230,6 +230,33 @@ CAMP.forEach(o => { for (let y = o.y; y < o.y + o.h; y++) for (let x = o.x; x < 
 const CFD = 81, CFB = { x: PXO + 2, y: PYO + 3, w: 5, h: 4 };
 for (let y = CFB.y; y < CFB.y + CFB.h; y++) for (let x = CFB.x; x < CFB.x + CFB.w; x++) pkind[y][x] = HB;
 pkind[CFB.y + CFB.h - 1][CFB.x + 2] = CFD;
+/* ---------- 廣場最西邊的出口：石拱門（SWG）通往霧語沼澤，玩家 Lv.6 才能進入。
+   東西向大路的西端換成入口，上下各立一根石柱（上面那根兩格高），旁邊立一塊告示牌（SWS）。畫法在 js/art/swamp.js。 ---------- */
+const SWG = 90, SWP = 91, SWS = 92, SWR = 93;   // SWG 石拱門（面向它按動作鍵）  SWP 石柱  SWS 告示牌  SWR 岩石（都走不進去）
+pkind[PYO + 7][0] = SWG;
+pkind[PYO + 5][0] = SWP; pkind[PYO + 6][0] = SWP; pkind[PYO + 8][0] = SWP;
+pkind[PYO + 6][2] = SWS;
+const SWG_SPAWN = [1, PYO + 7];   // 從沼澤回到廣場：站在石拱門東邊一格，面向東
+let plazaSpawn = null;            // 下一次進廣場要站的位置 [x, y, face]；沒有就站在南邊大門
+/* ---------- 霧語沼澤（20×14，鏡頭固定）：中間一座睡蓮湖，棧橋和釣台，蘆葦叢裡有蟲；東邊的沙路通回廣場。
+   和森林一樣是單人場景（不連線）；蟲蝶的 zone 和魚的 zone 都是 'swamp'（要和 SQL 一致）。 ---------- */
+const SWW = 20, SWH = 14;
+const skind = Array.from({ length: SWH }, () => Array(SWW).fill(G));
+for (let y = 0; y < SWH; y++) for (let x = 0; x < SWW; x++) if (x === 0 || y === 0 || x === SWW - 1 || y === SWH - 1) skind[y][x] = TR;
+{
+  const lake = { 4: [5, 10], 5: [4, 11], 6: [3, 12], 7: [3, 12], 8: [3, 12], 9: [4, 11], 10: [5, 10] };
+  Object.keys(lake).forEach(y => { for (let x = lake[y][0]; x <= lake[y][1]; x++) skind[y][x] = WA; });
+  skind[6][5] = TR; skind[6][6] = G; skind[7][6] = G;                  // 湖中的小島（一棵樹）
+  for (let y = 6; y <= 8; y++) for (let x = 8; x <= 9; x++) skind[y][x] = PR;   // 釣台
+  for (let x = 10; x <= 12; x++) skind[7][x] = PR;                     // 棧橋：從釣台通到岸邊
+  for (let x = 13; x <= SWW - 2; x++) skind[7][x] = P;                 // 通往東邊出口的沙路
+  skind[7][SWW - 1] = SWG; skind[6][SWW - 1] = SWP; skind[8][SWW - 1] = SWP;
+  skind[5][17] = SWS;
+  [[11, 3], [17, 12]].forEach(([x, y]) => { skind[y][x] = SWR; });
+  [[3, 2], [4, 2], [14, 2], [16, 3], [3, 11], [12, 11], [15, 11], [17, 10]].forEach(([x, y]) => { skind[y][x] = TR; });
+}
+const SWAMP_MUSH = [[13, 2], [2, 9], [6, 11]];                         // 紅蘑菇（裝飾）
+const SWAMP_LILY = [[4, 8], [10, 5], [6, 9], [11, 9], [4, 6]];         // 睡蓮（裝飾，畫在水上）
 const campStumpAt = (x, y) => CAMP.some(o => o.seat && o.x === x && o.y === y);
 const campAt = (x, y) => CAMP.find(o => x >= o.x && x < o.x + o.w && y >= o.y && y < o.y + o.h);
 /* ---------- 出海團的船甲板（3/4 俯視，16×12 格）：上面兩排是天空，其餘是海；甲板 x 3~12、y 4~9，一圈欄杆，左上是船艙 ----------
@@ -299,7 +326,7 @@ function tapTarget(tx, ty) {
   if (scene === 'farm' && curTool().crop) { const p = plots.get(pk(tx, ty)); if (p && !p.crop) return [tx, ty, 'plant']; }   // 裝備種子：點翻好的空田，走到旁邊直接播種
   if (scene === 'farm' && curTool().id === 'hoe' && K[ty] && K[ty][tx] === G && !plots.has(pk(tx, ty)) && !yardMap.has(pk(tx, ty)) && farmable(tx, ty) && plots.size < plotCap()) return [tx, ty, 'till'];   // 裝備鋤頭：點能耕種的空草地，走到旁邊直接翻土
   if (scene === 'farm' && curTool().id === 'can' && !world().wet) { const p = plots.get(pk(tx, ty)); if (p && !isWet(p)) return [tx, ty, 'water']; }   // 裝備水壺：點還乾的田，走到旁邊直接澆（下雨天不用澆，照一般走路）
-  if ((scene === 'farm' || scene === 'forest') && curTool().id === 'net') {
+  if ((scene === 'farm' || scene === 'forest' || scene === 'swamp') && curTool().id === 'net') {
     let best = null, bd = 1.0;
     critters.forEach(c => { const d = Math.hypot(c.x - (tx + 0.5), c.y - (ty + 0.5)); if (d < bd) { bd = d; best = c; } });
     if (best) return [Math.floor(best.x), Math.floor(best.y), 'bug'];   // 蟲會飛，以牠現在所在的格子為目標；揮網有範圍，飄一點也抓得到

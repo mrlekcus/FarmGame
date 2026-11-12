@@ -96,6 +96,9 @@ function act() {
     if (catchShown) { hideCatch(); return; }
     if (fishing) { fishAct(); return; }
     if (k2 === GT) leaveVillage();
+    else if (k2 === SWG) { if (!featLocked('swamp', x, y)) enterSwamp(); }
+    else if (k2 === SWS) toast('告示牌：霧語小徑（玩家 Lv.' + featNeed.swamp + ' 才能通過）——石拱門後面是一片被霧籠罩的沼澤，有外面看不到的魚和蟲蝶。');
+    else if (k2 === SWP) pop(x, y, '古老的石柱', '#ffffff');
     else if (k2 === WA && curTool().id === 'rod') startFish(x, y);
     else if (k2 === WA) pop(x, y, '這是池塘（換成釣竿就能釣魚）', '#cfe8f7');
     else if (k2 === BN) takeBench(x, y);
@@ -138,6 +141,7 @@ function act() {
   if (scene === 'tarot') { const rpT = remoteAt(x, y); if (rpT) { openFriendPop(rpT); return; } lekcusRoomAct(x, y); return; }
   if (scene === 'town') { townAct(x, y); return; }
   if (scene === 'forest') { forestAct(x, y); return; }
+  if (scene === 'swamp') { swampAct(x, y); return; }
   if (scene === 'cave') { caveAct(x, y); return; }
   if (scene === 'barn') { barnAct(x, y); return; }
   if (scene === 'stylist') { stylistAct(x, y); return; }

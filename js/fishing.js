@@ -27,35 +27,39 @@ let critSlot = -1, netCool = 0, netSwing = null;
 const SLOT_MS = 300000, SLOT_N = 3;      // 要和 SQL 的 _slot_bug / bug_catch 一致：每 5 分鐘一輪，每輪 3 隻
 const phaseOf = m => m >= 300 && m < 480 ? 'dawn' : m >= 480 && m < 1020 ? 'day' : m >= 1020 && m < 1200 ? 'dusk' : 'night';
 /* 第 sl 輪第 i 隻是哪一種（和 SQL 的 _slot_bug 完全相同，所有玩家看到的一樣） */
-const sceneKey = () => scene === 'forest' ? 'forest' : 'farm';
-const fishKey = () => scene === 'forest' || scene === 'plaza' ? 'forest' : 'farm';   // 釣魚用：廣場的魚池和森林池塘一樣（釣森林的魚）；抓蟲仍用 sceneKey   // 傳給伺服器的場景（只有森林和農場能抓蟲釣魚）
+const sceneKey = () => scene === 'forest' ? 'forest' : scene === 'swamp' ? 'swamp' : 'farm';
+const fishKey = () => scene === 'forest' || scene === 'plaza' ? 'forest' : scene === 'swamp' ? 'swamp' : 'farm';   // 釣魚用：廣場的魚池和森林池塘一樣（釣森林的魚）；抓蟲仍用 sceneKey   // 傳給伺服器的場景（只有森林和農場能抓蟲釣魚）
 function slotBug(sl, i, sc) {
   const t0 = sl * SLOT_MS, min = (((t0 + 8 * 3600000) % 86400000) + 86400000) % 86400000 / 60000;
   const ph = phaseOf(min), rain = precipHour(Math.floor(t0 / 3600000)), sea = seasonAt(t0);
   const kd = hash(sl, i, 1) < 0.5 ? 'butterfly' : 'bug';
-  const list = bugCat.filter(b => b.kind === kd && (!b.zone || b.zone === 'any' || b.zone === sc) && (b.phase === 'any' || b.phase === ph) && (b.weather === 'any' || (b.weather === 'rain') === rain) && inSeason(b.seasons, sea))
+  const list = bugCat.filter(b => b.kind === kd && (sc === 'swamp' ? b.zone === 'swamp' : (!b.zone || b.zone === 'any' || b.zone === sc)) && (b.phase === 'any' || b.phase === ph) && (b.weather === 'any' || (b.weather === 'rain') === rain) && inSeason(b.seasons, sea))
     .sort((a, b) => a.key < b.key ? -1 : a.key > b.key ? 1 : 0);
-  const tot = list.reduce((s, b) => s + b.weight, 0), rr_ = hash(sl, i, 2) * tot;
+  const void_ = sc === 'swamp' && kd === 'butterfly' ? 80 : 0;   // 要和 SQL 的 _slot_bug 一致：沼澤的蝴蝶池另加「空」權重
+  const tot = list.reduce((s, b) => s + b.weight, 0) + void_, rr_ = hash(sl, i, 2) * tot;
   let cs = 0;
   for (const b of list) { cs += b.weight; if (cs >= rr_) return b; }
-  return list[list.length - 1] || null;
+  return void_ ? null : (list[list.length - 1] || null);
 }
 function grassTile(x, y) { return x >= 1 && y >= 1 && x < W - 1 && y < H - 1 && kind[y][x] === G; }
-const critGrass = (x, y) => x >= 1 && y >= 1 && x < W - 1 && y < H - 1 && K[y][x] === G;   // 抓蟲用：看目前場景的草地（農場、森林）
+const critGrass = (x, y) => x >= 1 && y >= 1 && x < W - 1 && y < H - 1 && K[y][x] === G;   // 抓蟲用：看目前場景的草地（農場、森林、沼澤）
+const critWater = (x, y) => x >= 1 && y >= 1 && x < W - 1 && y < H - 1 && K[y][x] === WA;   // 水黽在水面上爬
+const critScene = () => scene === 'farm' || scene === 'forest' || scene === 'swamp';
+const critTile = (c, x, y) => c.wat ? critWater(x, y) : critGrass(x, y);
 function spawnSlot(sl) {
   critters.length = 0;
   const cnt = scene === 'forest' ? SLOT_N + FOREST_XTRA : SLOT_N;
   for (let i = 0; i < cnt; i++) {
     if (bugTaken.has(sl + ':' + i)) continue;
     const b = slotBug(sl, i, sceneKey()); if (!b) continue;
-    const fly = isFlyer(b.key);
+    const fly = isFlyer(b.key), wat = b.key === 'skater';
     let x = 1 + Math.floor(hash(sl, i, 3) * (W - 2)), y = 1 + Math.floor(hash(sl, i, 4) * (H - 2));
-    for (let n = 0; n < W * H && !fly && !critGrass(x, y); n++) { x++; if (x >= W - 1) { x = 1; y = y >= H - 2 ? 1 : y + 1; } }
-    critters.push({ key: b.key, kind: b.kind, fly, slot: sl, i, x: x + 0.5, y: y + 0.5, tx: x + 0.5, ty: y + 0.5, wait: Math.random() * 1500, ph: Math.random() * 6 });
+    for (let n = 0; n < W * H && !fly && !(wat ? critWater(x, y) : critGrass(x, y)); n++) { x++; if (x >= W - 1) { x = 1; y = y >= H - 2 ? 1 : y + 1; } }
+    critters.push({ key: b.key, kind: b.kind, fly, wat, slot: sl, i, x: x + 0.5, y: y + 0.5, tx: x + 0.5, ty: y + 0.5, wait: Math.random() * 1500, ph: Math.random() * 6 });
   }
 }
 function updateCritters(dt) {
-  if (scene !== 'farm' && scene !== 'forest') { critters.length = 0; critSlot = -1; return; }
+  if (!critScene()) { critters.length = 0; critSlot = -1; return; }
   const sl = Math.floor(srvNow() / SLOT_MS);
   if (bugCat.length && sl !== critSlot) { critSlot = sl; spawnSlot(sl); }
   for (let i = critters.length - 1; i >= 0; i--) {
@@ -68,18 +72,18 @@ function updateCritters(dt) {
         const rg = c.fly ? 3 : 1.5;
         for (let n = 0; n < 8; n++) {
           const nx = c.x + (Math.random() * 2 - 1) * rg, ny = c.y + (Math.random() * 2 - 1) * rg;
-          if (c.fly ? (nx > 1 && ny > 1 && nx < W - 1 && ny < H - 1) : critGrass(Math.floor(nx), Math.floor(ny))) { c.tx = nx; c.ty = ny; break; }
+          if (c.fly ? (nx > 1 && ny > 1 && nx < W - 1 && ny < H - 1) : critTile(c, Math.floor(nx), Math.floor(ny))) { c.tx = nx; c.ty = ny; break; }
         }
         c.wait = c.fly ? 200 + Math.random() * 900 : 800 + Math.random() * 2500;
       }
     } else {
-      const sp = (c.fly ? 0.0024 : 0.0009) * dt, st = Math.min(sp, d);
+      const sp = (c.fly ? 0.0024 : c.wat ? 0.0014 : 0.0009) * dt, st = Math.min(sp, d);
       c.x += dx / d * st; c.y += dy / d * st;
     }
   }
 }
 function swingNet(x, y) {
-  if ((scene !== 'farm' && scene !== 'forest') || Date.now() < netCool) return;
+  if (!critScene() || Date.now() < netCool) return;
   netCool = Date.now() + 450; netSwing = { x, y, t0: performance.now() };
   let best = null, bd = buffOn('bug') ? 2.1 : 1.25;
   critters.forEach(c => { const d = Math.hypot(c.x - (x + 0.5), c.y - (y + 0.5)); if (d < bd) { bd = d; best = c; } });

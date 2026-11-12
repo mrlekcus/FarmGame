@@ -190,16 +190,20 @@ function draw(now) {
   else {
   for (let ty = 0; ty < H; ty++) for (let tx = 0; tx < W; tx++) {
     const k = K[ty][tx], px = tx * T, py = ty * T;
-    if (k === WA) drawWater(px, py, tx, ty, now);
+    if (k === WA) { if (scene === 'swamp') drawSwampWater(px, py, tx, ty, now); else drawWater(px, py, tx, ty, now); }
     else if (k === P) drawPath(px, py, tx, ty);
     else if (k === PR) drawPier(px, py, tx, ty, now);
     else if (k === TR) drawTree(px, py, tx, ty);
     else if (k === TC) drawChopTree(px, py, tx, ty, CHOPS.findIndex(q => q[0] === tx && q[1] === ty));
     else if (k === GT || k === FG || k === TG || k === FW || k === FE) { drawPath(px, py, tx, ty); drawGate(px, py, now); }
+    else if (k === SWG) { drawPath(px, py, tx, ty); drawSwampArch(px, py, tx, ty, now); }
     else if (k === FR) drawRim(px, py, tx, ty);
     else {
       drawGrass(px, py, tx, ty);
-      if (k === BN) drawBench(px, py, tx, ty);
+      if (k === SWP) drawSwampPillar(px, py, tx, ty);
+      else if (k === SWS) drawSwampSign(px, py, now);
+      else if (k === SWR) drawSwampRock(px, py, tx, ty);
+      else if (k === BN) drawBench(px, py, tx, ty);
       else if (k === BD) drawBoard(px, py);
       else if (k === CPT) drawCaptain(px, py, now);
       else if (k === BB) drawBuildBoard(px, py, now);
@@ -222,6 +226,7 @@ function draw(now) {
   if (scene === 'farm') { drawHouse(dark > 0.15, now); drawShop(dark > 0.15, now); drawBarn(now); }
   else if (scene === 'town') TOWN_BLD.forEach(b => drawBldg(b, now, dark > 0.15));
   else if (scene === 'forest') FOREST_BLD.forEach(b => drawBldg(b, now, dark > 0.15));
+  else if (scene === 'swamp') drawSwampProps(now);
   else {
     if (scene === 'plaza') { drawPlazaBoat(now); drawMsgBoard(now); drawPlazaCamp(now); drawCafeBldg(now, dark > 0.15); }
     ctx.save(); ctx.translate(PXO * T, PYO * T);   // 塔羅攤、路燈、噴水池是舊廣場座標，位移後再畫
@@ -277,7 +282,7 @@ function draw(now) {
     if (forTaken.has(f.slot + ':' + f.i) || yardMap.has(pk(f.x, f.y))) return;
     ents.push({ y: f.y + 0.5, draw: () => { miscArt(f.x * T, f.y * T + Math.round(Math.sin(now / 500 + f.i) * 0.6), f.key); } });
   }); }
-  if (scene === 'farm' || scene === 'forest') critters.forEach(c => {
+  if (scene === 'farm' || scene === 'forest' || scene === 'swamp') critters.forEach(c => {
     const fr = Math.floor(now / (c.fly ? 130 : 260) + c.ph) % 2, bob = c.fly ? Math.round(5 + Math.sin(now / 300 + c.ph) * 2) : 0;
     ents.push({ y: c.y + (c.fly ? 1.2 : 0), draw: () => {
       const px = Math.round(c.x * T) - 8, py = Math.round(c.y * T) - 12;
@@ -341,6 +346,7 @@ function draw(now) {
   });
   ctx.globalAlpha = 1;
 
+  if (scene === 'swamp') drawSwampMist(now);   // 霧語沼澤的霧
   drawBoatFx(now, voyFogLevel(now));
   const indoors = scene === 'house' || scene === 'barn' || scene === 'tarot' || scene === 'stylist' || scene === 'cave' || scene === 'cafe';
   const warm = indoors ? 0 : Math.max(0, 1 - Math.abs(w.min - 1110) / 100) * 0.2;
@@ -363,7 +369,7 @@ function draw(now) {
     }
   }
 
-  if (scene === 'farm' || scene === 'forest') {
+  if (scene === 'farm' || scene === 'forest' || scene === 'swamp') {
     critters.forEach(c => {
       if (c.key !== 'firefly' || dark < 0.2) return;
       const gx = Math.round(c.x * T) - 12, gy = Math.round(c.y * T) - 12 - Math.round(5 + Math.sin(now / 300 + c.ph) * 2), pu = 0.5 + 0.5 * Math.sin(now / 350 + c.ph);
