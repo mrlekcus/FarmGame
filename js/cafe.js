@@ -503,7 +503,14 @@ function cfApronGo() {
   lastPosKey = ''; posAcc = 999;
 }
 cfEl.addEventListener('click', e => {
-  const sb_ = e.target.closest('[data-song]'); if (sb_ && cf) { closeCfMenu(); cfPickSong(sb_.dataset.song); return; }
+  const sg_ = e.target.closest('[data-songgo]'); if (sg_ && cf) { closeCfMenu(); cfPickSong(sg_.dataset.songgo); return; }   // 確認付款
+  if (e.target.closest('[data-songback]') && cf) { cfJukeMenu(''); return; }
+  const sb_ = e.target.closest('[data-song]');
+  if (sb_ && cf) {
+    const sid = sb_.dataset.song;
+    if (sid !== 'none' && sid !== cfSong && cfEco === true) { cfJukeMenu(sid); return; }   // 要付錢的先跳確認，免得誤點
+    closeCfMenu(); cfPickSong(sid); return;
+  }
   const b = e.target.closest('[data-cf]'); if (!b || !cf) { if (e.target === cfEl) closeCfMenu(); return; }
   const k = b.dataset.cf;
   if (k.slice(0, 3) === 'pg:') { cfApronMenu(k.slice(3)); return; }   // 圍裙窗換頁：窗不關
@@ -531,7 +538,7 @@ cfEl.addEventListener('click', e => {
   }).catch(e => { if (cf) cf.ordering = false; toast(errText(e), 2200); });
 });
 
-/* ---------- 點唱機：從 5 首咖啡廳音樂裡選一首（音檔在 bgm/cafe-1.mp3 ~ cafe-5.mp3） ----------
+/* ---------- 點唱機：從 10 首咖啡廳音樂裡選一首（音檔在 bgm/cafe-1.mp3 ~ cafe-10.mp3；點一首 100 G） ----------
    試營運：選了只有自己聽得到。伺服器端建好 cafe_jukebox_get / cafe_jukebox_set 兩個函式後（見 cafe_jukebox.sql），
    會自動變成「全店共用」：有人點歌，店裡所有人都會換成同一首；函式不存在時自動維持本機模式，不會報錯。 */
 const CF_SONGS = [
@@ -539,8 +546,14 @@ const CF_SONGS = [
   { id: 'cafe2', n: '慵懶 Lofi', by: 'Zephira Music', len: '2:28' },
   { id: 'cafe3', n: '午後輕咖啡', by: 'Aurec', len: '1:49' },
   { id: 'cafe4', n: '法式咖啡館', by: 'Andriih', len: '2:12' },
-  { id: 'cafe5', n: '爵士沙龍', by: 'Alex Morgan', len: '2:20' }
+  { id: 'cafe5', n: '爵士沙龍', by: 'Alex Morgan', len: '2:20' },
+  { id: 'cafe6', n: '晴空酸爵士', by: 'Alex Morgan', len: '3:02' },
+  { id: 'cafe7', n: '午茶時光', by: 'AtlasAudio', len: '1:41' },
+  { id: 'cafe8', n: '波薩諾瓦咖啡', by: 'HitsLab', len: '2:12' },
+  { id: 'cafe9', n: '街角咖啡', by: 'Kulakovka', len: '2:32' },
+  { id: 'cafe10', n: '溫柔咖啡背景', by: 'TuneTank', len: '2:57' }
 ];
+const CF_JUKE_PRICE = 100;   // 點一首歌要付的 G（伺服器 cafe_jukebox_buy 扣款；停歌免費；已經在放的那首不能重複點）
 let cfEco = null;   // 結算：null 還不知道、true 伺服器有結算、false 沒建（試營運）
 const cfMissing = e => /function|schema cache|PGRST202|404/i.test(String((e && e.message) || e));
 const cfApplyCoins = r => { if (r && typeof r.coins === 'number' && me) { me.coins = r.coins; try { refreshHud(); } catch (e) { /* 略過 */ } } };
@@ -568,17 +581,44 @@ function cfWage(dish) {
 }
 let cfJukeSrv = null, cfJukeHold = 0;   // 伺服器點唱機：null 還不知道、true 可用、false 沒建（用本機模式）
 const cfSongName = id => (CF_SONGS.find(q => q.id === id) || {}).n || '';
-function cfJukeMenu() {
-  if (cfOpen || !cf) return;
+function cfJukeMenu(ask) {   // ask：要確認付款的歌 id（有給就換成確認畫面）
+  if (!cf || (cfOpen && ask === undefined)) return;
   cfOpen = true; pressed.length = 0; cfEl.hidden = false;
-  cfCard.innerHTML = '<div class="shop-h"><h2>🎵 點唱機</h2></div><p style="margin:0 0 8px;font-size:13px;line-height:1.5">' + (cfJukeSrv ? '點的歌全店的人都聽得到。' : '試營運：先免費，只有你聽得到。') + '</p>' +
-    CF_SONGS.map(q => '<button type="button" class="btn wide" data-song="' + q.id + '" style="margin:0 0 8px;text-align:left">' + (cfSong === q.id ? '▶ ' : '') + q.n + '　<small style="opacity:.7">' + q.by + '・' + q.len + '</small></button>').join('') +
-    '<button type="button" class="btn ghost wide" data-song="none" style="margin:0 0 8px">' + (cfSong ? '不放歌（回到廣場音樂）' : '✓ 目前：廣場音樂') + '</button>' +
+  const pay = cfEco === true;
+  if (ask) {
+    cfCard.innerHTML = '<div class="shop-h"><h2>🎵 點唱機</h2></div><p style="margin:0 0 10px;font-size:14px;line-height:1.6">要花 <b>' + CF_JUKE_PRICE + ' G</b> 點《' + cfSongName(ask) + '》嗎？<br><small style="opacity:.7">你現在有 ' + ((me && me.coins) || 0) + ' G</small></p>' +
+      '<button type="button" class="btn wide" data-songgo="' + ask + '" style="margin:0 0 8px">確定點歌（' + CF_JUKE_PRICE + ' G）</button>' +
+      '<button type="button" class="btn ghost wide" data-songback="1">返回歌單</button>';
+    return;
+  }
+  cfCard.innerHTML = '<div class="shop-h"><h2>🎵 點唱機</h2></div><p style="margin:0 0 8px;font-size:13px;line-height:1.5">' + (cfJukeSrv ? '點的歌全店的人都聽得到。' : '試營運：只有你聽得到。') + (pay ? '點一首歌 <b>' + CF_JUKE_PRICE + ' G</b>，停歌免費。' : '先免費。') + '</p>' +
+    '<div style="max-height:52vh;overflow-y:auto;-webkit-overflow-scrolling:touch">' +
+    CF_SONGS.map(q => '<button type="button" class="btn wide" data-song="' + q.id + '" style="margin:0 0 8px;text-align:left">' + (cfSong === q.id ? '▶ ' : '') + q.n + '　<small style="opacity:.7">' + q.by + '・' + q.len + (pay && cfSong !== q.id ? '・' + CF_JUKE_PRICE + ' G' : '') + '</small></button>').join('') +
+    '</div>' +
+    '<button type="button" class="btn ghost wide" data-song="none" style="margin:8px 0">' + (cfSong ? '不放歌（回到廣場音樂）' : '✓ 目前：廣場音樂') + '</button>' +
     '<button type="button" class="btn ghost wide" data-cf="close">關閉</button>';
 }
 function cfPickSong(id) {
   if (id === 'none') id = '';
-  if (id === cfSong) return;
+  if (id === cfSong || (cf && cf.juking)) return;
+  if (id && cfEco === true) {   // 伺服器有結算：點歌先付款（cafe_jukebox_buy 一次做完「扣 100 G + 換歌」）
+    if (me && me.coins < CF_JUKE_PRICE) { toast('金幣不足，點一首歌要 ' + CF_JUKE_PRICE + ' G', 2200); return; }
+    cf.juking = true; const t0 = performance.now();
+    rpc('cafe_jukebox_buy', { p_song: id, p_name: me && me.name || '' }).then(r => {
+      if (cf) cf.juking = false;
+      cfApplyCoins(r); cfJukeSrv = true; toast('付了 ' + CF_JUKE_PRICE + ' G', 1400);
+      cfSongApply(id, r, t0, true);
+    }).catch(e => {
+      if (cf) cf.juking = false;
+      if (cfMissing(e)) { cfSongApply(id, null, t0, false); toast('試營運：點歌先免費', 2200); }   // 伺服器還沒建 cafe_jukebox_buy
+      else toast(errText(e), 2200);
+    });
+    return;
+  }
+  cfSongApply(id, null, performance.now(), false);
+}
+/* 真正換歌：paid = 伺服器已經幫我們換好歌（不用再叫 cafe_jukebox_set） */
+function cfSongApply(id, r, t0, paid) {
   cfSong = id; cfJukeHold = performance.now() + 4000;
   try { localStorage.setItem('dewfarm_cafe_song', id); } catch (e) { /* 略過 */ }
   if (id && !musicOn) { musicOn = true; syncMusicUI(); }
@@ -588,8 +628,8 @@ function cfPickSong(id) {
     if (cf && cf.now - (cf.lastSong || -1e9) > 20000) { cf.lastSong = cf.now; if (cf.role === 'host') cfBoost(); else cfSend({ t: 'boost' }); toast('♪ 《' + cfSongName(id) + '》客人心情變好，耐心 +10 秒', 2600); }
   } else toast('點唱機停了，回到廣場音樂', 1800);
   if (id && Bgm) Bgm.seek(id, 0);   // 剛點的歌從頭開始放
-  const t0 = performance.now();
-  if (cfJukeSrv !== false) rpc('cafe_jukebox_set', { p_song: id, p_name: me && me.name || '' }).then(r => { cfJukeSrv = true; cfJukeAlign(r, t0); cfSend({ t: 'song' }); }).catch(e => {
+  if (paid) { cfJukeAlign(r, t0); cfSend({ t: 'song' }); return; }
+  if (cfJukeSrv !== false) rpc('cafe_jukebox_set', { p_song: id, p_name: me && me.name || '' }).then(r2 => { cfJukeSrv = true; cfJukeAlign(r2, t0); cfSend({ t: 'song' }); }).catch(e => {
     const m = String(e && e.message || e);
     if (/function|schema cache|PGRST202|404/i.test(m)) cfJukeSrv = false; else toast(errText(e), 2200);
   });

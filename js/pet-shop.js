@@ -404,6 +404,16 @@ function petFollowEnts(now, ents) {
     }
     f.wel = null; f.x = Math.max(0, pl.x - 1); f.y = pl.y; f.tr = []; f.still = t;
   }
+  const mf = petMeetFrame(myUid, t), Lm = mf ? petLookOf(petMine.breed) : null;   // 跟別人的寵物互動中（見檔案最後面）
+  if (mf && Lm) {
+    f.x = mf.x; f.y = mf.y; f.px = pl.x; f.py = pl.y; f.tr = []; f.still = t; f.nextGoal = t + 15000; f.moveAt = t; f.lx = pl.x; f.ly = pl.y; f.moving = false; f.face = mf.face;
+    if (mf.emo && (!f.emo || f.emo.k !== mf.emo || f.emo.until < t + 200)) petEmote(mf.emo, 2000);
+    const bx = Math.round(f.x * T), by = Math.round(f.y * T);
+    ents.push({ y: f.y + 0.01, draw: () => petB(Lm, bx, by - mf.jump, { pose: mf.pose, now, dir: mf.face }) });
+    petNameEnt(ents, petMine.name, f.y, bx, by);
+    if (f.emo && f.emo.until > t) { const e = f.emo, age = t - e.at, bob = Math.round(Math.sin(age / 260)), pop_ = age < 160 ? 3 : 0; ents.push({ y: f.y + 6, draw: () => { petEmoDraw(e.k, bx + 1, by - 15 - mf.jump + bob + pop_); } }); }
+    return;
+  }
   if (pl.x !== f.px || pl.y !== f.py) { f.tr.push([f.px, f.py]); if (f.tr.length > 2) f.tr.shift(); f.px = pl.x; f.py = pl.y; }
   if (pl.x !== f.lx || pl.y !== f.ly) {
     f.lx = pl.x; f.ly = pl.y; f.moveAt = t; f.nextGoal = Math.max(f.nextGoal || 0, t + 15000); f.fDots = f.fBall = 0;
@@ -607,6 +617,7 @@ function petRemoteEnts(now, ents) {
   if (!list.length) return;
   petPubRefresh(list.map(rp => rp.id));
   const t = Date.now(), dt = Math.min(100, t - (petRT || t)); petRT = t;
+  petMeetTick(t); petMeetBalls(ents, now);   // 寵物之間的互動
   list.forEach(rp => {
     const pb = petPub[rp.id]; if (!pb) return;
     const md = pb.mode === 'stay' || pb.mode === 'close' ? pb.mode : 'free';
@@ -615,9 +626,11 @@ function petRemoteEnts(now, ents) {
     let f = petRFol[rp.id];
     if (!f || f.w !== rp.w) f = petRFol[rp.id] = { x: rp.x, y: rp.y, face: 1, still: t, w: rp.w };
     const dx = rp.x - f.x, dy = rp.y - f.y, d = Math.hypot(dx, dy);
-    const trk = petTrickFrame(f, t);
+    const mf = petMeetFrame(rp.id, t);
+    const trk = mf ? null : petTrickFrame(f, t);
     if (f.trick && Math.hypot(rp.x - f.trick.rx, rp.y - f.trick.ry) > 0.6) f.trick = null;   // 主人走開了就中斷
-    if (trk) { f.moving = false; f.still = t; }
+    if (mf) { f.x = mf.x; f.y = mf.y; f.face = mf.face; f.moving = false; f.still = t; if (mf.emo && (!f.emo || f.emo.k !== mf.emo || f.emo.until < t + 200)) f.emo = { k: mf.emo, at: t, until: t + 2000 }; }
+    else if (trk) { f.moving = false; f.still = t; }
     else if (md === 'close') {
       const near = 1.15, stopAt = 1.0;   // 貼身：緊貼不離
       f.moving = d > near;
@@ -625,8 +638,8 @@ function petRemoteEnts(now, ents) {
     } else { petFreeStep(f, t, dt, rp.x, rp.y, 3); if (f.moving) f.still = t; }
     const happy = t < (f.happyUntil || 0);
     if (happy) f.still = t;
-    const pose = trk ? trk.pose : happy ? 'happy' : f.moving ? 'side' : t - f.still > 20000 ? 'sleep' : 'front';
-    const jump = trk ? trk.jump : happy ? Math.round(Math.abs(Math.sin((f.happyUntil - t) / 110)) * 5) : 0;
+    const pose = mf ? mf.pose : trk ? trk.pose : happy ? 'happy' : f.moving ? 'side' : t - f.still > 20000 ? 'sleep' : 'front';
+    const jump = mf ? mf.jump : trk ? trk.jump : happy ? Math.round(Math.abs(Math.sin((f.happyUntil - t) / 110)) * 5) : 0;
     const bx = Math.round((f.x + (trk ? trk.ox : 0)) * T), by = Math.round((f.y + (trk ? trk.oy : 0)) * T);
     ents.push({ y: f.y + 0.01, draw: () => { if (trk) petTrickDraw(L, bx, by, jump, pose, now, trk.dir ? trk.dir : f.face, trk); else petB(L, bx, by - jump, { pose, now, dir: f.face }); } });
     if (trk && (trk.k === 'shake' || trk.k === 'fire')) ents.push({ y: f.y + 5, draw: () => petTrickTop(trk, bx, by, jump, trk.dir ? trk.dir : f.face) });
@@ -994,3 +1007,95 @@ function petPlayFrame(f, gl, t) {
 
 /* 快捷列的寵物鈕：有寵物才顯示 */
 setInterval(() => { const on = !!petMine; document.querySelectorAll('[data-k="pet"]').forEach(b => { if (b.hidden === on) b.hidden = !on; }); }, 1500);
+
+/* ---------- 寵物之間的互動（廣場、沼澤）：兩位主人站得近、寵物都是「自由走動」時，偶爾會一起玩一小段
+   四種：A 見面聞一聞、B 並排睡覺、C 追逐玩耍、D 傳球玩耍。只是好看：沒有數值、沒有紀錄、不用伺服器、也不傳封包。
+   怎麼讓大家看到一樣的畫面：每 30 秒一個時段，用「兩位主人的 id + 時段」算雜湊決定這一段有沒有互動、是哪一種，
+   每個人的畫面各自用伺服器時間推算動畫（跟其他才藝動畫一樣各自畫）。 */
+const PET_MEET_SLOT = 30000, PET_MEET_DUR = { A: 8000, B: 13000, C: 10000, D: 11000 };
+const petMeets = new Map();   // 主人 id → 這一段互動 { k, ids:[a,b], t0, ax, ay, scene, ow:{id:{x,y}}, s:{id:{x,y,ts}} }
+let petMeetChk = 0;
+const petMeetEase = z => { z = Math.max(0, Math.min(1, z)); return z * z * (3 - 2 * z); };
+function petMeetOwner(id) {   // 主人現在的位置（不在這個世界就回 null）
+  if (id === myUid) return { x: pl.x, y: pl.y };
+  const rp = remotes.get(id); return rp && hereRp(rp) ? { x: rp.x, y: rp.y } : null;
+}
+function petMeetBox(ax, ay) {   // 要玩的範圍（左右 ±1.9 格、上下 ±0.9 格）每格都走得到才開始
+  for (let y = Math.floor(ay - 0.9); y <= Math.ceil(ay + 0.9); y++) for (let x = Math.floor(ax - 1.9); x <= Math.ceil(ax + 1.9); x++) if (!walkable(x, y)) return false;
+  return true;
+}
+function petMeetTick(t) {
+  if (t - petMeetChk < 400) return; petMeetChk = t;
+  const sn = srvNow();
+  // 收尾：時間到、換場景、有人走遠或離開就結束
+  new Set(petMeets.values()).forEach(m => {
+    let bad = m.scene !== scene || sn >= m.t0 + m.dur;
+    if (!bad) {
+      const p = m.ids.map(petMeetOwner);
+      if (!p[0] || !p[1] || Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y) > 6.5) bad = true;
+      else m.ids.forEach((id, i) => { if (Math.hypot(p[i].x - m.ow[id].x, p[i].y - m.ow[id].y) > 3) bad = true; });
+    }
+    if (bad) m.ids.forEach(id => { if (petMeets.get(id) === m) petMeets.delete(id); });
+  });
+  if (scene !== 'plaza' && scene !== 'swamp') return;
+  const slot = Math.floor(sn / PET_MEET_SLOT), t0 = slot * PET_MEET_SLOT;
+  if (sn - t0 > 4000) return;   // 只在每個時段的前 4 秒決定要不要開始，大家才會差不多同時看到
+  const parts = [];
+  const add = (id, o, f, mode) => { if (mode === 'free' && o && f && !petMeets.has(id)) parts.push({ id, o, f }); };
+  if (petShown() && petMode() === 'free' && petFol.scene === scene && !petFol.wel && !petFol.goal && !cooking) add(myUid, { x: pl.x, y: pl.y }, petFol, 'free');
+  remotes.forEach(rp => {
+    if (!hereRp(rp)) return; const pb = petPub[rp.id], f = petRFol[rp.id];
+    if (pb && f && f.w === rp.w && !f.trick && petLookOf(pb.breed)) add(rp.id, { x: rp.x, y: rp.y }, f, pb.mode === 'stay' || pb.mode === 'close' ? pb.mode : 'free');
+  });
+  parts.sort((p, q) => p.id < q.id ? -1 : 1);
+  for (let i = 0; i < parts.length; i++) for (let j = i + 1; j < parts.length; j++) {
+    const a = parts[i], b = parts[j]; if (petMeets.has(a.id) || petMeets.has(b.id)) continue;
+    if (Math.hypot(a.o.x - b.o.x, a.o.y - b.o.y) > 3.5) continue;
+    const h = petHash(a.id + '|' + b.id + '|' + slot); if (h % 3 !== 0) continue;
+    const ax = Math.round((a.o.x + b.o.x) / 2 * 2) / 2, ay = Math.round(((a.o.y + b.o.y) / 2 + 1) * 2) / 2;
+    if (!petMeetBox(ax, ay)) continue;
+    const k = 'ABCD'[(h >> 3) % 4], m = { k, ids: [a.id, b.id], t0, dur: PET_MEET_DUR[k], ax, ay, scene, ow: { [a.id]: { x: a.o.x, y: a.o.y }, [b.id]: { x: b.o.x, y: b.o.y } },
+      s: { [a.id]: { x: a.f.x, y: a.f.y, ts: sn }, [b.id]: { x: b.f.x, y: b.f.y, ts: sn } } };
+    petMeets.set(a.id, m); petMeets.set(b.id, m);
+  }
+}
+/* 這一刻某位主人的寵物在互動裡該在哪、什麼姿勢（沒有互動就回 null）。回傳 { x, y, face, pose, jump, emo } */
+function petMeetFrame(id, t) {
+  const m = petMeets.get(id); if (!m) return null;
+  const sn = srvNow(); if (m.scene !== scene || sn >= m.t0 + m.dur) return null;
+  const r = m.ids[0] === id ? 0 : 1, u = sn - m.t0, ax = m.ax, ay = m.ay, dur = m.dur;
+  let x = ax, y = ay, face = r ? -1 : 1, pose = 'side', jump = 0, emo = null;
+  if (m.k === 'A') {
+    x = ax + (r ? 0.7 : -0.7);
+    if (u > 3000 && u < 5200) { emo = r ? 'love' : 'curious'; if (r && u > 3600) emo = 'love'; }
+    if (u > 4300 && u < 5600) jump = Math.round(Math.abs(Math.sin((u - 4300) / 220)) * 4);
+    if (u > 6200) { pose = 'front'; }
+  } else if (m.k === 'B') {
+    x = ax + (r ? 0.8 : -0.8);
+    if (u > 2000 && u < dur - 1200) { pose = 'sleep'; if (!r && u < 5200) emo = 'sleepy'; }
+    else if (u >= dur - 1200) { pose = 'front'; emo = r ? 'happy' : 'alert'; }
+  } else if (m.k === 'C') {
+    if (u < 1500) { x = ax + (r ? 1.5 : -1.5); if (u > 800) emo = r ? 'alert' : null; }
+    else if (u < dur - 1500) {
+      const th = ((u - 1500) / 3600) * Math.PI * 2 - (r ? 0 : 0.9);
+      x = ax + 1.5 * Math.cos(th); y = ay + 0.7 * Math.sin(th); face = -Math.sin(th) >= 0 ? 1 : -1;
+      if (r && u < 3000) emo = 'alert'; if (!r && u > 2500 && u < 4500) emo = 'happy';
+    } else { x = ax + (r ? 1.5 : -1.5); face = r ? -1 : 1; pose = 'front'; emo = r ? 'sweat' : 'happy'; }
+  } else {
+    x = ax + (r ? 1.5 : -1.5);
+    if (u > 600 && u < 2400 && !r) emo = 'ball'; if (r && u > 2800 && u < 4600) emo = 'happy';
+    if (u >= 1500 && u < dur - 800) { const p = (u - 1500) / 1200, fr = p - Math.floor(p), hit = r ? Math.floor(p) % 2 === 0 : Math.floor(p) % 2 === 1; if (fr > 0.1 && fr < 0.4 && hit && Math.floor(p) > 0) jump = 3; }
+  }
+  const s = m.s[id], k = petMeetEase((sn - s.ts) / 1200);
+  return { x: s.x + (x - s.x) * k, y: s.y + (y - s.y) * k, face, pose: k < 0.95 ? 'side' : pose, jump, emo, moving: k < 0.95 };
+}
+function petMeetBalls(ents, now) {   // D：兩隻中間那顆球（每段互動只畫一次）
+  const sn = srvNow(), seen = new Set();
+  petMeets.forEach(m => {
+    if (m.k !== 'D' || seen.has(m) || m.scene !== scene || sn >= m.t0 + m.dur) return; seen.add(m);
+    const u = sn - m.t0, x0 = m.ax - 0.85, x1 = m.ax + 0.85; let bx, h = 0;
+    if (u < 1500) bx = x0; else { const p = (u - 1500) / 1200, fl = Math.floor(p), fr = p - fl, e = petMeetEase(fr); bx = fl % 2 === 0 ? x0 + (x1 - x0) * e : x1 - (x1 - x0) * e; h = Math.round(Math.sin(Math.PI * fr) * 7); }
+    const px = Math.round(bx * T) + 5, py = Math.round(m.ay * T) + 9;
+    ents.push({ y: m.ay + 0.02, draw: () => { r('rgba(90,60,40,.18)', px - 1, py + 4, 6, 1); ob('#e8584a', '#9a2b24', px, py - h, 5, 5); r('#ffffff', px + 1, py - h + 1, 2, 1); } });
+  });
+}

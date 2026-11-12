@@ -177,7 +177,7 @@ function updateTip() {
       else if (k === CFT) s = '高腳椅：按動作鍵坐下點餐。';
       else if (k === CFG) s = '吧台小門：按動作鍵穿上／脫下圍裙，進出操作間。';
       else if (k === CFSEAT) s = '座位：按動作鍵坐下休息。';
-      else if (k === CFJ) s = '音樂機：按動作鍵點歌（客人心情變好）。';
+      else if (k === CFJ) s = '音樂機：按動作鍵點歌，一首 100 G（客人心情變好）。';
       else if (cf && cf.by[x + ',' + y]) s = '操作間：拿食材、磨豆（按住）、咖啡機、烤箱、杯架、洗杯池（按住）、出餐口。';
     }
   } else if (scene === 'stylist') {
@@ -209,8 +209,9 @@ function updateTip() {
   } else if (scene === 'swamp') {
     s = '霧語沼澤：蘆葦叢和湖面上有只在這裡才有的蟲蝶，湖裡有新的魚（站在棧橋或岸邊，面向水面拋竿）。';
     if (x >= 0 && y >= 0 && x < W && y < H) {
-      const k = K[y][x];
-      if (k === SWG) s = '出口：按動作鍵回廣場。';
+      const k = K[y][x], rpS = remoteAt(x, y);
+      if (rpS) s = '這是 ' + rpS.name + '。';
+      else if (k === SWG) s = '出口：按動作鍵回廣場。';
       else if (k === SWS) s = '告示牌：按動作鍵看看寫了什麼。';
       else if (k === SWC) s = SWAMP_COOK.n + '：按動作鍵做料理（跟家裡的灶台一樣，用自己的材料）。';
       else if (k === SWR) s = '長滿青苔的岩石。';

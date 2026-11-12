@@ -93,6 +93,8 @@ function swampAct(x, y) {
   if (catchShown) { hideCatch(); return; }
   if (fishing) { fishAct(); return; }
   if (k === SWG) { leaveSwamp(); return; }
+  const rpS = remoteAt(x, y);
+  if (rpS) { openFriendPop(rpS); return; }   // 面向別的玩家按動作鍵＝開互動視窗（跟廣場一樣）
   if (t.id === 'net' && critters.length) { swingNet(x, y); return; }   // 蟲在水面上（水黽）時，面向水面也要能揮網
   if (k === WA) { if (t.id === 'rod') startFish(x, y); else if (t.id === 'net') swingNet(x, y); else pop(x, y, '這是沼澤的湖（換成釣竿就能釣魚）', '#cfe8f7'); return; }
   if (k === SWC) { swampCook(x, y); return; }
@@ -101,6 +103,7 @@ function swampAct(x, y) {
   if (k === SWP) { pop(x, y, '古老的石柱', '#ffffff'); return; }
   if (t.id === 'net') { swingNet(x, y); return; }
   if (k === TR) { pop(x, y, '一棵大樹', '#ffffff'); return; }
+  if (petRemoteAt(x, y)) petTouchRemote(petRemoteAt(x, y));   // 面向朋友的寵物按動作鍵＝摸摸（放最後，跟廣場一樣）
 }
 
 /* ---------- 山洞：森林北邊，裡面有 6 顆礦石 ---------- */
