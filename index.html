@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>雷克斯農場</title>
-<meta name="build" content="dcf868a89d">
+<meta name="build" content="7b61e60cfe">
 <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="manifest" href="app/manifest.webmanifest">
@@ -14,7 +14,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chiron+GoRound+TC:wght@400;600;800&display=swap">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap">
-<link rel="stylesheet" href="css/style.css?v=799971ef">
+<link rel="stylesheet" href="css/style.css?v=b3d38eaf">
 </head><body>
 
 
@@ -120,6 +120,7 @@
     <p><span class="keys"><kbd>←↑↓→</kbd> 或 <kbd>WASD</kbd> 移動　<kbd>空白</kbd> 或 <kbd>E</kbd> 動作　<kbd>1</kbd>–<kbd>5</kbd> 換工具<br></span>翻土、播種、澆水之後，作物會依真實時間慢慢長大——就算你關掉遊戲也會繼續長。晴天要保持土壤濕潤，下雨和下雪時不用澆水也會長。站在房子門前按動作鍵可以進屋布置。</p>
     <div class="footbtns">
       <button type="button" class="btn ghost" id="gmbtn" hidden>GM 邀請碼</button>
+      <button type="button" class="btn ghost" id="gmbbtn" hidden>GM 全服補償</button>
     </div>
     </div>
   </div>
@@ -218,6 +219,7 @@
 <div class="maker" id="lvm" hidden><div class="card maker-card" id="lvcard" tabindex="-1"></div></div>
 <div class="maker" id="cdm" hidden><div class="card maker-card" id="cdcard" tabindex="-1"></div></div>
 <div class="maker" id="gm" hidden><div class="card maker-card" id="gmcard" tabindex="-1"></div></div>
+<div class="maker" id="gmb" hidden><div class="card maker-card gm-wide" id="gmbcard" tabindex="-1"></div></div>
 <div class="maker" id="dsm" hidden><div class="card maker-card" id="dscard" tabindex="-1"></div></div>
 <div class="maker" id="artm" hidden><div class="card maker-card" id="artcard" tabindex="-1"></div></div>
 <div class="maker" id="bdm" hidden><div class="card maker-card" id="bdcard" tabindex="-1"></div></div>
@@ -261,12 +263,12 @@
 <script src="js/art/pet.js?v=f7e26423"></script>
 <script src="js/art/icons.js?v=33736de8"></script>
 <script src="js/art/boat.js?v=75d5e127"></script>
-<script src="js/state.js?v=ef4fcab0"></script>
+<script src="js/state.js?v=d9e42a9e"></script>
 <script src="js/art/village-tiles.js?v=976340ca"></script>
 <script src="js/world.js?v=047f7458"></script>
-<script src="js/net.js?v=4bd25992"></script>
+<script src="js/net.js?v=e2fb0362"></script>
 <script src="js/actions.js?v=d15c8c87"></script>
-<script src="js/shop.js?v=3dbdbbd0"></script>
+<script src="js/shop.js?v=0eee0920"></script>
 <script src="js/scenes.js?v=06ecef6f"></script>
 <script src="js/npc.js?v=1cbc75cd"></script>
 <script src="js/items.js?v=52b13586"></script>
@@ -286,9 +288,9 @@
 <script src="js/manual-art.js?v=e39e173c"></script>
 <script src="js/manual.js?v=848106be"></script>
 <script src="js/hotbar.js?v=7f2d72d8"></script>
-<script src="js/ui.js?v=73f02c74"></script>
+<script src="js/ui.js?v=516256ff"></script>
 <script src="js/fishing.js?v=5026b0c6"></script>
-<script src="js/input.js?v=ffcfe747"></script>
+<script src="js/input.js?v=7a217012"></script>
 <script src="js/pwa.js?v=4b7d5452"></script>
 <script src="js/settings.js?v=2d95619f"></script>
 <script src="js/tv.js?v=32d654ab"></script>
@@ -298,14 +300,14 @@
 <script src="js/auth.js?v=15a3fb48"></script>
 <script src="js/login-cover.js?v=58375758"></script>
 <script src="js/village.js?v=cd669861"></script>
-<script src="js/announce.js?v=ae2f6287"></script>
+<script src="js/announce.js?v=33c6a16b"></script>
 <script src="js/voyage.js?v=8d018407"></script>
 <script src="js/voyage-fight.js?v=264b2bfc"></script>
 <script src="js/chat.js?v=4696b81b"></script>
 <script src="js/friends.js?v=e8582985"></script>
-<script src="js/mail.js?v=01883ccd"></script>
+<script src="js/mail.js?v=3df97689"></script>
 <script src="js/plaza-light.js?v=cb28e926"></script>
-<script src="js/gm.js?v=f8a16524"></script>
+<script src="js/gm.js?v=670c001b"></script>
 <script src="js/bgm.js?v=d7e0ad6c"></script>
 <script src="js/house.js?v=0e860319"></script>
 <script src="js/doors.js?v=d8fa98c7"></script>
@@ -322,7 +324,7 @@
 <script src="js/stores.js?v=6c2d1128"></script>
 <script src="js/render.js?v=d7bb3de8"></script>
 <script src="js/sky.js?v=13fa769f"></script>
-<script src="js/immersive.js?v=b705009e"></script>
+<script src="js/immersive.js?v=fdf3a3df"></script>
 <script src="js/update.js?v=ab556e5d"></script>
 <script src="js/furniture-fx.js?v=e37cd10a"></script>
 <script src="js/art.js?v=1cfcdad1"></script>

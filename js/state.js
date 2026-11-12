@@ -35,19 +35,19 @@ const ITEM_FALLBACK = {
 const fallbackItem = k => ITEM_FALLBACK[k] || ITEM_FALLBACK['a:' + k] || ITEM_FALLBACK['x:' + k] || null;   // 也接受沒有前綴的寫法（egg、hay、fert2）
 let itemMeta = {}, forPool = [], forTaken = new Set(), fgSlot = -1, rocksAt = {}, fgList = [], treesAt = {}, chopHits = {}, yardMode = false, anOpen = false, bld = null, bldAt = 0;   // bld：出海碼頭建造進度（voyage_build_info）；沒讀到就當作已完工   // treesAt：每棵可砍的樹幾點長回來（毫秒）；chopHits：這一棵目前砍了幾下
 let soldToday = {}, soldDay = 0, bugTaken = new Set(), dexClaims = {};
-/* 收購飽和（要和 SQL 的 _sell_value 一致）：每種魚、蟲每天前 5 隻原價、第 6~10 隻 6 折、之後 3 折（GMT+8 凌晨重置） */
+/* 收購飽和（要和 SQL 的 _sell_value 一致）：每種東西（魚、蟲、採集物、作物、料理）每天前 10 個原價、第 11~20 個 6 折、之後 3 折（GMT+8 凌晨重置） */
 const sellDayNow = () => Math.floor((srvNow() + 8 * 3600000) / 86400000);
 const nextDay0 = () => (sellDayNow() + 1) * 86400000 - 8 * 3600000;   // 下一個 GMT+8 凌晨 0 點（毫秒）：礦石、樹每天這時候一起刷新
 const soldOf = item => (soldDay === sellDayNow() ? (soldToday[item] | 0) : 0);
 function sellValue(sold, qty, price) {
-  return Math.min(qty, Math.max(0, 5 - sold)) * price
-    + Math.max(0, Math.min(sold + qty, 10) - Math.max(sold, 5)) * Math.max(1, Math.floor((price * 6 + 5) / 10))
-    + Math.max(0, sold + qty - Math.max(sold, 10)) * Math.max(1, Math.floor((price * 3 + 5) / 10));
+  return Math.min(qty, Math.max(0, 10 - sold)) * price
+    + Math.max(0, Math.min(sold + qty, 20) - Math.max(sold, 10)) * Math.max(1, Math.floor((price * 6 + 5) / 10))
+    + Math.max(0, sold + qty - Math.max(sold, 20)) * Math.max(1, Math.floor((price * 3 + 5) / 10));
 }
 const pl = { x: 4, y: 4, sx: 4, sy: 4, prog: 1, face: 'down', step: 0 };
 const srvNow = () => Date.now() + offset;
 
-let bagOpen = false, shopOpen = false, makerOpen = false, authOpen = true, actQueued = false, actHeld = false, actPtr = -1, firstTime = false, vmOpen = false, gmOpen = false, vyOpen = false, cfOpen = false;
+let bagOpen = false, shopOpen = false, makerOpen = false, authOpen = true, actQueued = false, actHeld = false, actPtr = -1, firstTime = false, vmOpen = false, gmOpen = false, gmbOpen = false, vyOpen = false, cfOpen = false;
 let pendingInvite = '';
 const pressed = [];
 let frOpen = false;
@@ -55,7 +55,7 @@ let lkOpen = false, bdOpen = false, ckOpen = false, rcOpen = false, mcOpen = fal
 let syOpen = false, lvOpen = false, cdOpen = false, dexOpen = false, qOpen = false, dsOpen = false, emOpen = false, stOpen = false, imm = false, sheetOpen = false, trOpen = false;
 let pnOpen = false, mnOpen = false, seOpen = false, mbOpen = false, seaOpen = false;   // seOpen：NPC 換種子視窗
 let petOpen = false;
-const paused = () => seOpen || mbOpen || seaOpen || anOpen || lkOpen || bdOpen || ckOpen || rcOpen || mcOpen || mnOpen || dgOpen || lvOpen || cdOpen || dexOpen || qOpen || dsOpen || pnOpen || stOpen || trOpen || (imm && sheetOpen) || frOpen || mlOpen || bagOpen || shopOpen || makerOpen || authOpen || vyOpen || vmOpen || gmOpen || fOpen || syOpen || petOpen || cfOpen || !ready;
+const paused = () => seOpen || mbOpen || seaOpen || anOpen || lkOpen || bdOpen || ckOpen || rcOpen || mcOpen || mnOpen || dgOpen || lvOpen || cdOpen || dexOpen || qOpen || dsOpen || pnOpen || stOpen || trOpen || (imm && sheetOpen) || frOpen || mlOpen || bagOpen || shopOpen || makerOpen || authOpen || vyOpen || vmOpen || gmOpen || gmbOpen || fOpen || syOpen || petOpen || cfOpen || !ready;
 
 /* ---------- 小提示與特效 ---------- */
 const toastEl = $('toast');

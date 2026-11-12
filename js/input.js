@@ -35,6 +35,7 @@ window.addEventListener('keydown', e => {
   if (e.key === 'Escape' && shopOpen) { closeShop(); return; }
   if (e.key === 'Escape' && vmOpen) { closeVMenu(); return; }
   if (e.key === 'Escape' && gmOpen) { closeGM(); return; }
+  if (e.key === 'Escape' && gmbOpen) { closeGMB(); return; }
   if (e.key === 'Escape' && syOpen) { closeSty(); return; }
   if (e.key === 'Escape' && fOpen) { closeFShop(); return; }
   if (e.key === 'Escape' && trOpen) { closeTarot(); return; }

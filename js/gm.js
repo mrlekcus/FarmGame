@@ -43,7 +43,7 @@ vmCard.addEventListener('click', e => {
 
 /* ---------- GM：邀請碼 ---------- */
 const gmEl = $('gm'), gmCard = $('gmcard');
-let gmList = [], gmNew = [];
+let gmList = [], gmNew = [];   // gmBc：等待再按一次確認的全服信 {key, msg, n}
 function renderGM() {
   const fresh = gmNew.length
     ? '<h3>剛產生的邀請碼</h3><div class="offer">' + gmNew.map(c => '<p class="codebox">' + esc(c) + '</p>').join('') + '</div><button type="button" class="btn small" data-a="copyall">全部複製</button>'
@@ -101,3 +101,56 @@ gmCard.addEventListener('click', async e => {
   } catch (err) { toast(errText(err)); }
 });
 $('gmbtn').addEventListener('click', () => { if (ready && me && me.gm) openGM(); });
+
+/* ---------- GM：全服補償信（獨立視窗，比邀請碼面板寬） ---------- */
+const gmbEl = $('gmb'), gmbCard = $('gmbcard');
+let gmBc = null, gmbMsg = '', gmbAmt = 3000, gmbNote = '';   // gmBc：等待再按一次確認的全服信 {key, msg, n}
+function renderGMB() {
+  gmbCard.innerHTML = '<div class="shop-h"><h2>GM 全服補償信</h2></div>' +
+    '<p class="empty">寄給所有玩家（GM 帳號不會收到）。每位玩家收到一封信，金幣要在信箱按「領取」才入帳。</p>' +
+    '<label class="mllab" for="gmb-m">信件內容（最多 200 字）</label><textarea class="nameinput mltext" id="gmb-m" maxlength="200" rows="6" placeholder="例如：收購新制度上線，補償 3000 G 已寄到信箱，打開信按「領取」就入帳，感謝體諒！"></textarea>' +
+    '<small class="empty" id="gmb-cnt"></small>' +
+    '<label class="mllab" for="gmb-a">每人補償金幣（填 0 = 只寄通知，不附金幣）</label>' +
+    '<div class="gmrow"><input class="num gm-amt" id="gmb-a" type="number" min="0" max="1000000" inputmode="numeric"><button type="button" class="btn" data-a="bcast">' + (gmBc ? '確定發送給全服？再按一次' : '寄給全服') + '</button>' + (gmBc ? '<button type="button" class="btn ghost" data-a="bcancel">取消</button>' : '') + '</div>' +
+    '<p class="gm-msg" id="gmb-msg" aria-live="polite"></p>' +
+    '<button type="button" class="btn ghost wide" data-a="close">關閉</button>';
+  $('gmb-m').value = gmbMsg; $('gmb-a').value = gmbAmt; gmbCount();
+}
+function gmbCount() { const el = $('gmb-cnt'); if (el) el.textContent = gmbMsg.length + ' / 200 字'; }
+function openGMB() { gmbOpen = true; pressed.length = 0; gmBc = null; renderGMB(); gmbEl.hidden = false; gmbCard.focus(); }
+function closeGMB() { gmbOpen = false; gmBc = null; gmbEl.hidden = true; }
+gmbCard.addEventListener('input', e => {
+  if (e.target.id === 'gmb-m') { gmbMsg = e.target.value; gmbCount(); }
+  else if (e.target.id === 'gmb-a') gmbAmt = e.target.value;
+  if (gmBc && (e.target.id === 'gmb-m' || e.target.id === 'gmb-a')) { gmBc = null; renderGMB(); const el = $(e.target.id); el.focus(); el.setSelectionRange(el.value.length, el.value.length); }   // 內容或金額一改就要重新確認
+});
+gmbEl.addEventListener('click', e => { if (e.target === gmbEl) closeGMB(); });
+gmbCard.addEventListener('click', async e => {
+  const b = e.target.closest('button[data-a]');
+  if (!b || b.disabled) return;
+  const a = b.dataset.a;
+  if (a === 'close') { closeGMB(); return; }
+  if (a === 'bcancel') { gmBc = null; renderGMB(); return; }
+  if (a !== 'bcast') return;
+  const say = (t, ok) => { const el = $('gmb-msg'); el.textContent = t; el.className = 'gm-msg ' + (ok ? 'ok' : 'err'); };
+  const msg = gmbMsg.trim(), n = Math.floor(+gmbAmt);
+  if (!msg) { say('請先寫信件內容', false); return; }
+  if (!(n >= 0 && n <= 1000000)) { say('金幣數量要在 0 到 1,000,000 之間', false); return; }
+  if (!gmBc) {   // 第一次按：先進入確認狀態
+    gmBc = { key: 'bc' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10), msg, n };
+    renderGMB(); say('將寄給每位玩家：' + n + ' G。確認無誤請再按一次。', true); return;
+  }
+  b.disabled = true; say('發送中…', true);
+  const bc = gmBc;
+  try {
+    const r = await rpc('gm_mail_all', { p_key: bc.key, p_msg: bc.msg, p_coins: bc.n });
+    gmBc = null; gmbMsg = ''; renderGMB(); say('已寄出 ' + (r && r.sent) + ' 封（每人 ' + bc.n + ' G）。', true);
+  } catch (er) {
+    const m = String((er && (er.message || er.msg)) || er || '');
+    if (/Could not find the function|PGRST202/i.test(m + ' ' + String((er && er.code) || ''))) say('找不到 gm_mail_all 函式：請先在 Supabase 執行 sql/gm_mail_broadcast.sql。', false);
+    else if (/already_sent/.test(m)) { gmBc = null; renderGMB(); say('這一批已經發送過了（沒有重複發）。', true); }
+    else say(errText(er), false);
+    b.disabled = false;
+  }
+});
+$('gmbbtn').addEventListener('click', () => { if (ready && me && me.gm) openGMB(); });

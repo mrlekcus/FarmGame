@@ -11,7 +11,7 @@ function openShop(mode) { shopLast = { cat: '', ids: [] }; shopMode = mode === '
 function closeShop() { shopOpen = false; shopEl.hidden = true; }
 /* 賣出提示：今天已經賣了幾隻、這次賣會不會降價 */
 function satNote(sd, n, price, val) {
-  if (val >= n * price) return sd >= 5 ? '' : (sd ? ' · 今天已賣 ' + sd : '');
+  if (val >= n * price) return sd >= 10 ? '' : (sd ? ' · 今天已賣 ' + sd : '');
   return ' · 今天已賣 ' + sd + '，部分降價';
 }
 /* ---- 雜貨攤：左側分類＋底部數量面板 ---- */
@@ -40,10 +40,10 @@ function shopItems(cat) {
   else if (cat === 'sell') {
     ALLK.filter(k => have('c:' + k) > 0).forEach(k => {
       const c = CROPS[k], pr = cropPrice(k);
-      out.push({ id: 'c:' + k, a: 'sell', c: k, name: c.n, price: pr, stock: have('c:' + k), dot: c.c, sub: '每個 ' + pr + ' G' + seasonTag(k) });
+      out.push({ id: 'c:' + k, a: 'sell', c: k, name: c.n, price: pr, stock: have('c:' + k), dot: c.c, sat: 'c:' + k, sub: '每個 ' + pr + ' G' + seasonTag(k) });
     });
     Object.keys(inv).filter(k => /^(q1|q2|a|g|m):/.test(k) && inv[k] > 0 && miscPrice(k) > 0 && k !== 'a:hay').sort().forEach(k => {
-      out.push({ id: k, a: 'sellm', c: k, name: itemName(k), price: miscPrice(k), stock: inv[k], misc: k, sat: /^g:/.test(k) ? k : undefined, sub: '每個 ' + miscPrice(k) + ' G' });   // 採集物（g:）和魚、蟲一樣有每日收購飽和，要和 SQL sell_item 一致
+      out.push({ id: k, a: 'sellm', c: k, name: itemName(k), price: miscPrice(k), stock: inv[k], misc: k, sat: k, sub: '每個 ' + miscPrice(k) + ' G' });   // 所有雜物（雞蛋、羊毛、牛奶、石頭、礦、採集物…）都有每日收購飽和，要和 SQL sell_item 一致
     });
     fishCat.filter(f => have('fish:' + f.key) > 0).forEach(f => {
       out.push({ id: 'fish:' + f.key, a: 'sellfish', c: f.key, name: f.name, price: f.price, stock: have('fish:' + f.key), fish: f.key, sat: 'fish:' + f.key,
@@ -54,16 +54,16 @@ function shopItems(cat) {
         sub: (RARITY[b.rarity] || ['', ''])[0] + ' · 每隻 ' + b.price + ' G' });
     });
     recipes.filter(rc => have('dish:' + rc.key) > 0).forEach(rc => {
-      out.push({ id: 'dish:' + rc.key, a: 'selld', c: rc.key, name: rc.name, price: rc.price, stock: have('dish:' + rc.key), dot: DISHC[rc.key] || '#f3c77a', sub: '每份 ' + rc.price + ' G（不受收購飽和影響）' });
+      out.push({ id: 'dish:' + rc.key, a: 'selld', c: rc.key, name: rc.name, price: rc.price, stock: have('dish:' + rc.key), dot: DISHC[rc.key] || '#f3c77a', sat: 'dish:' + rc.key, sub: '每份 ' + rc.price + ' G' });
     });
   }
   return out;
 }
 const shopFull = it => !!it.buy && have(it.id) >= INV_CAP;   // 這種東西已經 999 個了
 const shopMax = (it, coins) => it.buy ? Math.max(1, Math.min(it.a === 'buyy' ? 50 : 99, Math.floor(coins / Math.max(1, it.price)), INV_CAP - have(it.id))) : it.stock;   // buy_yard 後端一次最多 50，其他 99；再加上持有上限 999
-function satTag(k) {   // 和 sellValue 同一套：前 5 個原價、第 6～10 個 6 折、之後 3 折
+function satTag(k) {   // 和 sellValue 同一套：前 10 個原價、第 11～20 個 6 折、之後 3 折
   const n = soldOf(k);
-  return n < 5 ? { k: 'full', t: '原價 ×' + (5 - n) } : n < 10 ? { k: 'mid', t: '6 折 ×' + (10 - n) } : { k: 'low', t: '3 折' };
+  return n < 10 ? { k: 'full', t: '原價 ×' + (10 - n) } : n < 20 ? { k: 'mid', t: '6 折 ×' + (20 - n) } : { k: 'low', t: '3 折' };
 }
 const shopTotal = (it, q) => it.sat ? sellValue(soldOf(it.sat), q, it.price) : q * it.price;
 const shopIcon = it => it.dot ? '<i class="dot" style="--c:' + it.dot + '"></i>' :
@@ -121,18 +121,18 @@ function renderShop() {
   const cur = list.find(x => x.id === shopSel) || null;
   if (cur) { const mx = shopMax(cur, coins); shopQ[cur.id] = Math.max(1, Math.min(mx, shopQ[cur.id] | 0 || 1)); shopView = { it: cur, max: mx, coins }; } else shopView = null;
   let sellKinds = 0, grand = 0;
-  { const sl = shopCat === 'sell' ? list : shopItems('sell'); sellKinds = sl.length; sl.forEach(it => { if (it.a === 'sell' || it.a === 'sellfish' || it.a === 'sellbug') grand += shopTotal(it, it.stock); }); }   // 「全部賣出」（SQL sell_all）只賣作物、魚、蟲，金額也只算這三種
+  { const sl = shopCat === 'sell' ? list : shopItems('sell'); sellKinds = sl.length; sl.forEach(it => { if (it.a === 'sell' || it.a === 'sellfish' || it.a === 'sellbug' || it.a === 'sellm') grand += shopTotal(it, it.stock); }); }   // 「全部賣出」（SQL sell_all）賣作物、魚、蟲和雜物（不含料理、乾草），金額也只算這幾種
   const rail = shopCats().map(c => '<button type="button" class="shri" data-cat="' + c[0] + '" aria-pressed="' + (c[0] === shopCat) + '"><b>' + c[1] + '</b>' + c[2] + (c[0] === 'sell' && sellKinds ? '<span class="shn">' + sellKinds + '</span>' : '') + '</button>').join('');
   let main = '';
   if (shopCat === 'up') main = '<h3>釣竿</h3>' + rodRow + '<h3>鋤頭與水壺</h3>' + toolRows + '<h3>房屋擴建</h3>' + houseExpandRow(coins);
   else {
-    if (shopCat === 'sell') main += list.length ? '<div class="shbar"><span>背包可賣 ' + list.length + ' 種 · 全部賣出（作物、魚、蟲）共 ' + grand + ' G</span><button type="button" class="btn small" data-a="sellall"' + dis + '>全部賣出</button></div>' : '<p class="empty">背包裡沒有可以賣的東西。收成作物、釣魚、抓蟲蝶之後再來。</p>';
+    if (shopCat === 'sell') main += list.length ? '<div class="shbar"><span>背包可賣 ' + list.length + ' 種 · 全部賣出（不含料理）共 ' + grand + ' G</span><button type="button" class="btn small" data-a="sellall"' + dis + '>全部賣出</button></div>' : '<p class="empty">背包裡沒有可以賣的東西。收成作物、釣魚、抓蟲蝶之後再來。</p>';
     main += list.map(it => { const st = shopCat === 'sell' && it.sat ? satTag(it.sat) : null;   // 收購飽和標籤：原價還剩幾個／6 折還剩幾個／3 折
       return '<div class="row shr' + (it.id === shopSel ? ' sel' : '') + (it.lock ? ' lk' : '') + (st && st.k === 'low' ? ' sat3' : '') + '" data-sel="' + esc(it.id) + '">' + shopIcon(it) +
       '<div class="meta"><b>' + esc(it.name) + (it.stock ? ' ×' + it.stock : '') + '</b><small>' + (it.lock ? esc(it.lock) : esc(it.sub)) + '</small></div>' +
       (st ? '<span class="sat ' + st.k + '">' + st.t + '</span>' : '') + '<b class="shp">' + (it.buy ? it.price + ' G' : '') + '</b></div>'; }).join('');
     if (shopCat !== 'sell' && list.length) main += '<small class="empty">每種東西最多持有 ' + INV_CAP + ' 個。</small>';
-    if (shopCat === 'sell' && list.some(x => x.sat)) main += '<small class="empty">收購飽和：每種魚、蟲、採集物每天前 5 個原價，第 6～10 個 6 折，之後 3 折（凌晨 0 點重置）。</small>';
+    if (shopCat === 'sell' && list.some(x => x.sat)) main += '<small class="empty">收購飽和：每種東西（作物、料理、魚、蟲、採集物、蛋奶羊毛、石頭礦石…）每天前 10 個原價，第 11～20 個 6 折，之後 3 折（凌晨 0 點重置）。</small>';
   }
   let sheet = '';
   if (shopCat !== 'up' && cur) {

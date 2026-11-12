@@ -2,7 +2,7 @@
 /* 明信片與寫信 —— 雷克斯農場。所有檔案共用同一個全域範圍，載入順序見 index.html。 */
 /* ---------- 明信片與寫信：寄給好友，花 1～10 金幣，收件匣最多留 50 封 ---------- */
 const mlEl = $('mlm'), mlCard = $('mlcard');
-let mlOpen = false, ml = { cards: [], inbox: [], unread: 0 }, mlTab = 'in', mlTo = '', mlPick = 'plain', mlMsg = '', mlView = 0, mlItem = '', mlBusy = false, mlErr = '', mlOk = '', mlLoaded = false;
+let mlOpen = false, ml = { cards: [], inbox: [], unread: 0 }, mlTab = 'in', mlTo = '', mlPick = 'plain', mlMsg = '', mlView = 0, mlItem = '', mlBusy = false, mlErr = '', mlOk = '', mlLoaded = false, mlCoins = {};   // mlCoins：{信件id: {c: 金幣, k: 已領取}}，GM 全服補償信附的金幣
 function disc(g, cx, cy, rad, col) { g.fillStyle = col; for (let y = -rad; y <= rad; y++) for (let x = -rad; x <= rad; x++) if (x * x + y * y <= rad * rad + rad * 0.5) g.fillRect(cx + x, cy + y, 1, 1); }
 function cardArt(cv, key) {
   const g = cv.getContext('2d'), W2 = 64, H2 = 40;
@@ -84,6 +84,7 @@ async function mailLoad(quiet) {
     mailPollAt = Date.now();
     const before = ml.unread | 0, d = await rpc('mail_list');
     ml = { cards: Array.isArray(d.cards) ? d.cards : [], inbox: Array.isArray(d.inbox) ? d.inbox : [], unread: d.unread | 0 }; mlLoaded = true;
+    try { const mc = await rpc('mail_coins'); mlCoins = mc && typeof mc === 'object' ? mc : {}; } catch (e2) { mlCoins = {}; }   // 伺服器還沒更新 SQL 就當作沒有金幣信
     if (!quiet && ml.unread > before && before >= 0 && !mlOpen) toast('收到新的明信片！按 M 打開信箱', 4000);
     mailBadge(); if (mlOpen) renderMail();
   } catch (e) { /* 伺服器還沒更新就略過 */ }
@@ -119,13 +120,14 @@ function renderMail() {
       h += '<div class="mlbig"><canvas width="64" height="40" data-card="' + esc(v.card) + '"></canvas><div class="mlmsg">' + esc(v.msg).replace(/\n/g, '<br>') + '</div>' +
         '<div class="mlfrom">— ' + esc(v.name) + ' · ' + fmtDay(v.at) + '</div></div>' +
         (v.item ? '<div class="giftrow"><span>🎁 附贈禮物：' + esc(itemName(v.item)) + ' ×1</span>' + (v.claimed ? '<small>已領取</small>' : '<button type="button" class="btn small" data-a="claim" data-id="' + v.id + '">領取</button>') + '</div>' : '') +
+        (mlCoins[v.id] ? '<div class="giftrow"><span>💰 附贈金幣：' + mlCoins[v.id].c + ' G</span>' + (mlCoins[v.id].k ? '<small>已領取</small>' : '<button type="button" class="btn small" data-a="claimc" data-id="' + v.id + '">領取</button>') + '</div>' : '') +
         '<div class="v-quick"><button type="button" class="btn" data-a="reply" data-u="' + esc(v.from) + '"' + (isFriend(v.from) ? '' : ' disabled') + '>回信給 ' + esc(v.name) + '</button>' +
-        '<button type="button" class="btn ghost" data-a="del" data-id="' + v.id + '"' + (v.item && !v.claimed ? ' disabled' : '') + '>刪除</button></div>' +
+        '<button type="button" class="btn ghost" data-a="del" data-id="' + v.id + '"' + ((v.item && !v.claimed) || (mlCoins[v.id] && !mlCoins[v.id].k) ? ' disabled' : '') + '>刪除</button></div>' +
         '<button type="button" class="btn ghost wide" data-a="back">回收件匣</button>';
     } else if (!mlLoaded) h += '<p class="empty">讀取中…（如果一直沒出現，請確認伺服器已更新）</p>';
     else if (!ml.inbox.length) h += '<p class="empty">還沒有收到明信片。到「寄明信片」寄一張給好友吧！</p>';
-    else h += ml.inbox.map(m => '<div class="mlrow' + (m.read && !(m.item && !m.claimed) ? '' : ' new') + '" data-a="open" data-id="' + m.id + '" role="button" tabindex="0"><canvas width="64" height="40" data-card="' + esc(m.card) + '"></canvas>' +
-      '<div class="meta"><b>' + (m.read ? '' : '🔴 ') + (m.item && !m.claimed ? '🎁 ' : '') + esc(m.name) + '</b><small>' + esc(cname(m.card)) + ' · ' + fmtDay(m.at) + '</small><small>' + esc(m.msg.slice(0, 24)) + (m.msg.length > 24 ? '…' : '') + '</small></div></div>').join('');
+    else h += ml.inbox.map(m => '<div class="mlrow' + (m.read && !(m.item && !m.claimed) && !(mlCoins[m.id] && !mlCoins[m.id].k) ? '' : ' new') + '" data-a="open" data-id="' + m.id + '" role="button" tabindex="0"><canvas width="64" height="40" data-card="' + esc(m.card) + '"></canvas>' +
+      '<div class="meta"><b>' + (m.read ? '' : '🔴 ') + (m.item && !m.claimed ? '🎁 ' : '') + (mlCoins[m.id] && !mlCoins[m.id].k ? '💰 ' : '') + esc(m.name) + '</b><small>' + esc(cname(m.card)) + ' · ' + fmtDay(m.at) + '</small><small>' + esc(m.msg.slice(0, 24)) + (m.msg.length > 24 ? '…' : '') + '</small></div></div>').join('');
   } else {
     const fl = fr.friends;
     if (!fl.length) h += '<p class="empty">還沒有好友。先到好友頁加好友，才能寄明信片。</p>';
@@ -158,6 +160,11 @@ mlCard.addEventListener('click', async e => {
   if (a === 'reply') { mlTo = b.dataset.u; mlTab = 'send'; mlView = 0; renderMail(); return; }
   if (a === 'claim') {
     try { const r = await rpc('mail_claim', { p_id: +b.dataset.id }); if (r.inv) Object.assign(inv, r.inv); const m = ml.inbox.find(x => x.id === +b.dataset.id); if (m) m.claimed = true; toast('領到了 ' + itemName(r.item) + '！'); refreshHud(); }
+    catch (err) { mlErr = errText(err); }
+    renderMail(); return;
+  }
+  if (a === 'claimc') {
+    try { const id = +b.dataset.id, r = await enqueue(() => rpc('mail_claim_coins', { p_id: id })); if (typeof r.coins === 'number') me.coins = r.coins; if (mlCoins[id]) mlCoins[id].k = true; toast('領到了 ' + r.earned + ' G！'); refreshHud(); }
     catch (err) { mlErr = errText(err); }
     renderMail(); return;
   }

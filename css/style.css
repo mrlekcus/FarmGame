@@ -209,6 +209,9 @@ kbd{font:600 12px/1 var(--f-display);color:var(--ink);background:var(--panel);pa
   #auth .auth-card .auth-note{font-size:11px;line-height:1.45}
   #auth .auth-card .auth-msg{min-height:16px;font-size:12px}
 }
+.maker-card.gm-wide{width:min(760px,100%)}
+.gm-wide .mltext{min-height:150px;font-size:16px;line-height:1.6;padding:12px 14px}
+.gm-wide .gmrow .num.gm-amt{width:150px}
 .maker-card h2{margin:0;text-align:center;font:800 24px/1.2 var(--f-display);color:var(--pink-deep);letter-spacing:.08em}
 .pn-row{display:flex;flex-wrap:wrap;gap:6px;align-items:center;justify-content:center}
 .pn-row .btn[aria-pressed=true]{background:var(--pink-deep);color:#fff;border-color:var(--pink-deep)}

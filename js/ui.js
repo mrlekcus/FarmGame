@@ -101,7 +101,7 @@ function updateClock() {
 function refreshHud() {
   $('gold').textContent = (me ? me.coins : 0) + ' G';
   $('who').textContent = me ? me.name : '未登入';
-  $('gmbtn').hidden = !(me && me.gm);
+  $('gmbtn').hidden = !(me && me.gm); $('gmbbtn').hidden = !(me && me.gm);
   slots.forEach((s, i) => {
     const tl = TOOLS[hot[i]];
     s.el.classList.toggle('sel', tool === i);
