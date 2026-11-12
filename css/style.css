@@ -828,7 +828,7 @@ body.imm .cfab,body.imm #cfeed{transition:opacity .45s}
 /* ---- 電腦版寬螢幕：左側資訊、中間遊戲、右側聊天 ---- */
 .sideL,.sideR{display:contents}
 @media (min-width:1280px) and (min-height:561px) and (pointer:fine){
-  body:not(.imm) .app{max-width:1608px;display:grid;grid-template-columns:minmax(200px,280px) minmax(0,1fr) minmax(220px,300px);column-gap:14px;row-gap:12px;align-items:start}
+  body:not(.imm) .app{max-width:1608px;display:grid;grid-template-columns:280px minmax(0,1fr) 300px;column-gap:14px;row-gap:12px;align-items:start}
   body:not(.imm) .top{grid-column:2;grid-row:1}
   body:not(.imm) .stage{grid-column:2;grid-row:2}
   body:not(.imm) .hotbar{grid-column:2;grid-row:3}

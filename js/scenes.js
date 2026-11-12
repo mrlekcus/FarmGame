@@ -64,28 +64,28 @@ function forestAct(x, y) {
 }
 
 /* ---------- 霧語沼澤：廣場西邊的石拱門進去，玩家 Lv.6 才能進入。單人場景（不連線），有新的魚和蟲蝶 ---------- */
-let swampBack = null;   // 離開沼澤要回哪個廣場：{ kind, code }；null = 公開廣場
-function enterSwamp() {
+function enterSwamp() {                  // 沼澤和廣場共用同一條連線（像咖啡廳、塔羅屋一樣），靠位置訊息裡的 w='s' 分開，只看得到同在沼澤的人
   if (scene !== 'plaza') return;
-  swampBack = roomInfo ? { kind: roomInfo.kind, code: roomInfo.code } : { kind: 'public' };
-  leaveVillage(true);                      // 先安靜地離開廣場（停掉連線）；人會被放回農場，下面馬上換成沼澤
-  hideCatch(); fishing = null;
+  hideCatch(); fishing = null; netFish({ a: 0 });
   pose = null; scene = 'swamp'; K = skind; W = SWW; H = SWH; if (typeof petSync === 'function') petSync();
   critters.length = 0; critSlot = -1;
   pl.x = pl.sx = SWW - 2; pl.y = pl.sy = 7; pl.prog = 1; pl.face = 'left'; pressed.length = 0;
-  view.snap = true; fitView(); toast('來到霧語沼澤');
+  view.snap = true; fitView(); lastPosKey = ''; posAcc = 999; trackSelf(); toast('來到霧語沼澤');
 }
 function leaveSwamp(silent) {
   if (scene !== 'swamp') return;
-  const back = swampBack; swampBack = null;
   critters.length = 0; critSlot = -1; hideCatch(); fishing = null;
-  scene = 'farm'; K = kind; W = BW; H = BH;
-  pl.x = pl.sx = 18; pl.y = pl.sy = 5; pl.prog = 1; pl.face = 'left'; pressed.length = 0;
-  view.snap = true; fitView();
-  if (silent) return;
-  plazaSpawn = [SWG_SPAWN[0], SWG_SPAWN[1], 'right'];   // 回到廣場時站在石拱門前
-  if (back && back.kind === 'private' && back.code) joinVillage('private_join', back.code); else joinVillage('public');
-  toast('回到廣場');
+  if (silent) {                          // 安靜離開（要回農場或去別處）：連廣場的連線一起收掉
+    netFish({ a: 0 }); leaveVillage(true);
+    scene = 'farm'; K = kind; W = BW; H = BH;
+    pl.x = pl.sx = 18; pl.y = pl.sy = 5; pl.prog = 1; pl.face = 'left'; pressed.length = 0;
+    view.snap = true; fitView();
+    return;
+  }
+  netFish({ a: 0 });
+  scene = 'plaza'; K = pkind; W = PLW; H = PLH; pose = null;
+  pl.x = pl.sx = SWG_SPAWN[0]; pl.y = pl.sy = SWG_SPAWN[1]; pl.prog = 1; pl.face = 'right'; pressed.length = 0;
+  view.snap = true; fitView(); lastPosKey = ''; posAcc = 999; trackSelf(); toast('回到廣場');
 }
 function swampAct(x, y) {
   if (x < 0 || y < 0 || x >= W || y >= H) return;

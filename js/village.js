@@ -42,13 +42,13 @@ function typingBubble(cx, cy, now) {
 const typingOn = rp => !!rp.typing && performance.now() - rp.typing < 6000;   // 對方每 3 秒會補送一次，超過 6 秒沒更新就當作沒在輸入了
 /* 同步的「世界」：p 廣場、t 塔羅屋、h 屋子（拜訪朋友或自己的家，各屋子有自己的頻道）。
    廣場和塔羅屋共用同一條村頻道，靠位置訊息裡的 w 分開；只有和自己同一個世界的人才會畫出來。 */
-const worldKey = () => scene === 'cafe' ? 'c' : scene === 'tarot' ? 't' : scene === 'house' ? 'h' : scene === 'boat' ? 'b' : 'p';
-const syncScene = () => scene === 'plaza' || scene === 'tarot' || scene === 'cafe' || scene === 'boat' || (scene === 'house' && !!net);
+const worldKey = () => scene === 'swamp' ? 's' : scene === 'cafe' ? 'c' : scene === 'tarot' ? 't' : scene === 'house' ? 'h' : scene === 'boat' ? 'b' : 'p';
+const syncScene = () => scene === 'plaza' || scene === 'swamp' || scene === 'tarot' || scene === 'cafe' || scene === 'boat' || (scene === 'house' && !!net);
 const hereRp = rp => (rp.w || 'p') === worldKey();
-const worldOf = w => w === 'c' ? 'c' : w === 't' ? 't' : w === 'h' ? 'h' : w === 'b' ? 'b' : 'p';
-const worldW = w => w === 'c' ? CFW : w === 't' ? RMW : w === 'h' ? houseMapW() : w === 'b' ? BTW : PLW;
-const worldH = w => w === 'c' ? CFH : w === 't' ? RMH : w === 'h' ? houseMapH() : w === 'b' ? BTH : PLH;
-const WORLD_IN = { p: '來到廣場', c: '進了咖啡廳', t: '進了塔羅屋', h: '來到屋子裡', b: '上船了' };
+const worldOf = w => w === 's' ? 's' : w === 'c' ? 'c' : w === 't' ? 't' : w === 'h' ? 'h' : w === 'b' ? 'b' : 'p';
+const worldW = w => w === 's' ? SWW : w === 'c' ? CFW : w === 't' ? RMW : w === 'h' ? houseMapW() : w === 'b' ? BTW : PLW;
+const worldH = w => w === 's' ? SWH : w === 'c' ? CFH : w === 't' ? RMH : w === 'h' ? houseMapH() : w === 'b' ? BTH : PLH;
+const WORLD_IN = { s: '來到霧語沼澤', p: '來到廣場', c: '進了咖啡廳', t: '進了塔羅屋', h: '來到屋子裡', b: '上船了' };
 const remoteAt = (x, y) => {
   let hit = null;
   remotes.forEach(rp => { if (rp.tx === x && rp.ty === y && hereRp(rp)) hit = rp; });
@@ -212,9 +212,9 @@ function onFish(p) {
   const rp = typeof p.i === 'string' ? remotes.get(p.i) : null;
   if (!rp) return;
   if (p.a !== 1 && p.a !== 2) { rp.fish = null; return; }
-  const bt = scene === 'boat';
-  const x = intIn(p.x, 0, (bt ? BTW : PLW) - 1, -1), y = intIn(p.y, 0, (bt ? BTH : PLH) - 1, -1);
-  if (x < 0 || y < 0 || (bt ? dkind : pkind)[y][x] !== WA) { rp.fish = null; return; }
+  const bt = scene === 'boat', sw = scene === 'swamp';
+  const x = intIn(p.x, 0, (bt ? BTW : sw ? SWW : PLW) - 1, -1), y = intIn(p.y, 0, (bt ? BTH : sw ? SWH : PLH) - 1, -1);
+  if (x < 0 || y < 0 || (bt ? dkind : sw ? skind : pkind)[y][x] !== WA) { rp.fish = null; return; }
   if (p.a === 2) { if (bt) rp.fish = { x, y, phase: 'fight', t0: Date.now() }; return; }     // 出海團：對方正在跟魚拉扯
   const bite = p.b === 1;
   if (rp.fish && rp.fish.x === x && rp.fish.y === y) rp.fish.phase = bite ? 'bite' : rp.fish.phase;
@@ -227,7 +227,7 @@ function onShow(p) {
   const rp = typeof p.i === 'string' ? remotes.get(p.i) : null;
   const kd = p.t === 'bug' ? 'bug' : 'fish';
   const f = typeof p.k === 'string' ? (kd === 'bug' ? bugCat : fishCat).find(x => x.key === p.k) : null;
-  if (!rp || !f) return;
+  if (!rp || !f || !hereRp(rp)) return;
   const rc = RARITY[f.rarity] || ['', '#e0b896'];
   rp.show = { kind: kd, k: f.key, name: f.name, col: rc[1], at: performance.now() };
   addLog(rp.name, '展示了「' + f.name + '」（' + rc[0] + '）', false);
@@ -237,13 +237,14 @@ function onChat(p) {
   const rp = typeof p.i === 'string' ? remotes.get(p.i) : null;
   const text = clean(p.t, 40).trim();
   if (!rp || !text) return;
+  if (worldOf(p.w) !== worldKey()) return;   // 廣場、沼澤、咖啡廳、塔羅屋、屋子、船各聊各的：不同世界的聊天不顯示
   rp.bubble = { txt: text, at: performance.now() }; rp.typing = 0;
   addLog(rp.name, text, false);
 }
 function onTyping(p) {
   if (!p || typeof p !== 'object') return;
   const rp = typeof p.i === 'string' ? remotes.get(p.i) : null;
-  if (rp) rp.typing = p.a === 1 ? performance.now() : 0;
+  if (rp && hereRp(rp)) rp.typing = p.a === 1 ? performance.now() : 0;
 }
 /* 同一個主題的頻道在 supabase-js 裡會被重用：舊的還沒離開乾淨就用同名開新的，會拿到壞掉的舊頻道。
    所以每次換頻道都要等舊的完全移除後才建立新的。 */
@@ -365,7 +366,7 @@ function sendPos(dt) {
 /* 看門狗：頻道連上後如果掉線又沒自己恢復，就整條重建；回到前景、網路恢復時也會檢查 */
 function netWatch(force) {
   if (!ready || !sb) return;
-  if (net && (scene === 'plaza' || scene === 'tarot' || scene === 'cafe' || scene === 'house' || scene === 'boat')) {
+  if (net && (scene === 'plaza' || scene === 'swamp' || scene === 'tarot' || scene === 'cafe' || scene === 'house' || scene === 'boat')) {
     const st = net.ch.state;
     if (st === 'joined') {
       net.bad = 0; if (!net.ok) { net.ok = true; trackSelf(); }
@@ -392,7 +393,7 @@ document.addEventListener('visibilitychange', () => {
 });
 window.addEventListener('online', () => setTimeout(() => netWatch(true), 3000));
 function netFish(p) {
-  if ((scene !== 'plaza' && scene !== 'boat') || !net || !net.ok) return;
+  if ((scene !== 'plaza' && scene !== 'boat' && scene !== 'swamp') || !net || !net.ok) return;
   try { net.ch.send({ type: 'broadcast', event: 'fish', payload: { i: myUid, ...p } }); } catch (e) { /* 略過 */ }
 }
 let lastShow = 0;
@@ -419,7 +420,7 @@ function sendChat(text) {
   const now = performance.now();
   if (now - lastChat < 900) { toast('慢一點，別洗頻喔', 1200); return; }
   lastChat = now;
-  try { net.ch.send({ type: 'broadcast', event: 'chat', payload: { i: myUid, t: text } }); } catch (e) { return; }
+  try { net.ch.send({ type: 'broadcast', event: 'chat', payload: { i: myUid, t: text, w: worldKey() } }); } catch (e) { return; }
   myBubble = { txt: text, at: now }; myTyping = false;
   addLog(me.name, text, true);
 }
