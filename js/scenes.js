@@ -95,6 +95,7 @@ function swampAct(x, y) {
   if (k === SWG) { leaveSwamp(); return; }
   if (t.id === 'net' && critters.length) { swingNet(x, y); return; }   // 蟲在水面上（水黽）時，面向水面也要能揮網
   if (k === WA) { if (t.id === 'rod') startFish(x, y); else if (t.id === 'net') swingNet(x, y); else pop(x, y, '這是沼澤的湖（換成釣竿就能釣魚）', '#cfe8f7'); return; }
+  if (k === SWC) { swampCook(x, y); return; }
   if (k === SWS) { toast('告示牌：霧語小徑——湖邊的水裡和蘆葦叢裡，有外面看不到的魚和蟲蝶。'); return; }
   if (k === SWR) { pop(x, y, '長滿青苔的岩石', '#ffffff'); return; }
   if (k === SWP) { pop(x, y, '古老的石柱', '#ffffff'); return; }

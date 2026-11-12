@@ -102,7 +102,7 @@ function ckStart(key) {
   const T = ckTier(rc);
   if (ckLv() < T) { toast('烹飪 Lv.' + T + ' 才能做這道'); return; }
   if (maxCook(rc) < 1) { toast('材料不夠'); return; }
-  if (!ckAnchor || (scene !== 'house' && !(scene === 'plaza' && ckAnchor.plaza))) { toast('要站在廚房灶台前面'); return; }
+  if (!ckAnchor || (scene !== 'house' && !((scene === 'plaza' || scene === 'swamp') && ckAnchor.plaza))) { toast('要站在廚房灶台前面'); return; }
   closeKitchen();
   const p = ckPlan(rc), now = Date.now();
   cooking = { id: ++cookSeq, rc, T: p.T, plan: p.plan, maxMiss: p.maxMiss, miss: 0, done: 0, i: 0, hit: 0, plaza: !!ckAnchor.plaza, itId: ckAnchor.id, host: ckAnchor.at || null, fx: ckAnchor.fx, fy: ckAnchor.fy, scene, phase: 'wait', t0: now, at: now + 900, ok: true, heat: 0, lt: now, msg: '', needRel: false };
@@ -128,7 +128,7 @@ function cookJudge(c, now) {
 }
 function cookTick() {
   const c = cooking; if (!c || c.phase === 'serve') return;
-  const it = c.plaza ? (scene === 'plaza') : scene === 'house' && house ? house.items.find(x => x.id === c.itId) : null;
+  const it = c.plaza ? (scene === 'plaza' || scene === 'swamp') : scene === 'house' && house ? house.items.find(x => x.id === c.itId) : null;
   if (c.scene !== scene || !it || paused() || pressed.length) { cookCancel(); return; }
   const now = Date.now(), rd = c.plan[c.i], dt = Math.min(100, now - (c.lt || now)); c.lt = now;
   if (c.phase === 'wait') { if (now >= c.at) { c.phase = 'idle'; c.heat = 0; c.needRel = actHeld; } }
@@ -186,7 +186,7 @@ function drawCooking(now) {
   const c = cooking;
   if (!c || c.scene !== scene) return;
   let rt = null;
-  if (c.plaza) { const o = CAMP.find(q => 'camp:' + q.k === c.itId); if (o) rt = { x: o.x - RX, y: o.y - RY, w: o.w, h: o.h }; }
+  if (c.plaza) { const o = cookObjById(c.itId); if (o) rt = { x: o.x - RX, y: o.y - RY, w: o.w, h: o.h }; }
   else { const it = house ? house.items.find(x => x.id === c.itId) : null; rt = it && itemRect(it); }
   if (!rt) return;
   const rd = c.plan[Math.min(c.i, c.plan.length - 1)];

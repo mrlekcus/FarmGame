@@ -11,6 +11,13 @@ function campCook(x, y) {
   ckAnchor = { id: 'camp:' + o.k, fx: x, fy: y, at: null, plaza: true };
   openKitchen();
 }
+/* 沼澤的蘆葦頂炊棚：位置在 js/world.js 的 SWAMP_COOK（SWC 格子）；煮法跟廣場露營區一樣（伺服器同樣收 p_plaza = true） */
+function swampCook(x, y) {
+  ckAnchor = { id: 'camp:' + SWAMP_COOK.k, fx: x, fy: y, at: null, plaza: true };
+  openKitchen();
+}
+/* 目前場景裡、烹飪用的那一台（廣場露營區或沼澤炊棚）；id 是 'camp:' + k */
+const cookObjById = id => CAMP.find(q => 'camp:' + q.k === id) || ('camp:' + SWAMP_COOK.k === id ? SWAMP_COOK : null);
 const cpSh = (x, y, w) => r('rgba(90,60,40,.18)', x, y, w, 1);
 function cpFire(x, y, now, w, big) {
   const f = Math.floor(now / 120) % 3;
@@ -42,6 +49,23 @@ function cpGrill(x, y, now, big) {   // 烤肉架（2×1）
   const col = ['#b0623a', '#6fbf5a', '#e8584a', '#b0623a', '#f0c04a'];
   for (let i = 0; i < 5; i++) { r('#c9a67a', x + 4 + i * 5, y + 3, 1, 5); r(col[i], x + 3 + i * 5, y + 4, 3, 2); }
   cpSteam(x + 10, y + 2, now); cpSteam(x + 22, y + 1, now + 300);
+}
+function cpShed(x, y, now, big) {   // 蘆葦頂炊棚（2×2）：四根木柱、茅草頂、棚下一座泥磚灶，吊著鍋鏟和乾辣椒
+  cpSh(x + 2, y + 31, 28);
+  r('#7a4e2c', x + 3, y + 9, 2, 22); r('#7a4e2c', x + 27, y + 9, 2, 22); r('#a8764a', x + 3, y + 9, 1, 22);
+  for (let i = 0; i < 9; i++) r(i % 2 ? '#c9b46a' : '#d8c47a', x + 1, y + 1 + i, 30, 1);
+  r('#a8924a', x + 1, y + 9, 30, 2); for (let i = 0; i < 15; i++) r('#b09a52', x + 2 + i * 2, y + 11 + (i % 3), 1, 2);
+  r('#8a7438', x + 1, y + 1, 30, 1);
+  ob('#9a7a58', '#5a4430', x + 8, y + 22, 16, 9); ob('#2a1c14', '#4a3624', x + 12, y + 25, 8, 6);
+  const f = Math.floor(now / (big ? 90 : 130)) % 3, u = big ? 1 : 0;
+  r('#ff8a3c', x + 13, y + 28 - (f === 0 ? 1 : 0) - u, 3, 3 + u); r('#ffd34d', x + 16, y + 28 - (f === 1 ? 1 : 0) - u, 3, 3 + u);
+  ob('#4a4a55', '#2b2b33', x + 10, y + 16, 12, 7); r('#e8a05a', x + 11, y + 17, 10, 1);
+  r('#d8d8e2', x + 6, y + 13, 1, 6); r('#8a5a34', x + 5, y + 18, 3, 2);
+  r('#e8584a', x + 24, y + 13, 2, 4); r('#e8584a', x + 26, y + 13, 1, 3); r('#6fbf5a', x + 24, y + 12, 1, 1);
+  cpSteam(x + 14, y + 14, now);
+}
+function drawSwampCook(now) {   // 沼澤的炊棚（在 art/swamp.js 的 drawSwampProps 裡呼叫）；正在煮的時候火燒旺一點
+  cpShed(SWAMP_COOK.x * T, SWAMP_COOK.y * T, now, !!(cooking && cooking.plaza && cooking.scene === 'swamp' && cooking.phase === 'heat'));
 }
 function cpTent(x, y) {   // 帳篷（2×2，裝飾）
   cpSh(x + 2, y + 30, 28);

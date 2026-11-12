@@ -232,7 +232,7 @@ for (let y = CFB.y; y < CFB.y + CFB.h; y++) for (let x = CFB.x; x < CFB.x + CFB.
 pkind[CFB.y + CFB.h - 1][CFB.x + 2] = CFD;
 /* ---------- 廣場最西邊的出口：石拱門（SWG）通往霧語沼澤，玩家 Lv.6 才能進入。
    東西向大路的西端換成入口，上下各立一根石柱（上面那根兩格高），旁邊立一塊告示牌（SWS）。畫法在 js/art/swamp.js。 ---------- */
-const SWG = 90, SWP = 91, SWS = 92, SWR = 93;   // SWG 石拱門（面向它按動作鍵）  SWP 石柱  SWS 告示牌  SWR 岩石（都走不進去）
+const SWG = 90, SWP = 91, SWS = 92, SWR = 93, SWC = 94;   // SWG 石拱門（面向它按動作鍵）  SWP 石柱  SWS 告示牌  SWR 岩石（都走不進去）
 pkind[PYO + 7][0] = SWG;
 pkind[PYO + 5][0] = SWP; pkind[PYO + 6][0] = SWP; pkind[PYO + 8][0] = SWP;
 pkind[PYO + 6][2] = SWS;
@@ -241,6 +241,7 @@ let plazaSpawn = null;            // 下一次進廣場要站的位置 [x, y, fa
 /* ---------- 霧語沼澤（20×14，鏡頭固定）：中間一座睡蓮湖，棧橋和釣台，蘆葦叢裡有蟲；東邊的沙路通回廣場。
    和森林一樣是單人場景（不連線）；蟲蝶的 zone 和魚的 zone 都是 'swamp'（要和 SQL 一致）。 ---------- */
 const SWW = 20, SWH = 14;
+const SWAMP_COOK = { k: 'shed', x: 15, y: 8, w: 2, h: 2, cook: true, n: '蘆葦頂炊棚' };   // 沼澤的烹飪工具（入口沙路東南邊，2×2）；畫法在 js/camp.js 的 cpShed
 const skind = Array.from({ length: SWH }, () => Array(SWW).fill(G));
 for (let y = 0; y < SWH; y++) for (let x = 0; x < SWW; x++) if (x === 0 || y === 0 || x === SWW - 1 || y === SWH - 1) skind[y][x] = TR;
 {
@@ -253,6 +254,7 @@ for (let y = 0; y < SWH; y++) for (let x = 0; x < SWW; x++) if (x === 0 || y ===
   skind[7][SWW - 1] = SWG; skind[6][SWW - 1] = SWP; skind[8][SWW - 1] = SWP;
   skind[5][17] = SWS;
   [[11, 3], [17, 12]].forEach(([x, y]) => { skind[y][x] = SWR; });
+  for (let y = SWAMP_COOK.y; y < SWAMP_COOK.y + SWAMP_COOK.h; y++) for (let x = SWAMP_COOK.x; x < SWAMP_COOK.x + SWAMP_COOK.w; x++) skind[y][x] = SWC;   // 蘆葦頂炊棚（走不進去，面向它按動作鍵做料理）
   [[3, 2], [4, 2], [14, 2], [16, 3], [3, 11], [12, 11], [15, 11], [17, 10]].forEach(([x, y]) => { skind[y][x] = TR; });
 }
 const SWAMP_MUSH = [[13, 2], [2, 9], [6, 11]];                         // 紅蘑菇（裝飾）

@@ -157,6 +157,7 @@ function drawSwampProps(now) {
   swampDeco.lily.forEach(([x, y], i) => swampLily(x * T, y * T, i, now));
   swampDeco.mush.forEach(([x, y]) => swampMush(x * T, y * T));
   swampDeco.reed.forEach(([x, y], i) => swampReed(x * T, y * T, i, now));
+  drawSwampCook(now);   // 蘆葦頂炊棚（可以做料理）
 }
 /* 霧：幾條淡淡的白霧帶慢慢飄過，貼近水面的地方特別濃（夜裡和下雨天另外有自己的濾鏡） */
 function drawSwampMist(now) {

@@ -212,6 +212,7 @@ function updateTip() {
       const k = K[y][x];
       if (k === SWG) s = '出口：按動作鍵回廣場。';
       else if (k === SWS) s = '告示牌：按動作鍵看看寫了什麼。';
+      else if (k === SWC) s = SWAMP_COOK.n + '：按動作鍵做料理（跟家裡的灶台一樣，用自己的材料）。';
       else if (k === SWR) s = '長滿青苔的岩石。';
       else if (k === SWP) s = '古老的石柱。';
       else if (k === PR) s = '棧橋：可以站在上面，面向水面拋竿。';
