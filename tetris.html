@@ -13,6 +13,7 @@
   .b.on{background:#3a4a72;transform:translateY(1px)}
   .b.y{border-color:#ffd34d}.b.p{border-color:#ff7ab8}.b.g{border-color:#7fd08a}.b.v{border-color:#b79bf0}.b.k{border-color:#98a1b6}
   #x{display:none;position:fixed;z-index:9;background:#2a3656;border:2px solid #ff7ab8;border-radius:8px;color:#fff;font:700 13px/1 inherit;padding:9px 12px;touch-action:manipulation}
+  #snd{display:block;position:fixed;z-index:9;background:#2a3656;border:2px solid #5ae0ff;border-radius:8px;color:#fff;font:700 13px/1 inherit;padding:9px 12px;touch-action:manipulation;cursor:pointer}
   #hint{position:fixed;left:0;right:0;bottom:6px;text-align:center;color:#6f7fa0;font-size:12px;pointer-events:none}
 </style>
 </head>
@@ -21,6 +22,7 @@
 <div id="pad"></div>
 <div id="hint"></div>
 <div id="x">✕ 離開</div>
+<div id="snd">🔊</div>
 <script>
 'use strict';
 /* ================= 引擎（不碰畫面） ================= */
@@ -120,10 +122,11 @@ class Match {
     p.sent += atk;   // 總攻擊行數：不管有沒有被抵銷
     let rest = atk;
     while (rest > 0 && p.pending.length) { const e = p.pending[0], d = Math.min(rest, e.n); e.n -= d; rest -= d; if (!e.n) p.pending.shift(); }
+    const cancel = atk - rest;   // 被自己抵銷掉的行數
     if (rest > 0) this.send(p, rest);
-    if (!cleared) this.applyGarbage(p);
+    let garb = 0; if (!cleared) garb = this.applyGarbage(p);
     if (p.isMe && cleared && this.hooks.onClear) this.hooks.onClear(cleared, atk, tag);
-    return { cleared, atk };
+    return { cleared, atk, cancel, out: rest, garb };
   }
   /* 機器人：一步決定落點並立刻落下 */
   botMove(p) {
@@ -190,6 +193,257 @@ const hx = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
 const shade = (h, f) => '#' + hx(h).map(v => Math.max(0, Math.min(255, Math.round(v * f))).toString(16).padStart(2, '0')).join('');
 const T = (s, x, y, size, col = '#fff', al = 'm', ol = '#0a0e1c') => texts.push([s, x, y, size, col, al, ol]);
 
+/* ================= 打擊感：音效、震動、特效 ================= */
+const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const RB = ['#ff7ab8', '#ffd34d', '#7fd08a', '#5ae0ff', '#b79bf0'];
+const SND = (function () {
+  let ac = null, master = null, nb = null, on = true; const lastAt = {};
+  try { on = localStorage.getItem('tt_snd') !== '0'; } catch (e) { /* 略過 */ }
+  function ctx_() {
+    if (!on) return null;
+    if (!ac) {
+      try {
+        const C = window.AudioContext || window.webkitAudioContext; if (!C) return null;
+        ac = new C(); master = ac.createGain(); master.gain.value = .5;
+        const cp = ac.createDynamicsCompressor(); master.connect(cp); cp.connect(ac.destination);
+        const n = ac.sampleRate >> 1; nb = ac.createBuffer(1, n, ac.sampleRate); const d = nb.getChannelData(0); for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
+      } catch (e) { ac = null; return null; }
+    }
+    try { if (ac.state === 'suspended') ac.resume(); } catch (e) { /* 略過 */ }
+    return ac;
+  }
+  function tone(f0, f1, dur, type, vol, delay) {
+    const a = ctx_(); if (!a) return;
+    try {
+      const t = a.currentTime + (delay || 0), o = a.createOscillator(), gn = a.createGain();
+      o.type = type || 'sine'; o.frequency.setValueAtTime(f0, t); if (f1 !== f0) o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t + dur);
+      gn.gain.setValueAtTime(.0001, t); gn.gain.exponentialRampToValueAtTime(vol, t + .006); gn.gain.exponentialRampToValueAtTime(.0001, t + dur);
+      o.connect(gn); gn.connect(master); o.start(t); o.stop(t + dur + .03);
+    } catch (e) { /* 略過 */ }
+  }
+  function noise(dur, vol, f0, f1, ftype, delay) {
+    const a = ctx_(); if (!a || !nb) return;
+    try {
+      const t = a.currentTime + (delay || 0), sr = a.createBufferSource(), fl = a.createBiquadFilter(), gn = a.createGain();
+      sr.buffer = nb; fl.type = ftype || 'lowpass'; fl.frequency.setValueAtTime(f0, t); if (f1 !== f0) fl.frequency.exponentialRampToValueAtTime(Math.max(40, f1), t + dur);
+      gn.gain.setValueAtTime(vol, t); gn.gain.exponentialRampToValueAtTime(.0001, t + dur);
+      sr.connect(fl); fl.connect(gn); gn.connect(master); sr.start(t); sr.stop(t + dur + .03);
+    } catch (e) { /* 略過 */ }
+  }
+  const gate = (k, ms) => { const n = performance.now(); if (n - (lastAt[k] || 0) < ms) return false; lastAt[k] = n; return true; };
+  const hz = (f, st) => f * Math.pow(2, st / 12);
+  return {
+    get on() { return on; },
+    toggle() { on = !on; try { localStorage.setItem('tt_snd', on ? '1' : '0'); } catch (e) { /* 略過 */ } if (on) { ctx_(); tone(660, 990, .08, 'triangle', .15); } return on; },
+    unlock() { if (on) ctx_(); },
+    move() { if (gate('mv', 40)) tone(300, 250, .03, 'square', .035); },
+    rotate() { if (gate('rt', 30)) tone(420, 780, .05, 'triangle', .11); },
+    hold() { tone(300, 520, .08, 'sine', .14); noise(.05, .05, 3000, 3000, 'highpass'); },
+    land() { if (gate('ld', 60)) { noise(.045, .12, 1400, 500, 'lowpass'); tone(150, 80, .06, 'sine', .22); } },
+    lock() { noise(.04, .08, 1800, 700, 'lowpass'); tone(200, 110, .05, 'triangle', .14); },
+    drop(d) { const k = Math.min(1, d / 14); noise(.09, .22 + k * .2, 2200, 300, 'lowpass'); tone(190, 42, .16 + k * .06, 'sine', .5 + k * .25); tone(1600, 700, .03, 'square', .05); },
+    clear(n, combo, b2b) {
+      const base = hz(523.25, Math.min(combo, 10)), seq = [0, 4, 7, 12, 16];
+      for (let i = 0; i <= n; i++) { const f = hz(base, seq[i]); tone(f, f, .16, 'triangle', .17, i * .05); tone(f * 2, f * 2, .1, 'square', .035, i * .05); }
+      noise(.2 + n * .03, .18 + n * .04, 7000, 800, 'highpass');
+      tone(140, 55, .18, 'sine', .35 + n * .08);
+      if (n >= 4) { tone(110, 30, .55, 'sine', .9); noise(.45, .35, 2600, 160, 'lowpass'); [0, 4, 7, 12].forEach((st, i) => { const f = hz(base, st); tone(f, f, .45, 'sawtooth', .06, .22 + i * .02); }); }
+      if (b2b) tone(base * 3, base * 3, .25, 'sine', .12, .3);
+    },
+    combo(c) { if (c >= 1) { const f = 400 * Math.pow(2, Math.min(c, 12) / 12 * 1.5); tone(f, f * 1.5, .1, 'square', .06, .02); } },
+    perfect() { [0, 4, 7, 12, 16, 19, 24].forEach((st, i) => { const f = hz(523.25, st); tone(f, f, .3, 'triangle', .18, i * .07); }); noise(.6, .2, 9000, 1000, 'highpass'); },
+    send(n) { tone(420, 1500, .13, 'triangle', .09 + Math.min(n, 6) * .01); noise(.12, .06, 4000, 9000, 'highpass'); },
+    hitOpp() { if (gate('ho', 45)) { tone(900, 260, .07, 'square', .08); noise(.05, .1, 3500, 600, 'bandpass'); } },
+    cancel() { tone(1318, 1318, .09, 'triangle', .13); tone(1760, 1760, .12, 'triangle', .13, .06); },
+    warn() { if (gate('wn', 120)) { tone(210, 170, .08, 'square', .1); tone(210, 170, .08, 'square', .1, .1); } },
+    thump(n) { tone(170, 60, .14, 'sine', .3 + Math.min(.3, n * .05)); noise(.08, .15, 800, 200, 'lowpass'); },
+    hit(n) { const k = Math.min(1, n / 6); tone(130, 38, .22 + k * .15, 'sine', .55 + k * .3); noise(.14 + k * .1, .35, 900, 150, 'lowpass'); tone(95, 60, .3, 'sawtooth', .08 + k * .06); },
+    koOpp() { noise(.28, .3, 5000, 400, 'bandpass'); tone(700, 90, .25, 'square', .1); },
+    koMine() { tone(600, 120, .22, 'square', .14); noise(.3, .3, 4000, 400, 'bandpass', .08); },
+    die() { tone(420, 50, 1, 'sawtooth', .22); noise(.7, .35, 2500, 100, 'lowpass'); tone(80, 30, .8, 'sine', .7); },
+    win() { [0, 4, 7, 12, 16, 19, 24, 28].forEach((st, i) => { const f = hz(523.25, st); tone(f, f, .35, 'triangle', .18, i * .09); tone(f * 2, f * 2, .2, 'square', .03, i * .09); }); },
+    tick() { tone(660, 660, .07, 'sine', .14); },
+    go() { tone(990, 990, .22, 'triangle', .2); tone(1320, 1320, .3, 'triangle', .16, .08); }
+  };
+})();
+const buzz = p => { if (!SND.on) return; try { if (navigator.vibrate) navigator.vibrate(p); } catch (e) { /* 略過 */ } };
+const lighten = (h, a) => '#' + hx(h).map(v => Math.round(v + (255 - v) * a).toString(16).padStart(2, '0')).join('');
+
+const FX = { parts: [], proj: [], trails: [], rowFl: [], cellFl: [], bigs: [], cardFl: new Map(), shake: 0, zoom: 0, flash: 0, flashCol: '#fff', bounce: 0, bump: 0, redFl: 0, barFl: 0, stop: 0 };
+const cardPos = new Map(); let BR = { x: 190, y: 40, cell: 10 };
+function fxReset() {
+  ['parts', 'proj', 'trails', 'rowFl', 'cellFl', 'bigs'].forEach(k => { FX[k].length = 0; }); FX.cardFl.clear();
+  FX.shake = FX.zoom = FX.flash = FX.bounce = FX.bump = FX.redFl = FX.barFl = FX.stop = 0;
+}
+const addShake = a => { FX.shake = Math.min(7, Math.max(FX.shake, a)); };
+function burst(x, y, n, cols, spd, life, grav, size) {
+  for (let i = 0; i < n; i++) { const a = Math.random() * 6.283, v = spd * (.35 + Math.random() * .65); FX.parts.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - spd * .25, t: 0, life: life * (.7 + Math.random() * .6), c: cols[rnd(cols.length)], s: size || 2, g: grav }); }
+}
+function dust(x, y, n, spd) {
+  for (let i = 0; i < n; i++) FX.parts.push({ x, y, vx: (Math.random() - .5) * spd * 2, vy: -Math.random() * spd * .5, t: 0, life: .2 + Math.random() * .15, c: Math.random() < .5 ? '#cfd8ee' : '#8fa0c0', s: Math.random() < .5 ? 1 : 2, g: 30 });
+}
+const tickArr = (arr, s, fn) => { for (let i = arr.length - 1; i >= 0; i--) { const e = arr[i]; e.t += s; if (e.t >= e.life) { arr.splice(i, 1); if (fn) fn(e); } } };
+function cardHit(p, n) {
+  FX.cardFl.set(p, { t: .35, max: .35, m: Math.min(1, .4 + n * .12) });
+  const c = cardPos.get(p); if (c) burst(c.x + c.w / 2, c.y + c.h / 2, 6 + Math.min(10, n * 2), ['#fff', '#ffb347', '#ff5c7a'], 60, .35, 160, 2);
+  SND.hitOpp();
+}
+function barHit(n) {
+  FX.barFl = Math.max(FX.barFl, .5); addShake(.8 + Math.min(2, n * .25)); SND.thump(n);
+  burst(BR.x - 4, BR.y + BR.cell * (ROWS - HID) - 14, 5 + Math.min(8, n), ['#ff5c7a', '#fff'], 50, .3, 100, 2);
+}
+function fxUpdate(dt) {
+  const s = dt / 1000;
+  FX.stop = Math.max(0, FX.stop - dt);
+  FX.shake *= Math.pow(.0008, s); if (FX.shake < .05) FX.shake = 0;
+  FX.zoom *= Math.pow(.003, s); if (FX.zoom < .0005) FX.zoom = 0;
+  FX.bounce *= Math.pow(.002, s); if (Math.abs(FX.bounce) < .05) FX.bounce = 0;
+  FX.bump *= Math.pow(.004, s); if (Math.abs(FX.bump) < .05) FX.bump = 0;
+  FX.flash = Math.max(0, FX.flash - s * 3.2); FX.redFl = Math.max(0, FX.redFl - s * 2.4); FX.barFl = Math.max(0, FX.barFl - s * 2.2);
+  for (const e of FX.parts) { e.t += s; e.vy += e.g * s; e.x += e.vx * s; e.y += e.vy * s; }
+  for (let i = FX.parts.length - 1; i >= 0; i--) if (FX.parts[i].t >= FX.parts[i].life) FX.parts.splice(i, 1);
+  tickArr(FX.proj, s, e => { if (e.kind === 'out') cardHit(e.p, e.n); else barHit(e.n); });
+  tickArr(FX.trails, s); tickArr(FX.rowFl, s); tickArr(FX.cellFl, s); tickArr(FX.bigs, s);
+  for (const [k, v] of FX.cardFl) { v.t -= s; if (v.t <= 0) FX.cardFl.delete(k); }
+}
+/* 偵測：對手被淘汰、我擊倒了人、有人打過來 */
+function fxTrack() {
+  if (!match) return;
+  for (const p of match.P) {
+    const was = prevAlive.get(p); prevAlive.set(p, p.alive);
+    if (was && !p.alive && !p.isMe) fxKo(p);
+  }
+  if (me) { if (me.kos > lastKos) fxMyKo(me.kos - lastKos); lastKos = me.kos; }
+}
+function fxKo(p) {
+  const c = cardPos.get(p);
+  if (c) { burst(c.x + c.w / 2, c.y + c.h / 2, 18, ['#ff5c7a', '#fff', '#ffd34d'], 90, .6, 200, 3); FX.cardFl.set(p, { t: .5, max: .5, m: 1 }); }
+  SND.koOpp(); addShake(1.2);
+}
+function fxMyKo(n) {
+  FX.bigs.push({ t: 0, life: 1, s: n > 1 ? 'KO ×' + n : 'KO！', col: '#ff9bb3', size: 16, dy: -42 });
+  addShake(3.5); FX.stop = Math.max(FX.stop, 90); FX.flash = Math.max(FX.flash, .35); FX.flashCol = '#fff'; SND.koMine(); buzz([20, 20, 40]);
+}
+function fxMeDead() {
+  addShake(6.5); FX.flash = .7; FX.flashCol = '#ff2a4a'; FX.zoom = .03;
+  burst(BR.x + BR.cell * COLS / 2, BR.y + 100, 44, ['#ff5c7a', '#fff', '#ff9a3a', '#98a1b6'], 130, .9, 260, 3);
+  SND.die(); buzz([80, 40, 160]);
+}
+function winFx() {
+  FX.flash = .5; FX.flashCol = '#ffd34d';
+  for (let i = 0; i < 6; i++) burst(LW * (.12 + .15 * i), 24 + rnd(40), 16, RB, 120, 1.4, 130, 3);
+  buzz([30, 30, 30, 30, 90]);
+}
+function trackPend() {
+  const n = me.pend;
+  if (n > pendPrev) {
+    const d = n - pendPrev; SND.warn(); buzz(10); addShake(.5 + Math.min(1.6, d * .3)); FX.barFl = Math.max(FX.barFl, .45);
+    const a = me.lastAtk, c = a && cardPos.get(a);
+    if (c && match.t - me.lastHit < .1) FX.proj.push({ t: 0, life: .3, x0: c.x + c.w / 2, y0: c.y + c.h / 2, x1: BR.x - 4, y1: BR.y + BR.cell * (ROWS - HID) - 12, c: '#ff5c7a', kind: 'in', n: d, p: me });
+  }
+  pendPrev = n;
+}
+function landFx() {
+  SND.land();
+  const bot = {}; MATS[cur.t][cur.r].forEach(([cx, cy]) => { const gx = cur.x + cx, gy = cur.y + cy; if (!(gx in bot) || gy > bot[gx]) bot[gx] = gy; });
+  for (const gx in bot) { const gy = bot[gx]; if (gy < HID) continue; dust(BR.x + (+gx) * BR.cell + BR.cell / 2, BR.y + (gy - HID + 1) * BR.cell - 1, 2, 24); }
+}
+function fxDrop(y0, y1, d) {
+  const cell = BR.cell, top = {}, bot = {};
+  MATS[cur.t][cur.r].forEach(([cx, cy]) => { if (!(cx in top) || cy < top[cx]) top[cx] = cy; if (!(cx in bot) || cy > bot[cx]) bot[cx] = cy; });
+  if (d >= 2) for (const cx in top) { const gx = cur.x + (+cx), a = Math.max(0, y0 + top[cx] - HID) * cell, b = Math.max(0, y1 + top[cx] - HID) * cell; if (b > a) FX.trails.push({ t: 0, life: .2, x: BR.x + gx * cell, y0: BR.y + a, y1: BR.y + b, c: COL[cur.t] }); }
+  for (const cx in bot) { const gx = cur.x + (+cx), gy = y1 + bot[cx]; if (gy < HID) continue; dust(BR.x + gx * cell + cell / 2, BR.y + (gy - HID + 1) * cell - 1, 3 + Math.min(3, d >> 2), 55); }
+  FX.bounce += Math.min(3.5, 1 + d * .16); addShake(.7 + Math.min(1.8, d * .09)); SND.drop(d); buzz(d > 8 ? 16 : 9);
+}
+/* 方塊鎖定後：白閃、消行爆裂、攻擊彈道、被打上來的震動 */
+function lockFx(kind, cells, full, res, b2bBefore, tgt) {
+  const cell = BR.cell, w = COLS * cell, h = (ROWS - HID) * cell;
+  cells.forEach(([gx, gy]) => { if (gy >= HID) FX.cellFl.push({ t: 0, life: .14, gx, gy }); });
+  if (kind !== 'hard') SND.lock();
+  const n = full.length;
+  if (!n) {
+    if (res.garb > 0) {
+      const q = res.garb; FX.bump += Math.min(6, q * 1.1); FX.redFl = .9; addShake(1.5 + q * .5); FX.stop = Math.max(FX.stop, 60); SND.hit(q); buzz(q > 3 ? [40, 25, 50] : 30);
+      burst(BR.x + w / 2, BR.y + h - 2, 8 + q * 3, ['#ff5c7a', '#c8d0e0', '#fff'], 70 + q * 8, .5, 220, 2);
+    }
+    return;
+  }
+  const tet = n >= 4;
+  full.forEach(f => {
+    FX.rowFl.push({ t: 0, life: tet ? .45 : .3, y: f.y, tet });
+    for (let i = 0; i < COLS; i++) {
+      const c = f.row[i]; if (!c) continue;
+      const px = BR.x + i * cell + cell / 2, py = BR.y + (f.y - HID) * cell + cell / 2, col = c === 'G' ? '#c8d0e0' : COL[c];
+      for (let k = 0; k < (n >= 3 ? 2 : 1); k++) FX.parts.push({ x: px, y: py, vx: (i - 4.5) * (14 + n * 6) + (Math.random() - .5) * 30, vy: -30 - Math.random() * (50 + n * 20), t: 0, life: .5 + Math.random() * .35, c: col, s: 2 + (Math.random() < .4 ? 1 : 0), g: 260 });
+      if (Math.random() < .5) FX.parts.push({ x: px, y: py, vx: (Math.random() - .5) * 60, vy: -20 - Math.random() * 60, t: 0, life: .3, c: '#fff', s: 1, g: 100 });
+    }
+  });
+  const perfect = me.grid.every(rw => rw.every(c => !c));
+  FX.stop = Math.max(FX.stop, [0, 40, 65, 95, 150][n]); addShake([0, 1.4, 2.4, 3.6, 5.5][n]); FX.zoom = Math.max(FX.zoom, [0, .006, .01, .016, .035][n]);
+  FX.bounce += n; if (tet || perfect) { FX.flash = Math.max(FX.flash, perfect ? .7 : .55); FX.flashCol = '#fff'; }
+  SND.clear(n, me.combo, tet && b2bBefore); if (me.combo >= 1) SND.combo(me.combo); if (perfect) SND.perfect();
+  buzz(tet ? [25, 30, 45] : n * 8);
+  FX.bigs.length = 0;
+  if (perfect) FX.bigs.push({ t: 0, life: 1.3, s: '全消！', col: 'rb', size: 22, dy: 0 });
+  else if (tet) FX.bigs.push({ t: 0, life: 1.2, s: (b2bBefore ? 'B2B ' : '') + 'TETRIS!', col: '#ffd34d', size: b2bBefore ? 16 : 20, dy: 0 });
+  else if (n === 3) FX.bigs.push({ t: 0, life: 1, s: '三行！', col: '#ffe58a', size: 14, dy: 0 });
+  else if (n === 2) FX.bigs.push({ t: 0, life: .9, s: '雙行', col: '#fffaf0', size: 11, dy: 0 });
+  if (me.combo >= 2) FX.bigs.push({ t: 0, life: 1, s: 'COMBO ×' + (me.combo + 1), col: '#ff9bb3', size: 9 + Math.min(me.combo, 8) * .7, dy: perfect || tet ? 20 : 14 });
+  if (res.out > 0 && tgt) {
+    const c = cardPos.get(tgt);
+    if (c) { const sx = BR.x + w / 2, sy = BR.y + (full[0].y - HID) * cell, k = Math.min(8, res.out); for (let i = 0; i < k; i++) FX.proj.push({ t: -i * .04, life: .34 + Math.random() * .08, x0: sx + (Math.random() - .5) * 30, y0: sy, x1: c.x + c.w / 2, y1: c.y + c.h / 2, c: '#ffb347', kind: 'out', p: tgt, n: res.out }); SND.send(res.out); }
+  }
+  if (res.cancel > 0) { burst(BR.x - 4, BR.y + h - 8, 10, ['#fff', '#ffd34d', '#5ae0ff'], 70, .4, 120, 2); FX.barFl = Math.max(FX.barFl, .35); SND.cancel(); }
+}
+/* 繪圖：盤面層（跟著盤面彈動）與最上層 */
+function fxDrawBoardLayer() {
+  const { x, y, cell } = BR, w = COLS * cell, hh = (ROWS - HID) * cell;
+  for (const e of FX.trails) {
+    const a = 1 - e.t / e.life, sh = (e.y1 - e.y0) / 4;
+    for (let k = 0; k < 4; k++) fa(e.c, a * (.12 + .14 * k), e.x + 1, Math.round(e.y0 + k * sh), cell - 2, Math.ceil(sh));
+  }
+  for (const e of FX.rowFl) {
+    if (e.y < HID) continue;
+    const p = e.t / e.life, yy = y + (e.y - HID) * cell, half = w / 2 * Math.min(1, p / .12), al = p < .3 ? 1 : Math.max(0, 1 - (p - .3) / .7), ex = Math.round((1 - p) * (e.tet ? 4 : 1.5));
+    fa('#fff', al, x + w / 2 - half, yy - ex, half * 2, cell + ex * 2);
+    fa('#5ae0ff', al * .8, x + w / 2 - half, yy - ex - 1, half * 2, 1); fa('#5ae0ff', al * .8, x + w / 2 - half, yy + cell + ex, half * 2, 1);
+  }
+  for (const e of FX.cellFl) fa('#fff', (1 - e.t / e.life) * .85, x + e.gx * cell, y + (e.gy - HID) * cell, cell, cell);
+  if (FX.redFl > 0) fa('#ff2a4a', FX.redFl * .45, x, y, w, hh);
+}
+function boardFx(fn) { g.save(); g.translate(0, Math.round(FX.bounce - FX.bump)); fn(); fxDrawBoardLayer(); g.restore(); }
+function fxDrawParts() { for (const p of FX.parts) { g.globalAlpha = Math.max(0, 1 - p.t / p.life); r(p.c, Math.round(p.x), Math.round(p.y), p.s, p.s); } g.globalAlpha = 1; }
+function fxDrawProj() {
+  for (const e of FX.proj) {
+    if (e.t < 0) continue;
+    const u = Math.min(1, e.t / e.life), arc = e.kind === 'out' ? 16 : 8;
+    for (let i = 3; i >= 0; i--) {
+      const v = Math.max(0, u - i * .05), k = v * v, px = Math.round(e.x0 + (e.x1 - e.x0) * k), py = Math.round(e.y0 + (e.y1 - e.y0) * k - Math.sin(v * Math.PI) * arc);
+      if (i === 0) { g.globalAlpha = 1; r(e.c, px - 3, py - 3, 6, 6); r('#fff', px - 1, py - 1, 3, 3); }
+      else { g.globalAlpha = .5 - i * .12; r(e.c, px - 2, py - 2, 4, 4); }
+    }
+  }
+  g.globalAlpha = 1;
+}
+function fxDrawBigs() {
+  const cx = BR.x + COLS * BR.cell / 2, cy = BR.y + 78;
+  for (const e of FX.bigs) {
+    const p = e.t / e.life; let sc = p < .14 ? 1 + (1 - p / .14) * 1.2 : 1; if (p > .72) sc *= Math.max(0, 1 - (p - .72) / .28);
+    const sz = e.size * sc; if (sz < 1) continue;
+    T(e.s, cx + (p < .1 ? (Math.random() - .5) * 2 : 0), cy + e.dy - p * 8, sz, e.col === 'rb' ? RB[Math.floor(e.t * 14) % 5] : e.col);
+  }
+}
+function fxDrawTop() {
+  if (scene !== 'result') fxDrawParts();
+  fxDrawProj();
+  if (FX.flash > 0) fa(FX.flashCol, Math.min(.6, FX.flash * .5), 0, 0, LW, LH);
+  fxDrawBigs();
+}
+const sndEl = document.getElementById('snd');
+const sndShow = () => { sndEl.textContent = SND.on ? '🔊' : '🔇'; };
+sndShow(); sndEl.onclick = () => { SND.toggle(); sndShow(); };
+['pointerdown', 'keydown', 'touchstart'].forEach(ev => addEventListener(ev, () => SND.unlock(), { capture: true, passive: true }));
+
 /* ---------- 版面 ---------- */
 function layout() {
   const iw = innerWidth, ih = innerHeight; land = iw >= ih;
@@ -203,6 +457,7 @@ function layout() {
   document.getElementById('wrap').style.justifyContent = land ? 'center' : 'flex-start';
   buildPad(cw, ch);
   if (embed) { xEl.style.cssText += land ? ';top:8px;right:8px;bottom:auto;left:auto;transform:none' : ';bottom:10px;left:50%;right:auto;top:auto;transform:translateX(-50%)'; }
+  sndEl.style.cssText = land ? (touch ? 'top:8px;left:8px' : 'bottom:3px;left:8px;padding:5px 9px') : 'bottom:10px;left:8px';
   hintEl.textContent = touch ? '' : '← → 或 A D 移動　↓ 或 S 下壓　↑ / W / X 右轉　Z 左轉　空白 直落　C 暫存　點對手換目標';
 }
 function buildPad(cw, ch) {
@@ -231,6 +486,7 @@ let balance = embed ? 0 : 1000, FEE = 100;
 let match = null, me = null, cur = null, hold = null, holdUsed = false, gT = 0, lockT = 0, resets = 0, soft = false;
 let countT = 0, popup = null, koT = 0, paused = false, result = null, resultAt = 0, hurtFlash = 0;
 const keys = {}, das = { left: 0, right: 0, dir: 0 };
+let wasGr = false, pendPrev = 0, lastKos = 0, lastCnt = -1; const prevAlive = new Map();
 
 /* ================= 連線層：同一間店裡坐在椅子上的真人 ================= */
 /* 通訊靠外層遊戲：這裡送 { t:'tt-net', m } 給外層，外層用店內頻道廣播；收到別人的訊息時外層送 { t:'tt-in', from, m } 進來。 */
@@ -284,7 +540,7 @@ function makeRoster() {
   return R;
 }
 const matchHooks = () => ({
-  onMeDead() { scene = 'dying'; koT = 1.6; },
+  onMeDead() { scene = 'dying'; koT = 1.6; fxMeDead(); },
   onClear(n, atk, tag) { popup = { lines: tag.length ? tag : [['', '單行', '雙行', '三行'][n]], atk, t: 1.4 }; },
   onKill(p, killer) { if (mp) netSend({ k: 'ko', mid: mp.mid, s: p.seat, r: p.rank, by: killer ? killer.seat : -1 }); },
   onRemoteAtk(p, tg, n, hole) { if (mp) netSend({ k: 'atk', mid: mp.mid, to: tg.seat, n, h: hole, fs: p.seat }); }
@@ -302,9 +558,10 @@ function buildMatch(R, id, hostUid, asPlayer) {
   mp = { mid: id, host, hostUid, roster: R, bbAt: nowMs(), snAcc: 0, bbAcc: 0, wd: 0, over: false };
   match = new Match(P, matchHooks());
   hold = null; holdUsed = false; popup = null; result = null; hurtFlash = 0; paused = false;
+  fxReset(); prevAlive.clear(); match.P.forEach(q => prevAlive.set(q, true)); lastKos = 0; pendPrev = 0;
   fixOrder = shuffle([0, 1, 2, 3, 4, 5, 6]);
 }
-function enterPlay() { spawn(); scene = 'play'; paused = false; popup = null; }
+function enterPlay() { spawn(); scene = 'play'; paused = false; popup = null; pendPrev = me.pend; SND.go(); }
 /* 開局：我在名單裡而且有按準備 → 扣款後上場；否則只是觀戰 */
 function goMatch(R, id, hostUid) {
   fakes.fill(null);
@@ -320,6 +577,7 @@ function spectate(R, id, hostUid, dead, t0) {
   match.t = t0 || 0;
   (dead || []).forEach(d => { const p = match.P[d.s]; if (p) { p.alive = false; p.rank = d.r; } });
   if (R.some(e => e.u === myId())) { const p = match.P.find(q => q.uid === myId()); if (p) { p.alive = false; p.rank = 8; netSend({ k: 'ko', mid: id, s: p.seat, r: 8, by: -1 }); } }
+  match.P.forEach(q => prevAlive.set(q, q.alive));
   scene = 'spec'; popup = null;
 }
 function failPay(msg) {
@@ -408,35 +666,44 @@ function startReady() {
   if (netBusy()) { popup = { s: '本場進行中，結束後就能加入', t: 2 }; return; }
   if (!trial && balance < FEE) { popup = { s: '金幣不足', t: 1.5 }; return; }
   const live = freshPeers().filter(([u, p]) => p.st === 'ready' && p.cl > 0.5).map(([u, p]) => p.cl);
-  scene = 'count'; countT = live.length ? Math.min(5, Math.min(...live)) : 5; fillAcc = 0; myReady = true; sendHb();
+  scene = 'count'; countT = live.length ? Math.min(5, Math.min(...live)) : 5; fillAcc = 0; myReady = true; lastCnt = -1; sendHb();
 }
 let fillAcc = 0;
 function cancelReady() { scene = 'lobby'; myReady = false; fakes.fill(null); sendHb(); }
 
 let fixOrder = [0, 1, 2, 3, 4, 5, 6];
 function spawn(type) {
-  const t = type || me.take(); cur = { t, r: 0, x: t === 'O' ? 4 : 3, y: 1 }; gT = 0; lockT = 0; resets = 0;
+  const t = type || me.take(); cur = { t, r: 0, x: t === 'O' ? 4 : 3, y: 1 }; gT = 0; lockT = 0; resets = 0; wasGr = false;
   if (collide(me.grid, t, 0, cur.x, cur.y)) match.kill(me, null);
 }
 const grounded = () => collide(me.grid, cur.t, cur.r, cur.x, cur.y + 1);
+const lkv = () => (scene === 'play' && cur && me && me.alive && grounded()) ? Math.min(.6, lockT / 500 * .5 + (lockT > 300 && Math.floor(lockT / 60) % 2 ? .12 : 0)) : 0;
 function bump() { if (grounded()) { if (resets < 15) { lockT = 0; resets++; } } }
-function move(dx) { if (!cur || scene !== 'play') return false; if (!collide(me.grid, cur.t, cur.r, cur.x + dx, cur.y)) { cur.x += dx; bump(); return true; } return false; }
+function move(dx) { if (!cur || scene !== 'play') return false; if (!collide(me.grid, cur.t, cur.r, cur.x + dx, cur.y)) { cur.x += dx; bump(); SND.move(); return true; } return false; }
 function rotate(d) {
   if (!cur || scene !== 'play' || cur.t === 'O') return;
   const nr = (cur.r + d + 4) % 4, tbl = cur.t === 'I' ? KI_ : K3_, ks = tbl['' + cur.r + nr];
-  for (const [kx, ky] of ks) { const nx = cur.x + kx, ny = cur.y - ky; if (!collide(me.grid, cur.t, nr, nx, ny)) { cur.r = nr; cur.x = nx; cur.y = ny; bump(); return; } }
+  for (const [kx, ky] of ks) { const nx = cur.x + kx, ny = cur.y - ky; if (!collide(me.grid, cur.t, nr, nx, ny)) { cur.r = nr; cur.x = nx; cur.y = ny; bump(); SND.rotate(); if (kx || ky) addShake(.4); return; } }
 }
 const K3_ = K3, KI_ = KI;
-function lockCur() {
-  for (const [cx, cy] of MATS[cur.t][cur.r]) { const gy = cur.y + cy; if (gy >= 0) me.grid[gy][cur.x + cx] = cur.t; }
-  me.pieces++; const before = me.pend; match.afterLock(me); if (before > me.pend + 0 && me.alive) hurtFlash = 0;
+function lockCur(kind) {
+  const cells = MATS[cur.t][cur.r].map(([cx, cy]) => [cur.x + cx, cur.y + cy]);
+  for (const [gx, gy] of cells) if (gy >= 0) me.grid[gy][gx] = cur.t;
+  const full = []; me.grid.forEach((row, y) => { if (row.every(Boolean)) full.push({ y, row: row.slice() }); });
+  const b2bBefore = me.b2b, tgt = full.length ? match.chooseTarget(me) : null;
+  me.pieces++; const before = me.pend; const res = match.afterLock(me); if (before > me.pend + 0 && me.alive) hurtFlash = 0;
+  lockFx(kind, cells, full, res, b2bBefore, tgt);
   holdUsed = false; if (me.alive) spawn();
 }
-function hardDrop() { if (!cur || scene !== 'play') return; cur.y = dropY(me.grid, cur.t, cur.r, cur.x, cur.y); lockCur(); }
+function hardDrop() {
+  if (!cur || scene !== 'play') return;
+  const y0 = cur.y, y1 = dropY(me.grid, cur.t, cur.r, cur.x, cur.y);
+  fxDrop(y0, y1, y1 - y0); cur.y = y1; lockCur('hard');
+}
 function doHold() {
   if (!cur || scene !== 'play' || holdUsed) return; const t = cur.t;
   if (hold) { const h = hold; hold = t; spawn(h); } else { hold = t; spawn(); }
-  holdUsed = true;
+  holdUsed = true; SND.hold(); buzz(8);
 }
 function press(a) {
   if (scene === 'play') {
@@ -460,7 +727,7 @@ cv.addEventListener('pointerdown', e => {
   for (let i = hits.length - 1; i >= 0; i--) { const h = hits[i]; if (x >= h.x && x < h.x + h.w && y >= h.y && y < h.y + h.h) { h.fn(); return; } }
   if (paused) paused = false;
 });
-function backToLobby(again) { scene = 'lobby'; myReady = false; match = null; mp = null; me = null; fakes.fill(null); sendHb(); if (again) startReady(); }
+function backToLobby(again) { fxReset(); scene = 'lobby'; myReady = false; match = null; mp = null; me = null; fakes.fill(null); sendHb(); if (again) startReady(); }
 
 /* ---------- 每幀更新 ---------- */
 let last = 0;
@@ -470,9 +737,11 @@ function frame(ts) {
 }
 function update(dt) {
   if (popup && popup.t > 0) { popup.t -= dt / 1000; if (popup.t <= 0) popup = null; }
+  fxUpdate(dt); fxTrack();
   netTick(dt);
   if (scene === 'count') {
     countT -= dt / 1000; fillAcc += dt;
+    const cc = Math.ceil(countT); if (cc !== lastCnt) { lastCnt = cc; if (cc >= 1 && cc <= 5) SND.tick(); }
     if (fillAcc > 600) {
       fillAcc = 0; const v = lobbyView(), emp = []; v.forEach((x, i) => { if (!x) emp.push(i); });
       if (emp.length && countT > 0.4) { const i = emp[rnd(emp.length)]; fakes[i] = { n: NAME_POOL[rnd(NAME_POOL.length)], s: [0, 1, 2, 3, 4, 5, 7][rnd(7)] }; }
@@ -497,11 +766,15 @@ function update(dt) {
   if (auto) { autoMe(dt); } else {
     /* DAS / ARR */
     if (das.dir) { const k = das.dir === -1 ? 'left' : 'right'; das[k] += dt; if (das[k] > 150) { const n = Math.floor((das[k] - 150) / 40); das[k] = 150 + ((das[k] - 150) % 40); for (let i = 0; i < n; i++) if (!move(das.dir)) break; } }
-    const G = Math.max(45, 800 * Math.pow(.9, Math.floor(match.t / 20))), iv = soft ? Math.min(G / 20, 45) : G;
-    gT += dt; while (gT >= iv) { gT -= iv; if (!grounded()) { cur.y++; } else break; }
-    if (grounded()) { lockT += dt; if (lockT >= 500) lockCur(); } else lockT = 0;
+    if (FX.stop <= 0) {   // 消行／被擊倒時的短暫停頓（hit stop）
+      const G = Math.max(45, 800 * Math.pow(.9, Math.floor(match.t / 20))), iv = soft ? Math.min(G / 20, 45) : G;
+      gT += dt; while (gT >= iv) { gT -= iv; if (!grounded()) { cur.y++; } else break; }
+      const gr = grounded(); if (gr && !wasGr) landFx(); wasGr = gr;
+      if (gr) { lockT += dt; if (lockT >= 500) lockCur('soft'); } else lockT = 0;
+    }
   }
   match.tickBots(dt);
+  if (me && me.alive) trackPend();
   if (match.over && scene === 'play') finish();
 }
 function autoMe(dt) {
@@ -512,6 +785,7 @@ function finish() {
   scene = 'result'; resultAt = performance.now();
   const rank = me.rank || (me.alive ? 1 : 8);
   result = { rank, time: match.t, sent: me.sent, kos: me.kos, win: rank === 1 };
+  if (result.win) { SND.win(); winFx(); }
 }
 
 /* ---------- 繪圖 ---------- */
@@ -525,7 +799,7 @@ function blk(x, y, s, c) {
   else if (s >= 5) { r(shade(c, .6), x, y, s, s); r(c, x + 1, y + 1, s - 2, s - 2); r(shade(c, 1.25), x + 1, y + 1, s - 2, 1); }
   else { r(c, x, y, s, s); r(shade(c, 1.3), x, y, s, 1); }
 }
-function drawBoard(x, y, cell, grid, frame, piece, ghost) {
+function drawBoard(x, y, cell, grid, frame, piece, ghost, lk) {
   const w = COLS * cell, h = (ROWS - HID) * cell;
   if (frame) ob('#2a3656', '#0a0e1c', x - 3, y - 3, w + 6, h + 6);
   r('#10152a', x, y, w, h);
@@ -534,7 +808,7 @@ function drawBoard(x, y, cell, grid, frame, piece, ghost) {
   if (piece) {
     const gy = dropY(grid, piece.t, piece.r, piece.x, piece.y);
     if (ghost && cell >= 6) for (const [cx, cy] of MATS[piece.t][piece.r]) { const yy = gy + cy - HID; if (yy < 0) continue; const bx = x + (piece.x + cx) * cell, by = y + yy * cell, c = shade(COL[piece.t], .5); r(c, bx, by, cell, 1); r(c, bx, by + cell - 1, cell, 1); r(c, bx, by, 1, cell); r(c, bx + cell - 1, by, 1, cell); }
-    for (const [cx, cy] of MATS[piece.t][piece.r]) { const yy = piece.y + cy - HID; if (yy < 0) continue; blk(x + (piece.x + cx) * cell, y + yy * cell, cell, COL[piece.t]); }
+    for (const [cx, cy] of MATS[piece.t][piece.r]) { const yy = piece.y + cy - HID; if (yy < 0) continue; blk(x + (piece.x + cx) * cell, y + yy * cell, cell, lk ? lighten(COL[piece.t], lk) : COL[piece.t]); }
   }
 }
 function miniPiece(x, y, t, w) {
@@ -545,14 +819,18 @@ function miniPiece(x, y, t, w) {
 function holdBox(x, y, t, w = 42) { panel(x, y, w, 34, '暫存'); if (t) miniPiece(x, y + 24, t, w); }
 function nextBox(x, y, ts, w = 42) { panel(x, y, w, 12 + 28 * ts.length, '下一個', '#5ae0ff'); ts.forEach((t, i) => miniPiece(x, y + 26 + i * 28, t, w)); }
 function garbageBar(x, y, h, n) {
+  if (FX.barFl > 0) x += Math.round((Math.random() - .5) * FX.barFl * 5);
   ob('#12182c', '#0a0e1c', x, y, 8, h);
-  const flash = match && (match.t - me.lastHit) < .3;
+  const flash = (match && (match.t - me.lastHit) < .3) || FX.barFl > 0;
   for (let k = 0; k < Math.min(n, Math.floor((h - 2) / 8)); k++) r(k < 4 ? (flash ? '#ffffff' : '#ff5c7a') : '#ff9a3a', x + 1, y + h - 2 - (k + 1) * 8 + 1, 6, 7);
   for (let k = 1; k < h / 8; k++) r('#1d2644', x + 1, y + h - 1 - k * 8, 6, 1);
 }
 function sprite(i, x, y) { if (i >= 0 && spr.complete) g.drawImage(spr, i * 16, 0, 16, 16, x, y, 16, 16); }
 function targetOf() { return match && me.alive ? match.chooseTarget(me) : null; }
 function oppCard(p, x, y, w, h, tgt, hitMe) {
+  cardPos.set(p, { x, y, w, h });
+  const cf = FX.cardFl.get(p), ck = cf ? cf.t / cf.max * cf.m : 0;
+  if (cf) { x += Math.round((Math.random() - .5) * 4 * ck); y += Math.round((Math.random() - .5) * 3 * ck); }
   if (tgt) ob('#ff5c7a', '#7a1a30', x - 2, y - 2, w + 4, h + 4);
   panel(x, y, w, h);
   const wide = w >= 40;
@@ -565,6 +843,7 @@ function oppCard(p, x, y, w, h, tgt, hitMe) {
   }
   if (tgt && p.alive) { ob('#ff5c7a', '#7a1a30', x + 6, y + h - 9, w - 12, 8); T('目標', x + w / 2, y + h - 5, 6, '#fff', 'm', null); }
   if (hitMe && p.alive) { ob('#ffd34d', '#8a6012', x - 3, y + 14, 9, 11); T('!', x + 1.5, y + 19.5, 8, '#7a2a1a', 'm', null); }
+  if (cf) fa('#fff', .55 * ck, x, y, w, h);
   hits.push({ x, y, w, h, fn: () => { if (p.alive && match) match.manual = p; } });
 }
 function opps() { return match.P.filter(p => !p.isMe); }
@@ -582,7 +861,7 @@ function drawPlay() {
     panel(412, 128, 46, 90, '你', '#ffd34d');
     T('存活', 435, 146, 7, '#9fb0d0'); T(al + '/8', 435, 158, 11, '#fffaf0'); T('擊倒', 435, 172, 7, '#9fb0d0'); T('' + me.kos, 435, 184, 11, '#ff9bb3'); T('總攻擊', 435, 198, 7, '#9fb0d0'); T('' + me.sent, 435, 210, 10, '#ffd34d');
     holdBox(136, 40, hold); nextBox(296, 40, me.queue.slice(0, 3));
-    drawBoard(190, 40, 10, me.grid, true, scene === 'play' ? cur : null, true); garbageBar(180, 40, 200, me.pend);
+    BR = { x: 190, y: 40, cell: 10 }; boardFx(() => { drawBoard(190, 40, 10, me.grid, true, scene === 'play' ? cur : null, true, lkv()); garbageBar(180, 40, 200, me.pend); });
     if (popup && popup.lines) { popup.lines.forEach((s, i) => T(s, 157, 100 + i * 12, 8, i === 0 ? '#ffd34d' : '#ff9bb3')); if (popup.atk) T('送出 +' + popup.atk, 328, 205, 8, '#fff'); }
     ob('#12182c', '#ff5c7a', 190, 246, 100, 17); T(tg ? '目標：' + tg.name + (match.manual === tg ? '（手動）' : '') : '', 240, 254.5, 7, '#ffd1d9');
   } else {
@@ -590,13 +869,14 @@ function drawPlay() {
     ob('#12182c', '#ff7ab8', 76, 6, 118, 15); T('俄羅斯方塊大亂鬥', 135, 13.5, 8, '#ffd34d');
     ob('#12182c', '#ffd34d', 202, 6, 62, 15); T('入場 ' + FEE + 'G', 233, 13.5, 7, '#ffe58a');
     O.forEach((p, i) => oppCard(p, 5 + i * 37, 26, 34, 78, p === tg, hitFrom.has(p)));
-    drawBoard(85, 114, 10, me.grid, true, scene === 'play' ? cur : null, true); garbageBar(74, 114, 200, me.pend);
+    BR = { x: 85, y: 114, cell: 10 }; boardFx(() => { drawBoard(85, 114, 10, me.grid, true, scene === 'play' ? cur : null, true, lkv()); garbageBar(74, 114, 200, me.pend); });
     holdBox(28, 114, hold, 40); nextBox(196, 114, me.queue.slice(0, 3), 40);
     T('擊倒 ' + me.kos, 48, 166, 7, '#ff9bb3'); T('攻擊 ' + me.sent, 48, 178, 7, '#ffd34d');
     if (popup && popup.lines) { popup.lines.forEach((s, i) => T(s, 48, 198 + i * 12, 8, i === 0 ? '#ffd34d' : '#ff9bb3')); if (popup.atk) T('+' + popup.atk + ' 行', 232, 232, 9, '#fff'); }
     ob('#12182c', '#ff5c7a', 22, 320, 226, 16); T(tg ? '目標：' + tg.name + (match.manual === tg ? '（手動）' : '　（點上方頭像可換）') : '', 135, 328, 7.5, '#ffd1d9');
   }
-  if (scene === 'dying') { fa('#0a0e1c', .6, 0, 0, LW, LH); T('KO', LW / 2, LH / 2 - 8, 34, '#ff5c7a'); T('第 ' + me.rank + ' 名', LW / 2, LH / 2 + 22, 11, '#fffaf0'); }
+  fxDrawTop();
+  if (scene === 'dying') { fa('#0a0e1c', .6, 0, 0, LW, LH); T('KO', LW / 2, LH / 2 - 8, 34 * (1 + Math.max(0, 1 - (1.6 - koT) / .22) * 1.1), '#ff5c7a'); T('第 ' + me.rank + ' 名', LW / 2, LH / 2 + 22, 11, '#fffaf0'); }
   if (paused) { fa('#0a0e1c', .7, 0, 0, LW, LH); T('暫停中', LW / 2, LH / 2 - 6, 16, '#ffd34d'); T('點一下畫面繼續', LW / 2, LH / 2 + 14, 8, '#fff'); }
 }
 function btnC(x, y, w, h, label, col, fn, size = 10) {
@@ -627,6 +907,7 @@ function drawLobby() {
 function drawResult() {
   drawPlay();
   fa('#0a0e1c', .78, 0, 0, LW, LH);
+  if (result && result.win) fxDrawParts();
   const pw = land ? 240 : 230, ph = land ? 220 : 270, px = (LW - pw) / 2, py = (LH - ph) / 2;
   ob('#232f4a', result.win ? '#ffd34d' : '#ff7ab8', px, py, pw, ph); r('#2f3d5e', px + 3, py + 3, pw - 6, 1);
   T(result.win ? '勝利！' : '被淘汰', LW / 2, py + 22, 10, result.win ? '#ffd34d' : '#ffd1d9');
@@ -654,15 +935,17 @@ function draw() {
   texts = []; hits = []; bg();
   if (scene === 'lobby' || scene === 'count' || scene === 'paying' || scene === 'waitgo') { if (scene === 'paying' && match) drawPaying(); else drawLobby(); } else if (scene === 'result') drawResult(); else if (scene === 'spec') drawSpec(); else drawPlay();
   ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.imageSmoothingEnabled = false; ctx.clearRect(0, 0, cv.width, cv.height);
+  const k = cv.width / LW, zk = 1 + FX.zoom, shk = FX.shake * (RM ? .3 : 1);
+  ctx.save(); ctx.translate(cv.width / 2 + (Math.random() - .5) * 2 * shk * k, cv.height / 2 + (Math.random() - .5) * 2 * shk * k); ctx.scale(zk, zk); ctx.translate(-cv.width / 2, -cv.height / 2);
   ctx.drawImage(off, 0, 0, LW, LH, 0, 0, cv.width, cv.height);
-  const k = cv.width / LW;
   for (const [s, x, y, size, col, al, ol] of texts) {
     ctx.font = `700 ${size * k}px "Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif`; ctx.textAlign = al === 'l' ? 'left' : al === 'r' ? 'right' : 'center'; ctx.textBaseline = 'middle';
     if (ol) { ctx.lineWidth = Math.max(1, k * .9); ctx.strokeStyle = ol; ctx.lineJoin = 'round'; ctx.strokeText(s, x * k, y * k); }
     ctx.fillStyle = col; ctx.fillText(s, x * k, y * k);
   }
+  ctx.restore();
 }
-window.__demo = { get mp() { return mp; }, get peers() { return peers; }, get me() { return me; }, get myReady() { return myReady; }, get scene() { return scene; }, get match() { return match; }, startReady, set balance(v) { balance = v; }, get S() { return S; }, press, force(s) { scene = s; } };
+window.__demo = { get FX() { return FX; }, get mp() { return mp; }, get peers() { return peers; }, get me() { return me; }, get myReady() { return myReady; }, get scene() { return scene; }, get match() { return match; }, startReady, set balance(v) { balance = v; }, get S() { return S; }, press, force(s) { scene = s; } };
 addEventListener('message', e => {
   const d = e.data; if (!embed || !d || e.source !== parent) return;
   if (d.t === 'tt-me') { NET.on = !!d.net && typeof d.uid === 'string' && d.uid.length > 0; NET.uid = typeof d.uid === 'string' ? d.uid : ''; NET.name = cleanName(d.name); NET.seat = cint(d.seat, 0, 7, 7); sendHb(); }
