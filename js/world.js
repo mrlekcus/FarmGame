@@ -178,7 +178,7 @@ for (let y = 0; y < PLH; y++) for (let x = 0; x < PLW; x++) if (x === 0 || y ===
   }
   [[16, 3], [3, 10], [2, 11], [15, 2], [17, 8]].forEach(([x, y]) => ps(x, y, TR));
   for (let y = 1; y <= 2; y++) for (let x = 9; x <= 11; x++) ps(x, y, TS);   // 直路最北端的塔羅攤
-  [[3, 9], [4, 11], [21, 9], [22, 9]].forEach(([x, y]) => { pkind[y][x] = BN; });   // 外圍長椅（新座標）；(21,9)(22,9) 兩格相連是一張雙人長椅，在大路上方
+  [[4, 11], [21, 9], [22, 9]].forEach(([x, y]) => { pkind[y][x] = BN; });   // 外圍長椅（(3,9) 那張被遊戲店面佔掉了，刪除）（新座標）；(21,9)(22,9) 兩格相連是一張雙人長椅，在大路上方
   /* 新增的外圈空地：零星種樹（路、水、長椅旁和大門前面留空） */
   for (let y = 1; y < PLH - 1; y++) for (let x = 1; x < PLW - 1; x++) {
     if (pkind[y][x] !== G) continue;
@@ -230,12 +230,16 @@ CAMP.forEach(o => { for (let y = o.y; y < o.y + o.h; y++) for (let x = o.x; x < 
 const CFD = 81, CFB = { x: PXO + 2, y: PYO + 3, w: 5, h: 4 };
 for (let y = CFB.y; y < CFB.y + CFB.h; y++) for (let x = CFB.x; x < CFB.x + CFB.w; x++) pkind[y][x] = HB;
 pkind[CFB.y + CFB.h - 1][CFB.x + 2] = CFD;
+/* 遊戲店面（js/arcade.js）：咖啡廳左邊的 5×4 空地（x2~6、y6~9），蓋成紫色方塊屋；門在底部中間 (GSB.x+2, GSB.y+3)，站在下面的大路上面向上按動作鍵進去 */
+const GSD = 95, GSX = 96, GSM = 97, GST = 98, GSB = { x: PXO - 3, y: PYO + 3, w: 5, h: 4 };   // GSD 門  GSX 擺設／檯面  GSM 街機  GST 高腳椅（店內用）
+for (let y = GSB.y; y < GSB.y + GSB.h; y++) for (let x = GSB.x; x < GSB.x + GSB.w; x++) pkind[y][x] = HB;
+pkind[GSB.y + GSB.h - 1][GSB.x + 2] = GSD;
 /* ---------- 廣場最西邊的出口：石拱門（SWG）通往霧語沼澤，玩家 Lv.6 才能進入。
    東西向大路的西端換成入口，上下各立一根石柱（上面那根兩格高），旁邊立一塊告示牌（SWS）。畫法在 js/art/swamp.js。 ---------- */
 const SWG = 90, SWP = 91, SWS = 92, SWR = 93, SWC = 94;   // SWG 石拱門（面向它按動作鍵）  SWP 石柱  SWS 告示牌  SWR 岩石（都走不進去）
 pkind[PYO + 7][0] = SWG;
 pkind[PYO + 5][0] = SWP; pkind[PYO + 6][0] = SWP; pkind[PYO + 8][0] = SWP;
-pkind[PYO + 6][2] = SWS;
+pkind[PYO + 6][1] = SWS;   // 告示牌往左挪一格（原本 (2,9) 被遊戲店面佔掉）
 const SWG_SPAWN = [1, PYO + 7];   // 從沼澤回到廣場：站在石拱門東邊一格，面向東
 let plazaSpawn = null;            // 下一次進廣場要站的位置 [x, y, face]；沒有就站在南邊大門
 /* ---------- 霧語沼澤（20×14，鏡頭固定）：中間一座睡蓮湖，棧橋和釣台，蘆葦叢裡有蟲；東邊的沙路通回廣場。

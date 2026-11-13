@@ -105,6 +105,7 @@ function act() {
     else if (rp) openFriendPop(rp);
     else if (k2 === TS) enterLekcus();
     else if (k2 === CFD) enterCafe();
+    else if (k2 === GSD) enterArcade();
     else if (k2 === CKP) campCook(x, y);
     else if (k2 === CMD) { const o = campAt(x, y); pop(x, y, o ? o.n : '', '#fff3b0'); }
     else if (k2 === CPT) openCaptain();
@@ -146,6 +147,7 @@ function act() {
   if (scene === 'barn') { barnAct(x, y); return; }
   if (scene === 'stylist') { stylistAct(x, y); return; }
   if (scene === 'cafe') { cafeAct(x, y); return; }
+  if (scene === 'arcade') { arcadeAct(x, y); return; }
   const k = K[y][x], key = pk(x, y), p = plots.get(key), t = curTool();
   if (yardMode && scene === 'farm' && !visiting && (grassTile(x, y) || yardMap.has(pk(x, y)))) { yardAct(x, y); return; }   // 庭院佈置模式：動作鍵＝擺放／收回
   if (scene === 'farm' && yardMap.get(key) === 'bench') { takeYardBench(x, y); return; }   // 庭院長椅：面向它按動作鍵坐下，再按一次或按方向鍵起身

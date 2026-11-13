@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>俄羅斯方塊大亂鬥</title>
+<style>
+  html,body{margin:0;height:100%;background:#0e1222;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif}
+  #wrap{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+  canvas{display:block;image-rendering:pixelated;background:#0e1222}
+  #pad{display:none;position:fixed;z-index:5}
+  .b{position:absolute;box-sizing:border-box;background:#2a3656;border:2px solid #5ae0ff;border-radius:6px;color:#fff;font:700 15px/1 "Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;display:flex;align-items:center;justify-content:center;touch-action:none;box-shadow:inset 0 3px 0 #3a4a72,0 0 0 2px #0a0e1c}
+  .b.on{background:#3a4a72;transform:translateY(1px)}
+  .b.y{border-color:#ffd34d}.b.p{border-color:#ff7ab8}.b.g{border-color:#7fd08a}.b.v{border-color:#b79bf0}.b.k{border-color:#98a1b6}
+  #x{display:none;position:fixed;z-index:9;background:#2a3656;border:2px solid #ff7ab8;border-radius:8px;color:#fff;font:700 13px/1 inherit;padding:9px 12px;touch-action:manipulation}
+  #hint{position:fixed;left:0;right:0;bottom:6px;text-align:center;color:#6f7fa0;font-size:12px;pointer-events:none}
+</style>
+</head>
+<body>
+<div id="wrap"><canvas id="c"></canvas></div>
+<div id="pad"></div>
+<div id="hint"></div>
+<div id="x">✕ 離開</div>
+<script>
+'use strict';
+/* ================= 引擎（不碰畫面） ================= */
+const COLS = 10, ROWS = 22, HID = 2;
+const TYPES = 'IOTSZJL';
+const COL = { I: '#8fd3ff', O: '#ffd34d', T: '#b79bf0', S: '#7fd08a', Z: '#ff8fa8', J: '#6f8cf0', L: '#ffab4a', G: '#98a1b6' };
+const BASE = { I: [[0,0,0,0],[1,1,1,1],[0,0,0,0],[0,0,0,0]], O: [[1,1],[1,1]], T: [[0,1,0],[1,1,1],[0,0,0]], S: [[0,1,1],[1,1,0],[0,0,0]], Z: [[1,1,0],[0,1,1],[0,0,0]], J: [[1,0,0],[1,1,1],[0,0,0]], L: [[0,0,1],[1,1,1],[0,0,0]] };
+const rotCW = m => { const n = m.length, r = []; for (let y = 0; y < n; y++) { r.push([]); for (let x = 0; x < n; x++) r[y].push(m[n - 1 - x][y]); } return r; };
+const MATS = {};
+for (const t of TYPES) { let m = BASE[t]; MATS[t] = []; for (let i = 0; i < 4; i++) { const cells = []; m.forEach((row, y) => row.forEach((v, x) => { if (v) cells.push([x, y]); })); MATS[t].push(cells); m = rotCW(m); } }
+const K3 = { '01': [[0,0],[-1,0],[-1,1],[0,-2],[-1,-2]], '10': [[0,0],[1,0],[1,-1],[0,2],[1,2]], '12': [[0,0],[1,0],[1,-1],[0,2],[1,2]], '21': [[0,0],[-1,0],[-1,1],[0,-2],[-1,-2]], '23': [[0,0],[1,0],[1,1],[0,-2],[1,-2]], '32': [[0,0],[-1,0],[-1,-1],[0,2],[-1,2]], '30': [[0,0],[-1,0],[-1,-1],[0,2],[-1,2]], '03': [[0,0],[1,0],[1,1],[0,-2],[1,-2]] };
+const KI = { '01': [[0,0],[-2,0],[1,0],[-2,-1],[1,2]], '10': [[0,0],[2,0],[-1,0],[2,1],[-1,-2]], '12': [[0,0],[-1,0],[2,0],[-1,2],[2,-1]], '21': [[0,0],[1,0],[-2,0],[1,-2],[-2,1]], '23': [[0,0],[2,0],[-1,0],[2,1],[-1,-2]], '32': [[0,0],[-2,0],[1,0],[-2,-1],[1,2]], '30': [[0,0],[1,0],[-2,0],[1,-2],[-2,1]], '03': [[0,0],[-1,0],[2,0],[-1,2],[2,-1]] };
+const ATK = [0, 0, 1, 2, 4], COMBO = [0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 4, 5];
+const NAME_POOL = ['小米', '阿豆', '奶茶', '布丁', '小橘', '麻糬', '阿凱', '小花', '大毛', '月月', '阿宇', '咪咪', '小風', '豆花', '阿哲', '小滿'];
+const rnd = n => Math.floor(Math.random() * n);
+const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = rnd(i + 1); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const emptyGrid = () => Array.from({ length: ROWS }, () => Array(COLS).fill(null));
+const collide = (grid, t, r, x, y) => { for (const [cx, cy] of MATS[t][r]) { const gx = x + cx, gy = y + cy; if (gx < 0 || gx >= COLS || gy >= ROWS) return true; if (gy >= 0 && grid[gy][gx]) return true; } return false; };
+const dropY = (grid, t, r, x, y) => { while (!collide(grid, t, r, x, y + 1)) y++; return y; };
+
+class Pl {
+  constructor(name, spr, isMe, lvl) {
+    this.name = name; this.spr = spr; this.isMe = isMe; this.lvl = lvl || 0;
+    this.grid = emptyGrid(); this.alive = true; this.rank = 0; this.pending = []; this.combo = -1; this.b2b = false;
+    this.sent = 0; this.kos = 0; this.bag = []; this.queue = []; this.target = null; this.lastAtk = null; this.lastHit = -1e9; this.pieces = 0; this.diedAt = 0;
+    this.timer = 0; this.skill = [.5, .7, .85][this.lvl]; this.pps = [.5, .75, 1.1][this.lvl] * (0.85 + Math.random() * .3);
+    this.fill();
+  }
+  fill() { while (this.queue.length < 7) { if (!this.bag.length) this.bag = shuffle(TYPES.split('')); this.queue.push(this.bag.pop()); } }
+  take() { const t = this.queue.shift(); this.fill(); return t; }
+  get pend() { return this.pending.reduce((s, e) => s + e.n, 0); }
+}
+
+class Match {
+  constructor(players, hooks) { this.P = players; this.me = players.find(p => p.isMe); this.t = 0; this.over = false; this.hooks = hooks || {}; this.manual = null; this.popups = []; }
+  alive() { return this.P.filter(p => p.alive); }
+  chooseTarget(p) {
+    const al = this.alive().filter(q => q !== p); if (!al.length) return null;
+    if (p.isMe) {
+      if (this.manual && this.manual.alive) return this.manual;
+      if (p.lastAtk && p.lastAtk.alive) return p.lastAtk;
+      if (!p.target || !p.target.alive) p.target = al[rnd(al.length)];
+      return p.target;
+    }
+    if (!p.target || !p.target.alive || Math.random() < 0.08) {
+      const me = this.me; p.target = (me.alive && Math.random() < .3) ? me : al[rnd(al.length)];
+    }
+    return p.target;
+  }
+  send(p, n) {
+    const tg = this.chooseTarget(p); if (!tg || n <= 0) return;
+    tg.pending.push({ n, hole: rnd(COLS), from: p });
+    if (tg.isMe) { tg.lastAtk = p; tg.lastHit = this.t; }
+  }
+  kill(p, killer) {
+    if (!p.alive) return; p.rank = this.alive().length; p.alive = false; p.diedAt = this.t;
+    if (killer && killer !== p) killer.kos++;
+    if (p.isMe && this.hooks.onMeDead) this.hooks.onMeDead();
+    if (this.manual === p) this.manual = null;
+    if (this.alive().length <= 1) { const w = this.alive()[0]; if (w) { w.rank = 1; } this.over = true; }
+  }
+  applyGarbage(p) {
+    let added = 0, last = null;
+    while (p.pending.length && added < 8) {
+      const e = p.pending[0], take = Math.min(e.n, 8 - added); last = e.from;
+      for (let i = 0; i < take; i++) { p.grid.shift(); p.grid.push(Array.from({ length: COLS }, (_, x) => x === e.hole ? null : 'G')); }
+      e.n -= take; added += take; if (e.n === 0) p.pending.shift();
+    }
+    if (added && (p.grid[0].some(Boolean) || p.grid[1].some(Boolean))) this.kill(p, last);
+    return added;
+  }
+  /* 方塊已寫進 grid 之後呼叫：消行、算攻擊、抵銷、升起垃圾行 */
+  afterLock(p) {
+    let cleared = 0;
+    const keep = p.grid.filter(row => !row.every(Boolean)); cleared = ROWS - keep.length;
+    while (keep.length < ROWS) keep.unshift(Array(COLS).fill(null));
+    p.grid = keep;
+    let atk = 0, tag = [];
+    if (cleared) {
+      p.combo++; atk = ATK[cleared] + COMBO[Math.min(p.combo, COMBO.length - 1)];
+      if (cleared === 4) { if (p.b2b) { atk += 1; tag.push('B2B'); } p.b2b = true; tag.unshift('TETRIS'); } else p.b2b = false;
+      if (p.grid.every(r => r.every(c => !c))) { atk += 6; tag.push('全消'); }
+      if (p.combo >= 1) tag.push('COMBO ×' + (p.combo + 1));
+    } else p.combo = -1;
+    p.sent += atk;   // 總攻擊行數：不管有沒有被抵銷
+    let rest = atk;
+    while (rest > 0 && p.pending.length) { const e = p.pending[0], d = Math.min(rest, e.n); e.n -= d; rest -= d; if (!e.n) p.pending.shift(); }
+    if (rest > 0) this.send(p, rest);
+    if (!cleared) this.applyGarbage(p);
+    if (p.isMe && cleared && this.hooks.onClear) this.hooks.onClear(cleared, atk, tag);
+    return { cleared, atk };
+  }
+  /* 機器人：一步決定落點並立刻落下 */
+  botMove(p) {
+    if (!p.alive) return;
+    const t = p.take(); let best = [];
+    for (let r = 0; r < 4; r++) for (let x = -2; x < COLS; x++) {
+      if (collide(p.grid, t, r, x, 0)) continue;
+      const y = dropY(p.grid, t, r, x, 0); const sc = this.evalMove(p, t, r, x, y); if (sc !== null) best.push({ r, x, y, sc });
+    }
+    if (!best.length) { this.kill(p, null); return; }
+    best.sort((a, b) => b.sc - a.sc);
+    const pick = Math.random() < p.skill ? best[0] : best[Math.min(best.length - 1, rnd(4))];
+    for (const [cx, cy] of MATS[t][pick.r]) { const gy = pick.y + cy; if (gy >= 0) p.grid[gy][pick.x + cx] = t; }
+    p.pieces++;
+    this.afterLock(p);
+  }
+  evalMove(p, t, r, x, y) {
+    const g = p.grid.map(row => row.slice()); let hi = ROWS;
+    for (const [cx, cy] of MATS[t][r]) { const gy = y + cy; if (gy < HID) hi = Math.min(hi, gy); if (gy >= 0) g[gy][x + cx] = 1; }
+    let L = 0; const rows = g.filter(row => { if (row.every(Boolean)) { L++; return false; } return true; });
+    while (rows.length < ROWS) rows.unshift(Array(COLS).fill(null));
+    const h = Array(COLS).fill(0); let holes = 0;
+    for (let c = 0; c < COLS; c++) { let seen = false; for (let rr = 0; rr < ROWS; rr++) { if (rows[rr][c]) { if (!seen) { h[c] = ROWS - rr; seen = true; } } else if (seen) holes++; } }
+    let agg = 0, bump = 0; for (let c = 0; c < COLS; c++) { agg += h[c]; if (c < COLS - 1) bump += Math.abs(h[c] - h[c + 1]); }
+    let sc = -0.51 * agg + 0.76 * L - 0.36 * holes * (1 + p.lvl * .4) - 0.18 * bump;
+    if (p.lvl >= 1) sc += 0.35 * L * L;
+    if (p.lvl === 2) { const mn = Math.min(...h); sc -= 0.25 * Math.max(0, h[9] - mn - 1) * (t === 'I' ? 0 : 1); }
+    if (hi < HID + 1) sc -= 5;
+    return sc;
+  }
+  tickBots(dt) {
+    if (this.t > 75) { this.sd = (this.sd || 0) + dt; if (this.sd >= 5000) { this.sd = 0; const n = 1 + Math.floor((this.t - 75) / 25); for (const p of this.alive()) p.pending.push({ n, hole: rnd(COLS), from: null }); } }
+    const speed = 1 + Math.min(.6, this.t / 150);
+    for (const p of this.P) {
+      if (p.isMe || !p.alive) continue;
+      p.timer += dt;
+      const iv = 1000 / (p.pps * speed);
+      while (p.timer >= iv && p.alive) { p.timer -= iv; this.botMove(p); if (this.over) return; }
+    }
+  }
+}
+if (typeof module !== 'undefined') module.exports = { Match, Pl, MATS, collide, dropY, TYPES, COLS, ROWS, HID };
+</script>
+<script>
+/* ================= 畫面與操作 ================= */
+if (typeof window !== 'undefined' && document.getElementById('c')) (function () {
+const SPR_SRC = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAAAQCAYAAADeWHeIAAAECklEQVR4nO2Xz2sTQRTH80f0qj0aejGCoIYIEnqQ1EKhh0qEopKDxIP2UA8BETx4CIEGL0KkUNFCpKIBQQKCFtRCsIdWRehFAxGth2IRlCLI0++0b5xu3/xIYi2iCx8ybzPffbvzvjszG4v95mN59ggBV3u7jsXxIpnQt1WNeX4774GPxw8fkEkn1zhbKHd8r7nDCTLp9DptHztlAF3023O/mKhuYSdMgParM0UC7ei7MUDMMEFw/mwyQQADle8/pOBzJjY9F5laxzR8zsSmb9wsEFiZLWv4nImkVcUXCm4zgXSN2aEkgdZov4bPmdju/+O7NwTMAzEGHoevCBNTdQrBpi9kkgTKI/0axCr/y0Fvfm2ApSdTYuFdBpAK7SKqNwdNKjowjy16Y7oPQXoGqdgSGEwQ1bMBJHjw0baNPxf40+c1zdv3q5pQA0hwfrRtemWATGKPglrzut2OAR5N7ld8bUzpdrABMLBENH0lp/LjF4QYICbsAWzYnp8L68M2E6C4PO3j/rkdNYMtP4q7qy/pxGUAun6fQhDFevpvzasBTvYl19uR2GcCFJ77ox2NbUsARQ4xv8cAxWyCAPfnOIptANXb7Xl+11Kgpn+PPsQA2SYpuOhm7JsBfPmtM4BpAHQ2L2DGIQbg/mwAM7YZQL/lnvyufQD6tGYu6f5oR2P82gaQDeDKH2IAl/5PGMCVP9gAxXxx0wU4dhkgm4qXuODobxqAY/SRtFED2PK7DIBrc5HR3zQAx7b8rPc+fypemkwnCHSqt+XH9OwzgHUK7za/XvsrNS1sniwo9FRSqel9gfUGKjVdeNbrpaBS8xvAk99nAPThwrOeY1d+U+/Kjz62GSBUb8vPBpAKz3gN0Gl+vclLxUvZVPy5hZLvU9Cnt+m4sD69ywDd5N8O/a2rlwm0o+/0E9DMfz6zjyqDBzaBcyH5111UvkkSoQNwcYEI8CcXxy497/hVfsunG/7jfs77XyuTROj908IoSYTqV+aIAN83x6F6FHrpw3fq6dmtQBvnQvWlE6nonppwzqvnNaJZKJIErzE2Pa/x+VqTAA8Ax7xHkLTmDOAygGsG4DWeXhRIgvcIvudfrQ2RhO/5Wd+ofiEJnx7f+uhTf/paFZ4/O9HGOfyHPr781QsZkvDl31EDmPnP1Qsk4cvPBliuHiSJf8UAeNslgg1Qz42RRKgBRsp1kgg1wPjMGEmEGmDxTo4kQg3wrJwmiVADTBcbJBFqgGs37hHgJYDjdgzAL1/zaF79eg2QTcV7f25UBsCpdIJANhW/C4x4YINel344M0yA9UYcpM+m95JiQ2/EQXrHDBCYf5gUOr+Og/Tdjt/p4yMEWG/EQXrTAMyGAaz6zQPgxz2A//V/jf4Hg+TRLxPy1T0AAAAASUVORK5CYII=';
+const spr = new Image(); spr.src = SPR_SRC;
+const cv = document.getElementById('c'), ctx = cv.getContext('2d'), padEl = document.getElementById('pad'), hintEl = document.getElementById('hint');
+const off = document.createElement('canvas'), g = off.getContext('2d');
+const touch = matchMedia('(pointer:coarse)').matches || 'ontouchstart' in window;
+const auto = /[?&]auto=1/.test(location.search);
+const embed = /[?&]embed=1/.test(location.search) && window.parent !== window;
+let trial = false;
+const xEl = document.getElementById('x');
+if (embed) { xEl.style.display = 'block'; xEl.onclick = () => parent.postMessage({ t: 'tt-exit' }, '*'); }
+let LW = 480, LH = 270, S = 2, DPR = 1, land = true;
+let texts = [], hits = [];
+const r = (c, x, y, w, h) => { g.fillStyle = c; g.fillRect(x, y, w, h); };
+const rr = (c, x, y, w, h) => { r(c, x + 1, y, w - 2, h); r(c, x, y + 1, w, h - 2); };
+const ob = (c, o, x, y, w, h) => { rr(o, x, y, w, h); rr(c, x + 1, y + 1, w - 2, h - 2); };
+const fa = (c, a, x, y, w, h) => { g.globalAlpha = a; r(c, x, y, w, h); g.globalAlpha = 1; };
+const hx = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+const shade = (h, f) => '#' + hx(h).map(v => Math.max(0, Math.min(255, Math.round(v * f))).toString(16).padStart(2, '0')).join('');
+const T = (s, x, y, size, col = '#fff', al = 'm', ol = '#0a0e1c') => texts.push([s, x, y, size, col, al, ol]);
+
+/* ---------- 版面 ---------- */
+function layout() {
+  const iw = innerWidth, ih = innerHeight; land = iw >= ih;
+  let side = 0, bottom = 0;
+  if (land) { LW = 480; LH = 270; side = touch ? 128 : 0; bottom = touch ? 0 : 18; S = Math.min((iw - 2 * side) / LW, (ih - bottom) / LH); }
+  else { LW = 270; LH = 340; bottom = touch ? 172 : 24; S = Math.min(iw / LW, (ih - bottom) / LH); }
+  S = Math.max(1, S); DPR = Math.min(3, window.devicePixelRatio || 1);
+  const cw = Math.round(LW * S), ch = Math.round(LH * S);
+  cv.style.width = cw + 'px'; cv.style.height = ch + 'px'; cv.width = Math.round(cw * DPR); cv.height = Math.round(ch * DPR);
+  off.width = LW; off.height = LH; g.imageSmoothingEnabled = false;
+  document.getElementById('wrap').style.justifyContent = land ? 'center' : 'flex-start';
+  buildPad(cw, ch);
+  if (embed) { xEl.style.cssText += land ? ';top:8px;right:8px;bottom:auto;left:auto;transform:none' : ';bottom:10px;left:50%;right:auto;top:auto;transform:translateX(-50%)'; }
+  hintEl.textContent = touch ? '' : '← → 或 A D 移動　↓ 或 S 下壓　↑ / W / X 右轉　Z 左轉　空白 直落　C 暫存　點對手換目標';
+}
+function buildPad(cw, ch) {
+  padEl.innerHTML = ''; if (!touch) { padEl.style.display = 'none'; return; }
+  padEl.style.display = 'block';
+  const mk = (act, label, cls, x, y, w, h) => { const b = document.createElement('div'); b.className = 'b ' + cls; b.textContent = label; b.style.cssText += `left:${x}px;top:${y}px;width:${w}px;height:${h}px`; b.dataset.act = act; padEl.appendChild(b); };
+  if (land) {
+    const iw = innerWidth, ih = innerHeight; padEl.style.cssText = `display:block;left:0;top:0;width:${iw}px;height:${ih}px;pointer-events:none`;
+    const sz = 54, gap = 8, y0 = ih - 2 * sz - gap - 22, xl = 14, xr = iw - 14 - 2 * sz - gap;
+    mk('left', '◀', '', xl, y0, sz, sz); mk('right', '▶', '', xl + sz + gap, y0, sz, sz); mk('soft', '▼', 'y', xl, y0 + sz + gap, sz, sz); mk('drop', '直落', 'p', xl + sz + gap, y0 + sz + gap, sz, sz);
+    mk('cw', '右轉', 'g', xr, y0, sz, sz); mk('ccw', '左轉', 'g', xr + sz + gap, y0, sz, sz); mk('hold', '暫存', 'v', xr, y0 + sz + gap, sz, sz); mk('pause', '暫停', 'k', xr + sz + gap, y0 + sz + gap, sz, sz);
+  } else {
+    const iw = innerWidth, top = ch + 8; padEl.style.cssText = `display:block;left:0;top:0;width:${iw}px;height:${innerHeight}px;pointer-events:none`;
+    const sz = Math.min(54, (iw - 40) / 7), gap = 8, xl = (iw - (sz * 6 + gap * 5)) / 2;
+    const ymid = top + 6;
+    mk('left', '◀', '', xl, ymid + 0, sz, sz); mk('right', '▶', '', xl + 2 * (sz + gap), ymid, sz, sz); mk('drop', '直落', 'p', xl + sz + gap, ymid, sz, sz); mk('soft', '▼', 'y', xl + sz + gap, ymid + sz + gap, sz, sz);
+    mk('cw', '右轉', 'g', xl + 3 * (sz + gap), ymid, sz * 1.5 + gap / 2, sz * 1.5 + gap / 2); mk('ccw', '左轉', 'g', xl + 3 * (sz + gap) + sz * 1.5 + gap * 1.5, ymid, sz * 1.5 - gap / 2, sz); mk('hold', '暫存', 'v', xl + 3 * (sz + gap), ymid + sz * 1.5 + gap * 1.5, sz * 1.5 + gap / 2, sz * .9); mk('pause', '暫停', 'k', xl + 3 * (sz + gap) + sz * 1.5 + gap * 1.5, ymid + sz + gap, sz * 1.5 - gap / 2, sz * .9);
+  }
+  padEl.querySelectorAll('.b').forEach(b => { b.style.pointerEvents = 'auto'; });
+}
+addEventListener('resize', layout);
+
+/* ---------- 遊戲狀態 ---------- */
+let scene = 'lobby';      // lobby | count | play | dying | result
+let balance = embed ? 0 : 1000, FEE = 100;
+let match = null, me = null, cur = null, hold = null, holdUsed = false, gT = 0, lockT = 0, resets = 0, soft = false;
+let seats = [], countT = 0, popup = null, koT = 0, paused = false, result = null, resultAt = 0, hurtFlash = 0;
+const keys = {}, das = { left: 0, right: 0, dir: 0 };
+function newSeats() { seats = Array.from({ length: 8 }, (_, i) => i === 7 ? { me: true } : null); }
+newSeats();
+
+function startReady() { if (!trial && balance < FEE) { popup = { s: '金幣不足', t: 1.5 }; return; } scene = 'count'; countT = 5; fillAcc = 0; }
+let fillAcc = 0;
+function cancelReady() { scene = 'lobby'; newSeats(); }
+function startMatch() {
+  if (!embed) balance -= FEE;
+  const names = shuffle(NAME_POOL.slice()), sprs = shuffle([0, 1, 2, 3, 4, 5, 7]), lv = shuffle([0, 0, 0, 1, 1, 1, 2]);
+  const players = [];
+  for (let i = 0; i < 7; i++) players.push(new Pl(names[i], sprs[i], false, lv[i]));
+  me = new Pl('你', -1, true, 1); players.push(me);
+  match = new Match(players, { onMeDead() { scene = 'dying'; koT = 1.6; }, onClear(n, atk, tag) { popup = { lines: tag.length ? tag : [['', '單行', '雙行', '三行'][n]], atk, t: 1.4 }; } });
+  hold = null; holdUsed = false; spawn(); scene = 'play'; paused = false; popup = null; result = null; hurtFlash = 0;
+  fixOrder = shuffle([0, 1, 2, 3, 4, 5, 6]);
+}
+let fixOrder = [0, 1, 2, 3, 4, 5, 6];
+function spawn(type) {
+  const t = type || me.take(); cur = { t, r: 0, x: t === 'O' ? 4 : 3, y: 1 }; gT = 0; lockT = 0; resets = 0;
+  if (collide(me.grid, t, 0, cur.x, cur.y)) match.kill(me, null);
+}
+const grounded = () => collide(me.grid, cur.t, cur.r, cur.x, cur.y + 1);
+function bump() { if (grounded()) { if (resets < 15) { lockT = 0; resets++; } } }
+function move(dx) { if (!cur || scene !== 'play') return false; if (!collide(me.grid, cur.t, cur.r, cur.x + dx, cur.y)) { cur.x += dx; bump(); return true; } return false; }
+function rotate(d) {
+  if (!cur || scene !== 'play' || cur.t === 'O') return;
+  const nr = (cur.r + d + 4) % 4, tbl = cur.t === 'I' ? KI_ : K3_, ks = tbl['' + cur.r + nr];
+  for (const [kx, ky] of ks) { const nx = cur.x + kx, ny = cur.y - ky; if (!collide(me.grid, cur.t, nr, nx, ny)) { cur.r = nr; cur.x = nx; cur.y = ny; bump(); return; } }
+}
+const K3_ = K3, KI_ = KI;
+function lockCur() {
+  for (const [cx, cy] of MATS[cur.t][cur.r]) { const gy = cur.y + cy; if (gy >= 0) me.grid[gy][cur.x + cx] = cur.t; }
+  me.pieces++; const before = me.pend; match.afterLock(me); if (before > me.pend + 0 && me.alive) hurtFlash = 0;
+  holdUsed = false; if (me.alive) spawn();
+}
+function hardDrop() { if (!cur || scene !== 'play') return; cur.y = dropY(me.grid, cur.t, cur.r, cur.x, cur.y); lockCur(); }
+function doHold() {
+  if (!cur || scene !== 'play' || holdUsed) return; const t = cur.t;
+  if (hold) { const h = hold; hold = t; spawn(h); } else { hold = t; spawn(); }
+  holdUsed = true;
+}
+function press(a) {
+  if (scene === 'play') {
+    if (a === 'left') { move(-1); das.dir = -1; das.left = 0; keys._l = true; }
+    else if (a === 'right') { move(1); das.dir = 1; das.right = 0; keys._r = true; }
+    else if (a === 'soft') soft = true;
+    else if (a === 'drop') hardDrop();
+    else if (a === 'cw') rotate(1); else if (a === 'ccw') rotate(-1); else if (a === 'hold') doHold();
+    else if (a === 'pause') paused = !paused;
+  } else if (a === 'pause' && paused) paused = false;
+}
+function release(a) { if (a === 'left') { keys._l = false; if (das.dir === -1) das.dir = keys._r ? 1 : 0; } if (a === 'right') { keys._r = false; if (das.dir === 1) das.dir = keys._l ? -1 : 0; } if (a === 'soft') soft = false; }
+const KEYMAP = { ArrowLeft: 'left', ArrowRight: 'right', ArrowDown: 'soft', ArrowUp: 'cw', w: 'cw', W: 'cw', x: 'cw', X: 'cw', a: 'left', A: 'left', d: 'right', D: 'right', s: 'soft', S: 'soft', z: 'ccw', Z: 'ccw', ' ': 'drop', c: 'hold', C: 'hold', Shift: 'hold', p: 'pause', P: 'pause', Escape: 'pause' };
+addEventListener('keydown', e => { const a = KEYMAP[e.key]; if (a) { e.preventDefault(); if (!e.repeat) press(a); } else if ((e.key === 'Enter') && scene === 'lobby') startReady(); else if (e.key === 'Enter' && scene === 'result') { backToLobby(true); } });
+addEventListener('keyup', e => { const a = KEYMAP[e.key]; if (a) release(a); });
+padEl.addEventListener('pointerdown', e => { const b = e.target.closest('.b'); if (!b) return; e.preventDefault(); b.setPointerCapture && b.setPointerCapture(e.pointerId); b.classList.add('on'); press(b.dataset.act); });
+['pointerup', 'pointercancel', 'lostpointercapture'].forEach(ev => padEl.addEventListener(ev, e => { const b = e.target.closest('.b'); if (!b) return; b.classList.remove('on'); release(b.dataset.act); }));
+document.addEventListener('contextmenu', e => e.preventDefault());
+cv.addEventListener('pointerdown', e => {
+  const rc = cv.getBoundingClientRect(), x = (e.clientX - rc.left) / S, y = (e.clientY - rc.top) / S;
+  for (let i = hits.length - 1; i >= 0; i--) { const h = hits[i]; if (x >= h.x && x < h.x + h.w && y >= h.y && y < h.y + h.h) { h.fn(); return; } }
+  if (paused) paused = false;
+});
+function backToLobby(again) { scene = 'lobby'; newSeats(); match = null; if (again) startReady(); }
+
+/* ---------- 每幀更新 ---------- */
+let last = 0;
+function frame(ts) {
+  const dt = Math.min(50, ts - (last || ts)); last = ts;
+  update(dt); draw(); requestAnimationFrame(frame);
+}
+function update(dt) {
+  if (popup && popup.t > 0) { popup.t -= dt / 1000; if (popup.t <= 0) popup = null; }
+  if (scene === 'count') {
+    countT -= dt / 1000; fillAcc += dt;
+    if (fillAcc > 600) { fillAcc = 0; const emp = []; seats.forEach((s, i) => { if (!s) emp.push(i); }); if (emp.length && countT > 0.4) { const i = emp[rnd(emp.length)]; seats[i] = { n: NAME_POOL[rnd(NAME_POOL.length)], s: [0,1,2,3,4,5,7][rnd(7)] }; } }
+    if (countT <= 0) { seats.forEach((s, i) => { if (!s) seats[i] = { n: NAME_POOL[rnd(NAME_POOL.length)], s: [0,1,2,3,4,5,7][rnd(7)] }; }); if (embed) { scene = 'paying'; parent.postMessage({ t: 'tt-fee' }, '*'); } else startMatch(); }
+    return;
+  }
+  if (scene === 'paying') return;
+  if (scene === 'dying') { koT -= dt / 1000; match.t += dt / 1000; match.tickBots(dt * 2); if (koT <= 0 || match.over) finish(); return; }
+  if (scene !== 'play' || paused) return;
+  match.t += dt / 1000;
+  if (auto) { autoMe(dt); } else {
+    /* DAS / ARR */
+    if (das.dir) { const k = das.dir === -1 ? 'left' : 'right'; das[k] += dt; if (das[k] > 150) { const n = Math.floor((das[k] - 150) / 40); das[k] = 150 + ((das[k] - 150) % 40); for (let i = 0; i < n; i++) if (!move(das.dir)) break; } }
+    const G = Math.max(45, 800 * Math.pow(.9, Math.floor(match.t / 20))), iv = soft ? Math.min(G / 20, 45) : G;
+    gT += dt; while (gT >= iv) { gT -= iv; if (!grounded()) { cur.y++; } else break; }
+    if (grounded()) { lockT += dt; if (lockT >= 500) lockCur(); } else lockT = 0;
+  }
+  match.tickBots(dt);
+  if (match.over && scene === 'play') finish();
+}
+function autoMe(dt) {
+  me.timer += dt; const iv = 1000 / (1.15 * (1 + Math.min(.9, match.t / 150)));
+  while (me.timer >= iv && me.alive) { me.timer -= iv; const q = cur.t; me.queue.unshift(q); me.queue.pop(); me.fill(); match.botMove(me); if (me.alive) spawn(); }
+}
+function finish() {
+  scene = 'result'; resultAt = performance.now();
+  const rank = me.rank || (me.alive ? 1 : 8);
+  result = { rank, time: match.t, sent: me.sent, kos: me.kos, win: rank === 1 };
+}
+
+/* ---------- 繪圖 ---------- */
+function bg() {
+  for (let ty = 0; ty < Math.ceil(LH / 16); ty++) for (let tx = 0; tx < Math.ceil(LW / 16); tx++) r((tx + ty) % 2 ? '#1c2540' : '#222d4a', tx * 16, ty * 16, 16, 16);
+  r('#12182c', 0, 0, LW, 3); for (let i = 0; i < LW; i += 16) r((i / 16) % 2 ? '#ff7ab8' : '#5ae0ff', i + 2, 1, 12, 2);
+}
+function panel(x, y, w, h, label, lc = '#ff7ab8') { ob('#232f4a', '#0a0e1c', x, y, w, h); r('#2f3d5e', x + 2, y + 2, w - 4, 1); if (label) T(label, x + w / 2, y + 7, 7, lc); }
+function blk(x, y, s, c) {
+  if (s >= 8) { r(shade(c, .55), x, y, s, s); r(c, x + 1, y + 1, s - 2, s - 2); r(shade(c, 1.28), x + 1, y + 1, s - 2, 1); r(shade(c, 1.28), x + 1, y + 1, 1, s - 2); r(shade(c, .78), x + 1, y + s - 2, s - 2, 1); r(shade(c, .78), x + s - 2, y + 1, 1, s - 2); }
+  else if (s >= 5) { r(shade(c, .6), x, y, s, s); r(c, x + 1, y + 1, s - 2, s - 2); r(shade(c, 1.25), x + 1, y + 1, s - 2, 1); }
+  else { r(c, x, y, s, s); r(shade(c, 1.3), x, y, s, 1); }
+}
+function drawBoard(x, y, cell, grid, frame, piece, ghost) {
+  const w = COLS * cell, h = (ROWS - HID) * cell;
+  if (frame) ob('#2a3656', '#0a0e1c', x - 3, y - 3, w + 6, h + 6);
+  r('#10152a', x, y, w, h);
+  if (cell >= 6) { for (let i = 1; i < COLS; i++) r('#161d38', x + i * cell, y, 1, h); for (let j = 1; j < ROWS - HID; j++) r('#161d38', x, y + j * cell, w, 1); }
+  for (let j = HID; j < ROWS; j++) for (let i = 0; i < COLS; i++) { const c = grid[j][i]; if (c) blk(x + i * cell, y + (j - HID) * cell, cell, COL[c]); }
+  if (piece) {
+    const gy = dropY(grid, piece.t, piece.r, piece.x, piece.y);
+    if (ghost && cell >= 6) for (const [cx, cy] of MATS[piece.t][piece.r]) { const yy = gy + cy - HID; if (yy < 0) continue; const bx = x + (piece.x + cx) * cell, by = y + yy * cell, c = shade(COL[piece.t], .5); r(c, bx, by, cell, 1); r(c, bx, by + cell - 1, cell, 1); r(c, bx, by, 1, cell); r(c, bx + cell - 1, by, 1, cell); }
+    for (const [cx, cy] of MATS[piece.t][piece.r]) { const yy = piece.y + cy - HID; if (yy < 0) continue; blk(x + (piece.x + cx) * cell, y + yy * cell, cell, COL[piece.t]); }
+  }
+}
+function miniPiece(x, y, t, w) {
+  const cells = MATS[t][0], xs = cells.map(c => c[0]), ys = cells.map(c => c[1]), mw = Math.max(...xs) - Math.min(...xs) + 1, mh = Math.max(...ys) - Math.min(...ys) + 1;
+  const ox = x + Math.floor((w - mw * 5) / 2) - Math.min(...xs) * 5, oy = y - Math.min(...ys) * 5 - Math.floor(mh * 5 / 2);
+  for (const [cx, cy] of cells) blk(ox + cx * 5, oy + cy * 5, 5, COL[t]);
+}
+function holdBox(x, y, t, w = 42) { panel(x, y, w, 34, '暫存'); if (t) miniPiece(x, y + 24, t, w); }
+function nextBox(x, y, ts, w = 42) { panel(x, y, w, 12 + 28 * ts.length, '下一個', '#5ae0ff'); ts.forEach((t, i) => miniPiece(x, y + 26 + i * 28, t, w)); }
+function garbageBar(x, y, h, n) {
+  ob('#12182c', '#0a0e1c', x, y, 8, h);
+  const flash = match && (match.t - me.lastHit) < .3;
+  for (let k = 0; k < Math.min(n, Math.floor((h - 2) / 8)); k++) r(k < 4 ? (flash ? '#ffffff' : '#ff5c7a') : '#ff9a3a', x + 1, y + h - 2 - (k + 1) * 8 + 1, 6, 7);
+  for (let k = 1; k < h / 8; k++) r('#1d2644', x + 1, y + h - 1 - k * 8, 6, 1);
+}
+function sprite(i, x, y) { if (i >= 0 && spr.complete) g.drawImage(spr, i * 16, 0, 16, 16, x, y, 16, 16); }
+function targetOf() { return match && me.alive ? match.chooseTarget(me) : null; }
+function oppCard(p, x, y, w, h, tgt, hitMe) {
+  if (tgt) ob('#ff5c7a', '#7a1a30', x - 2, y - 2, w + 4, h + 4);
+  panel(x, y, w, h);
+  const wide = w >= 40;
+  if (wide) { sprite(p.spr, x + 1, y + 1); T(p.name, x + 18, y + 8, 7, '#fffaf0', 'l'); } else sprite(p.spr, x + 9, y + 1);
+  const bx = x + (wide ? 8 : 2), by = y + (wide ? 22 : 18);
+  r('#0a0e1c', bx - 1, by - 1, 32, 62); drawBoard(bx, by, 3, p.grid, false);
+  const pn = p.pend; if (pn > 0) { for (let k = 0; k < Math.min(pn, 10); k++) r('#ff5c7a', bx + 31, by + 58 - k * 6, 1, 5); }
+  if (!p.alive) {
+    fa('#0a0e1c', .74, x + 1, y + 1, w - 2, h - 2); T('KO', x + w / 2, y + h / 2 - 8, wide ? 14 : 11, '#ff5c7a'); T(wide ? '第 ' + p.rank + ' 名' : '#' + p.rank, x + w / 2, y + h / 2 + 10, 7, '#fffaf0');
+  }
+  if (tgt && p.alive) { ob('#ff5c7a', '#7a1a30', x + 6, y + h - 9, w - 12, 8); T('目標', x + w / 2, y + h - 5, 6, '#fff', 'm', null); }
+  if (hitMe && p.alive) { ob('#ffd34d', '#8a6012', x - 3, y + 14, 9, 11); T('!', x + 1.5, y + 19.5, 8, '#7a2a1a', 'm', null); }
+  hits.push({ x, y, w, h, fn: () => { if (p.alive && match) match.manual = p; } });
+}
+function opps() { return match.P.filter(p => !p.isMe); }
+function fmtT(s) { s = Math.floor(s); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }
+
+function drawPlay() {
+  const al = match.alive().length, tg = targetOf(), O = opps();
+  const hitFrom = new Set(); if (match.t - me.lastHit < 3 && me.lastAtk) hitFrom.add(me.lastAtk);
+  if (land) {
+    ob('#12182c', '#ff7ab8', 150, 6, 180, 17); T('俄羅斯方塊大亂鬥', 240, 15, 10, '#ffd34d');
+    ob('#12182c', '#5ae0ff', 14, 6, 70, 17); T('存活 ' + al + ' / 8', 49, 15, 8, '#bff3ff');
+    ob('#12182c', '#ffd34d', 396, 6, 70, 17); T('入場 ' + FEE + 'G', 431, 15, 8, '#ffe58a');
+    const pos = [[12, 30], [62, 30], [12, 128], [62, 128], [362, 30], [412, 30], [362, 128]];
+    O.forEach((p, i) => oppCard(p, pos[i][0], pos[i][1], 46, 90, p === tg, hitFrom.has(p)));
+    panel(412, 128, 46, 90, '你', '#ffd34d');
+    T('存活', 435, 146, 7, '#9fb0d0'); T(al + '/8', 435, 158, 11, '#fffaf0'); T('擊倒', 435, 172, 7, '#9fb0d0'); T('' + me.kos, 435, 184, 11, '#ff9bb3'); T('總攻擊', 435, 198, 7, '#9fb0d0'); T('' + me.sent, 435, 210, 10, '#ffd34d');
+    holdBox(136, 40, hold); nextBox(296, 40, me.queue.slice(0, 3));
+    drawBoard(190, 40, 10, me.grid, true, scene === 'play' ? cur : null, true); garbageBar(180, 40, 200, me.pend);
+    if (popup && popup.lines) { popup.lines.forEach((s, i) => T(s, 157, 100 + i * 12, 8, i === 0 ? '#ffd34d' : '#ff9bb3')); if (popup.atk) T('送出 +' + popup.atk, 328, 205, 8, '#fff'); }
+    ob('#12182c', '#ff5c7a', 190, 246, 100, 17); T(tg ? '目標：' + tg.name + (match.manual === tg ? '（手動）' : '') : '', 240, 254.5, 7, '#ffd1d9');
+  } else {
+    ob('#12182c', '#5ae0ff', 6, 6, 62, 15); T('存活 ' + al + '/8', 37, 13.5, 8, '#bff3ff');
+    ob('#12182c', '#ff7ab8', 76, 6, 118, 15); T('俄羅斯方塊大亂鬥', 135, 13.5, 8, '#ffd34d');
+    ob('#12182c', '#ffd34d', 202, 6, 62, 15); T('入場 ' + FEE + 'G', 233, 13.5, 7, '#ffe58a');
+    O.forEach((p, i) => oppCard(p, 5 + i * 37, 26, 34, 78, p === tg, hitFrom.has(p)));
+    drawBoard(85, 114, 10, me.grid, true, scene === 'play' ? cur : null, true); garbageBar(74, 114, 200, me.pend);
+    holdBox(28, 114, hold, 40); nextBox(196, 114, me.queue.slice(0, 3), 40);
+    T('擊倒 ' + me.kos, 48, 166, 7, '#ff9bb3'); T('攻擊 ' + me.sent, 48, 178, 7, '#ffd34d');
+    if (popup && popup.lines) { popup.lines.forEach((s, i) => T(s, 48, 198 + i * 12, 8, i === 0 ? '#ffd34d' : '#ff9bb3')); if (popup.atk) T('+' + popup.atk + ' 行', 232, 232, 9, '#fff'); }
+    ob('#12182c', '#ff5c7a', 22, 320, 226, 16); T(tg ? '目標：' + tg.name + (match.manual === tg ? '（手動）' : '　（點上方頭像可換）') : '', 135, 328, 7.5, '#ffd1d9');
+  }
+  if (scene === 'dying') { fa('#0a0e1c', .6, 0, 0, LW, LH); T('KO', LW / 2, LH / 2 - 8, 34, '#ff5c7a'); T('第 ' + me.rank + ' 名', LW / 2, LH / 2 + 22, 11, '#fffaf0'); }
+  if (paused) { fa('#0a0e1c', .7, 0, 0, LW, LH); T('暫停中', LW / 2, LH / 2 - 6, 16, '#ffd34d'); T('點一下畫面繼續', LW / 2, LH / 2 + 14, 8, '#fff'); }
+}
+function btnC(x, y, w, h, label, col, fn, size = 10) {
+  ob('#2a3656', col, x, y, w, h); r('#3a4a72', x + 2, y + 2, w - 4, 2); T(label, x + w / 2, y + h / 2 + 1, size, '#fff'); hits.push({ x, y, w, h, fn });
+}
+function star(x, y) { ['...#...', '...#...', '#######', '.#####.', '..###..', '.##.##.', '.#...#.'].forEach((row, yy) => [...row].forEach((c, xx) => { if (c === '#') r('#ffd34d', x + xx * 2, y + yy * 2, 2, 2); })); }
+function drawLobby() {
+  const counting = scene === 'count' || scene === 'paying';
+  ob('#12182c', '#ff7ab8', LW / 2 - 110, 8, 220, 20); T('俄羅斯方塊大亂鬥' + (counting ? '・準備中' : '・遊戲機'), LW / 2, 18.5, 10, '#ffd34d');
+  seats.forEach((s, n) => {
+    let x, y, w, h;
+    if (land) { w = 80; h = 66; x = 40 + (n % 4) * 100; y = 38 + Math.floor(n / 4) * 78; } else { w = 112; h = 52; x = 18 + (n % 2) * 122; y = 32 + Math.floor(n / 2) * 58; }
+    if (s && s.me) ob('#ffd34d', '#8a6012', x - 2, y - 2, w + 4, h + 4);
+    panel(x, y, w, h);
+    if (!s) { fa('#0a0e1c', .35, x + 2, y + 2, w - 4, h - 4); T('空位', x + w / 2, y + h / 2 - 2, 8, '#5a6a8a'); return; }
+    if (land) { if (s.me) star(x + 33, y + 6); else sprite(s.s, x + 32, y + 6); T(s.me ? '你' : s.n, x + 40, y + 31, 9, '#fffaf0'); const ok = counting || !s.me; ob(ok ? '#2f7a46' : '#3a4a6a', '#0a0e1c', x + 18, y + 44, 44, 14); T(ok ? '已準備' : '尚未準備', x + 40, y + 51.5, 7.5, ok ? '#d8ffe4' : '#9fb0d0', 'm', null); }
+    else { if (s.me) star(x + 8, y + 10); else sprite(s.s, x + 8, y + 8); T(s.me ? '你' : s.n, x + 34, y + 16, 9, '#fffaf0', 'l'); const ok = counting || !s.me; ob(ok ? '#2f7a46' : '#3a4a6a', '#0a0e1c', x + 32, y + 28, 44, 14); T(ok ? '已準備' : '尚未準備', x + 54, y + 35.5, 7.5, ok ? '#d8ffe4' : '#9fb0d0', 'm', null); }
+  });
+  const bx = land ? 40 : 18, by = land ? 198 : 270, bw = land ? 80 : 74, bh = land ? 62 : 62;
+  if (counting) { ob('#12182c', '#ff5c7a', bx, by, bw, bh); T('' + Math.max(1, Math.ceil(countT)), bx + bw / 2, by + 24, 30, '#ffd34d'); hits.push({ x: bx, y: by + 38, w: bw, h: 24, fn: cancelReady }); T('點此取消', bx + bw / 2, by + 50, 8, '#ffd1d9'); }
+  else btnC(bx, by, bw, bh, '準備', '#7fd08a', startReady, 14);
+  const ix = land ? 140 : 100, iw = land ? 300 : 152;
+  ob('#12182c', '#5ae0ff', ix, by, iw, bh); const cx = ix + iw / 2;
+  T('入場費 ' + FEE + 'G・開局後不退費', cx, by + 16, land ? 9 : 8, '#bff3ff'); T('沒坐滿的位置自動補滿', cx, by + 31, 8, '#9fb0d0'); T(trial ? '試營運：免費入場' : '你的金幣 ' + balance + 'G', cx, by + 47, 8, '#ffd34d');
+  if (popup && popup.s) T(popup.s, LW / 2, LH - 10, 9, '#ff9bb3');
+}
+function drawResult() {
+  drawPlay();
+  fa('#0a0e1c', .78, 0, 0, LW, LH);
+  const pw = land ? 240 : 230, ph = land ? 220 : 270, px = (LW - pw) / 2, py = (LH - ph) / 2;
+  ob('#232f4a', result.win ? '#ffd34d' : '#ff7ab8', px, py, pw, ph); r('#2f3d5e', px + 3, py + 3, pw - 6, 1);
+  T(result.win ? '勝利！' : '被淘汰', LW / 2, py + 22, 10, result.win ? '#ffd34d' : '#ffd1d9');
+  T('第 ' + result.rank + ' 名', LW / 2, py + 52, 26, result.win ? '#ffd34d' : '#fffaf0');
+  const row = (k, v, y) => { T(k, px + 30, y, 8, '#9fb0d0', 'l'); T(v, px + pw - 30, y, 9, '#fffaf0', 'r'); };
+  row('存活時間', fmtT(result.time), py + 88); row('總攻擊行數', '' + result.sent, py + 106); row('擊倒人數', '' + result.kos, py + 124); row('你的金幣', balance + 'G', py + 142);
+  btnC(px + 20, py + ph - 62, pw - 40, 24, '再來一場（-' + FEE + 'G）', '#7fd08a', () => backToLobby(true), 9);
+  btnC(px + 20, py + ph - 32, pw - 40, 22, '回大廳', '#5ae0ff', () => backToLobby(false), 9);
+}
+function draw() {
+  const pv = (scene === 'play' || scene === 'dying') ? 'visible' : 'hidden'; if (padEl.style.visibility !== pv) padEl.style.visibility = pv;
+  texts = []; hits = []; bg();
+  if (scene === 'lobby' || scene === 'count' || scene === 'paying') drawLobby(); else if (scene === 'result') drawResult(); else drawPlay();
+  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.imageSmoothingEnabled = false; ctx.clearRect(0, 0, cv.width, cv.height);
+  ctx.drawImage(off, 0, 0, LW, LH, 0, 0, cv.width, cv.height);
+  const k = cv.width / LW;
+  for (const [s, x, y, size, col, al, ol] of texts) {
+    ctx.font = `700 ${size * k}px "Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif`; ctx.textAlign = al === 'l' ? 'left' : al === 'r' ? 'right' : 'center'; ctx.textBaseline = 'middle';
+    if (ol) { ctx.lineWidth = Math.max(1, k * .9); ctx.strokeStyle = ol; ctx.lineJoin = 'round'; ctx.strokeText(s, x * k, y * k); }
+    ctx.fillStyle = col; ctx.fillText(s, x * k, y * k);
+  }
+}
+window.__demo = { get scene() { return scene; }, get match() { return match; }, startReady, set balance(v) { balance = v; }, get S() { return S; }, press, force(s) { scene = s; } };
+addEventListener('message', e => {
+  const d = e.data; if (!embed || !d || e.source !== parent) return;
+  if (d.t === 'tt-bal') { if (typeof d.v === 'number') balance = d.v; trial = !!d.trial; if (typeof d.fee === 'number') FEE = d.fee; }
+  else if (d.t === 'tt-fee-res') {
+    if (typeof d.v === 'number') balance = d.v; trial = !!d.trial;
+    if (d.ok && scene === 'paying') startMatch();
+    else if (scene === 'paying') { scene = 'lobby'; newSeats(); popup = { s: d.msg || '金幣不足', t: 2 }; }
+  }
+});
+layout(); requestAnimationFrame(frame);
+if (embed) parent.postMessage({ t: 'tt-ready' }, '*');
+})();
+</script>
+</body>
+</html>

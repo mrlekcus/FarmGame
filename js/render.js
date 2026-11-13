@@ -180,6 +180,7 @@ function update(dt) {
   if (vfOn) { pressed.length = 0; vfTick(dt); }
   cookTick();
   if (scene === 'cafe') cafeTick(dt);
+  if (scene === 'arcade') arcadeTick();
   buffFxTick(dt);
   if (paused()) { actQueued = false; autoPath = null; return; }
   if (anim && (pressed.length || pose || pl.prog < 1)) anim = null;   // 走動或坐下就中斷動作

@@ -186,6 +186,7 @@ function draw(now) {
   else if (scene === 'cave') drawCaveRoom(now);
   else if (scene === 'tarot') drawTarotRoom(now);
   else if (scene === 'cafe') drawCafeRoom(now);
+  else if (scene === 'arcade') drawArcadeRoom(now);
   else if (scene === 'boat') drawBoatScene(now);
   else {
   for (let ty = 0; ty < H; ty++) for (let tx = 0; tx < W; tx++) {
@@ -228,7 +229,7 @@ function draw(now) {
   else if (scene === 'forest') FOREST_BLD.forEach(b => drawBldg(b, now, dark > 0.15));
   else if (scene === 'swamp') drawSwampProps(now);
   else {
-    if (scene === 'plaza') { drawPlazaBoat(now); drawMsgBoard(now); drawPlazaCamp(now); drawCafeBldg(now, dark > 0.15); }
+    if (scene === 'plaza') { drawPlazaBoat(now); drawMsgBoard(now); drawPlazaCamp(now); drawCafeBldg(now, dark > 0.15); drawGameBldg(now, dark > 0.15); }
     ctx.save(); ctx.translate(PXO * T, PYO * T);   // 塔羅攤、路燈、噴水池是舊廣場座標，位移後再畫
     drawTarotStall(now);
     if (scene === 'plaza') drawPlazaLamps(now);   // 廣場路燈（js/plaza-light.js）
@@ -261,6 +262,8 @@ function draw(now) {
       } });
     } else if (cafeSeatedNow()) {
       ents.push({ y: ry, draw: () => cafeDrawSeated(ch, now) });
+    } else if (arcadeSeatedNow()) {
+      ents.push({ y: ry, draw: () => arcadeDrawSeated(ch, now) });
     } else if (pose && ((pose.bench && (scene === 'plaza' || (pose.yard && scene === 'farm'))) || (pose.ground && syncScene()))) {
       ents.push({ y: ry, draw: () => {
         (pose.ground ? drawGroundSeated : drawBenchSeated)(Math.round(pl.x * T), Math.round(pl.y * T), ch);
@@ -348,7 +351,7 @@ function draw(now) {
 
   if (scene === 'swamp') drawSwampMist(now);   // 霧語沼澤的霧
   drawBoatFx(now, voyFogLevel(now));
-  const indoors = scene === 'house' || scene === 'barn' || scene === 'tarot' || scene === 'stylist' || scene === 'cave' || scene === 'cafe';
+  const indoors = scene === 'house' || scene === 'barn' || scene === 'tarot' || scene === 'stylist' || scene === 'cave' || scene === 'cafe' || scene === 'arcade';
   const warm = indoors ? 0 : Math.max(0, 1 - Math.abs(w.min - 1110) / 100) * 0.2;
   if (!indoors && SEA === 'autumn') r('rgba(255,170,70,.06)', 0, 0, W * T, H * T);
   else if (!indoors && SEA === 'winter') r('rgba(215,232,255,.07)', 0, 0, W * T, H * T);

@@ -364,7 +364,7 @@ const bfRnd = (a, b) => a + Math.random() * (b - a);
 const myVisList = () => VIS_BUFFS.filter(k => buffOn(k));
 const myVisBuffs = () => myVisList().join(',');   // 送給別人的 buff 種類，例如 "lamp,heart"
 const parseVis = v => typeof v === 'string' ? VIS_BUFFS.filter(k => v.split(',').includes(k)) : [];   // 收到的資料只認得清單裡的種類
-const bfIndoors = () => scene === 'house' || scene === 'barn' || scene === 'tarot' || scene === 'stylist' || scene === 'cave' || scene === 'cafe';
+const bfIndoors = () => scene === 'house' || scene === 'barn' || scene === 'tarot' || scene === 'stylist' || scene === 'cave' || scene === 'cafe' || scene === 'arcade';
 function bfEmit(kinds, px, py, moving, acc, dt) {
   const every = (k, ms) => { acc[k] = (acc[k] || 0) + dt; if (acc[k] < ms) return false; acc[k] = 0; return true; };
   const add = o => bfx.push(Object.assign({ l: 0, vx: 0, vy: -0.3, max: 1800, sc: scene }, o));

@@ -169,6 +169,15 @@ function updateTip() {
       else if (y <= 1 && x >= 4 && x <= 7) s = '招牌：按動作鍵，選擇前往 Lekcus 的直播或 Instagram。';
       else if (k === LK || k === TBL) s = 'Lekcus：按動作鍵打招呼、抽牌。';
     }
+  } else if (scene === 'arcade') {
+    s = '遊戲店：面向空的高腳椅按動作鍵坐下，開一場俄羅斯方塊大亂鬥（一場 100 G，沒有獎勵，純好玩）。';
+    if (x >= 0 && y >= 0 && x < W && y < H) {
+      const k = K[y][x];
+      if (k === BX) s = '門口：按動作鍵回廣場。';
+      else if (k === GST) s = '高腳椅：按動作鍵坐下，開始俄羅斯方塊大亂鬥（一場 100 G）。';
+      else if (k === GSM) s = '街機：坐旁邊的椅子就能玩。';
+      else if (k === GSX && y >= 11 && y <= 12 && x >= 10 && x <= 13) s = '嗶嗶（店員機器人）：按動作鍵聊天。';
+    }
   } else if (scene === 'cafe') {
     s = '咖啡廳：坐高腳椅按動作鍵點餐；想打工就走到吧台右邊的小門穿圍裙。（有結算時：點餐扣款、送餐領薪水）';
     if (x >= 0 && y >= 0 && x < W && y < H) {
