@@ -45,6 +45,7 @@ class Pl {
   constructor(name, spr, isMe, lvl) {
     this.name = name; this.spr = spr; this.isMe = isMe; this.lvl = lvl || 0;
     this.grid = emptyGrid(); this.alive = true; this.rank = 0; this.pending = []; this.combo = -1; this.b2b = false;
+    this.kind = isMe ? 'me' : 'lb'; this.seat = -1; this.uid = ''; this.heard = 0;
     this.sent = 0; this.kos = 0; this.bag = []; this.queue = []; this.target = null; this.lastAtk = null; this.lastHit = -1e9; this.pieces = 0; this.diedAt = 0;
     this.timer = 0; this.skill = [.5, .7, .85][this.lvl]; this.pps = [.5, .75, 1.1][this.lvl] * (0.85 + Math.random() * .3);
     this.fill();
@@ -66,19 +67,30 @@ class Match {
       return p.target;
     }
     if (!p.target || !p.target.alive || Math.random() < 0.08) {
-      const me = this.me; p.target = (me.alive && Math.random() < .3) ? me : al[rnd(al.length)];
+      const hum = al.filter(q => q.kind === 'me' || q.kind === 'rh');
+      p.target = (hum.length && Math.random() < .3) ? hum[rnd(hum.length)] : al[rnd(al.length)];
     }
     return p.target;
   }
   send(p, n) {
     const tg = this.chooseTarget(p); if (!tg || n <= 0) return;
-    tg.pending.push({ n, hole: rnd(COLS), from: p });
-    if (tg.isMe) { tg.lastAtk = p; tg.lastHit = this.t; }
+    const hole = rnd(COLS);
+    if (tg.kind === 'me' || tg.kind === 'lb') { tg.pending.push({ n, hole, from: p }); if (tg.isMe) { tg.lastAtk = p; tg.lastHit = this.t; } }
+    else if (this.hooks.onRemoteAtk) this.hooks.onRemoteAtk(p, tg, n, hole);   // 對手在別人的裝置上：用網路送過去
   }
   kill(p, killer) {
     if (!p.alive) return; p.rank = this.alive().length; p.alive = false; p.diedAt = this.t;
     if (killer && killer !== p) killer.kos++;
     if (p.isMe && this.hooks.onMeDead) this.hooks.onMeDead();
+    if (this.hooks.onKill && (p.kind === 'me' || p.kind === 'lb')) this.hooks.onKill(p, killer);
+    if (this.manual === p) this.manual = null;
+    if (this.alive().length <= 1) { const w = this.alive()[0]; if (w) { w.rank = 1; } this.over = true; }
+  }
+  /* 別台裝置上的玩家／機器淘汰了（名次由對方告知；0 = 用目前存活人數） */
+  remoteKo(p, rank, killer) {
+    if (!p || !p.alive) return;
+    p.rank = rank >= 1 && rank <= 8 ? rank : this.alive().length; p.alive = false; p.diedAt = this.t;
+    if (killer && killer !== p) killer.kos++;
     if (this.manual === p) this.manual = null;
     if (this.alive().length <= 1) { const w = this.alive()[0]; if (w) { w.rank = 1; } this.over = true; }
   }
@@ -143,10 +155,10 @@ class Match {
     return sc;
   }
   tickBots(dt) {
-    if (this.t > 75) { this.sd = (this.sd || 0) + dt; if (this.sd >= 5000) { this.sd = 0; const n = 1 + Math.floor((this.t - 75) / 25); for (const p of this.alive()) p.pending.push({ n, hole: rnd(COLS), from: null }); } }
+    if (this.t > 75) { this.sd = (this.sd || 0) + dt; if (this.sd >= 5000) { this.sd = 0; const n = 1 + Math.floor((this.t - 75) / 25); for (const p of this.alive()) if (p.kind === 'me' || p.kind === 'lb') p.pending.push({ n, hole: rnd(COLS), from: null }); } }
     const speed = 1 + Math.min(.6, this.t / 150);
     for (const p of this.P) {
-      if (p.isMe || !p.alive) continue;
+      if (p.kind !== 'lb' || !p.alive) continue;
       p.timer += dt;
       const iv = 1000 / (p.pps * speed);
       while (p.timer >= iv && p.alive) { p.timer -= iv; this.botMove(p); if (this.over) return; }
@@ -167,7 +179,7 @@ const auto = /[?&]auto=1/.test(location.search);
 const embed = /[?&]embed=1/.test(location.search) && window.parent !== window;
 let trial = false;
 const xEl = document.getElementById('x');
-if (embed) { xEl.style.display = 'block'; xEl.onclick = () => parent.postMessage({ t: 'tt-exit' }, '*'); }
+if (embed) { xEl.style.display = 'block'; xEl.onclick = () => { try { if (match && me && me.alive && mp && !mp.over) match.kill(me, null); } catch (e) { /* 略過 */ } parent.postMessage({ t: 'tt-exit' }, '*'); }; }
 let LW = 480, LH = 270, S = 2, DPR = 1, land = true;
 let texts = [], hits = [];
 const r = (c, x, y, w, h) => { g.fillStyle = c; g.fillRect(x, y, w, h); };
@@ -217,24 +229,190 @@ addEventListener('resize', layout);
 let scene = 'lobby';      // lobby | count | play | dying | result
 let balance = embed ? 0 : 1000, FEE = 100;
 let match = null, me = null, cur = null, hold = null, holdUsed = false, gT = 0, lockT = 0, resets = 0, soft = false;
-let seats = [], countT = 0, popup = null, koT = 0, paused = false, result = null, resultAt = 0, hurtFlash = 0;
+let countT = 0, popup = null, koT = 0, paused = false, result = null, resultAt = 0, hurtFlash = 0;
 const keys = {}, das = { left: 0, right: 0, dir: 0 };
-function newSeats() { seats = Array.from({ length: 8 }, (_, i) => i === 7 ? { me: true } : null); }
-newSeats();
 
-function startReady() { if (!trial && balance < FEE) { popup = { s: '金幣不足', t: 1.5 }; return; } scene = 'count'; countT = 5; fillAcc = 0; }
-let fillAcc = 0;
-function cancelReady() { scene = 'lobby'; newSeats(); }
-function startMatch() {
-  if (!embed) balance -= FEE;
-  const names = shuffle(NAME_POOL.slice()), sprs = shuffle([0, 1, 2, 3, 4, 5, 7]), lv = shuffle([0, 0, 0, 1, 1, 1, 2]);
-  const players = [];
-  for (let i = 0; i < 7; i++) players.push(new Pl(names[i], sprs[i], false, lv[i]));
-  me = new Pl('你', -1, true, 1); players.push(me);
-  match = new Match(players, { onMeDead() { scene = 'dying'; koT = 1.6; }, onClear(n, atk, tag) { popup = { lines: tag.length ? tag : [['', '單行', '雙行', '三行'][n]], atk, t: 1.4 }; } });
-  hold = null; holdUsed = false; spawn(); scene = 'play'; paused = false; popup = null; result = null; hurtFlash = 0;
+/* ================= 連線層：同一間店裡坐在椅子上的真人 ================= */
+/* 通訊靠外層遊戲：這裡送 { t:'tt-net', m } 給外層，外層用店內頻道廣播；收到別人的訊息時外層送 { t:'tt-in', from, m } 進來。 */
+const NET = { on: false, uid: '', name: '你', seat: 7 };
+const peers = new Map();          // 同店的其他人：uid → { name, seat, st: 'idle'|'ready'|'play', cl, t }
+let mp = null;                    // 進行中的對局 { mid, host, hostUid, roster, bbAt, snAcc, bbAcc, wd, t0, over }
+let myReady = false, hbAcc = 0, whoAt = 0, waitT = 0;
+const fakes = Array(8).fill(null);   // 倒數時畫面上暫時填滿的空位（純視覺）
+const nowMs = () => performance.now();
+const myId = () => NET.uid || 'me';
+const sprOf = u => { let h = 0; for (let i = 0; i < u.length; i++) h = (h * 31 + u.charCodeAt(i)) >>> 0; return [0, 1, 2, 3, 4, 5, 7][h % 7]; };
+const cleanName = v => String(v == null ? '' : v).replace(/[\u0000-\u001f<>]/g, '').slice(0, 8) || '玩家';
+const cint = (v, a, b, d) => (typeof v === 'number' && isFinite(v)) ? Math.min(b, Math.max(a, Math.round(v))) : d;
+function netSend(m) { if (embed && NET.on) parent.postMessage({ t: 'tt-net', m }, '*'); }
+const CODE = '.IOTSZJLG';
+const encG = grid => grid.map(row => row.map(c => { if (!c) return '0'; const i = CODE.indexOf(c); return String(i > 0 ? i : 8); }).join('')).join('');
+const decG = s => Array.from({ length: ROWS }, (_, y) => Array.from({ length: COLS }, (_, x) => { const d = s.charCodeAt(y * COLS + x) - 48; return d > 0 ? CODE[d] : null; }));
+const G_RE = new RegExp('^[0-8]{' + (COLS * ROWS) + '}$');
+const freshPeers = () => [...peers.entries()].filter(([u, p]) => nowMs() - p.t < 5000);
+const peersPlaying = () => freshPeers().some(([u, p]) => p.st === 'play');
+const netBusy = () => !!(mp && !mp.over) || peersPlaying();
+function myState() { return (scene === 'play' || scene === 'dying' || scene === 'paying') ? 'play' : ((scene === 'count' || scene === 'waitgo') && myReady) ? 'ready' : 'idle'; }
+function sendHb() { netSend({ k: 'hb', n: NET.name, s: NET.seat, st: myState(), cl: scene === 'count' ? Math.max(0, countT) : 0 }); }
+/* 大廳 8 個位置：我、同店真人、（倒數時）暫時填的空位 */
+function lobbyView() {
+  const v = Array(8).fill(null);
+  freshPeers().forEach(([u, p]) => { if (!v[p.seat]) v[p.seat] = { n: p.name, s: sprOf(u), human: true, rdy: p.st === 'ready', play: p.st === 'play' }; });
+  v[NET.seat] = { me: true, rdy: myReady };
+  for (let i = 0; i < 8; i++) if (!v[i] && fakes[i]) v[i] = Object.assign({ rdy: true }, fakes[i]);
+  return v;
+}
+function cleanRoster(R) {
+  if (!Array.isArray(R) || R.length !== 8) return null;
+  const out = [];
+  for (const e of R) {
+    if (!e || typeof e !== 'object') return null;
+    const o = { n: cleanName(e.n), sp: cint(e.sp, 0, 7, 0) };
+    if (e.u != null) { if (typeof e.u !== 'string' || e.u.length > 40) return null; o.u = e.u; } else o.lv = cint(e.lv, 0, 2, 1);
+    out.push(o);
+  }
+  return out;
+}
+function makeRoster() {
+  const hum = [{ u: myId(), n: NET.name, seat: NET.seat }];
+  freshPeers().forEach(([u, p]) => { if (p.st === 'ready') hum.push({ u, n: p.name, seat: p.seat }); });
+  hum.sort((a, b) => a.u < b.u ? -1 : 1);
+  const R = Array(8).fill(null);
+  hum.slice(0, 8).forEach(h => { const i = (!R[h.seat]) ? h.seat : R.findIndex(x => !x); R[i] = { u: h.u, n: h.n, sp: sprOf(h.u) }; });
+  const names = shuffle(NAME_POOL.filter(n => !R.some(e => e && e.n === n))), sprs = shuffle([0, 1, 2, 3, 4, 5, 7]), lv = shuffle([0, 0, 0, 1, 1, 1, 2, 0]);
+  let k = 0; for (let i = 0; i < 8; i++) if (!R[i]) { R[i] = { n: names[k], sp: sprs[k % 7], lv: lv[k % 8] }; k++; }
+  return R;
+}
+const matchHooks = () => ({
+  onMeDead() { scene = 'dying'; koT = 1.6; },
+  onClear(n, atk, tag) { popup = { lines: tag.length ? tag : [['', '單行', '雙行', '三行'][n]], atk, t: 1.4 }; },
+  onKill(p, killer) { if (mp) netSend({ k: 'ko', mid: mp.mid, s: p.seat, r: p.rank, by: killer ? killer.seat : -1 }); },
+  onRemoteAtk(p, tg, n, hole) { if (mp) netSend({ k: 'atk', mid: mp.mid, to: tg.seat, n, h: hole, fs: p.seat }); }
+});
+/* 依名單建立對局。asPlayer = false 表示我只是觀戰 */
+function buildMatch(R, id, hostUid, asPlayer) {
+  const host = hostUid === myId(); me = null;
+  const P = R.map((e, i) => {
+    let p;
+    if (e.u === myId() && asPlayer) { p = new Pl('你', -1, true, 1); me = p; }
+    else if (e.u) { p = new Pl(e.n, e.sp, false, 0); p.kind = 'rh'; p.uid = e.u; }
+    else { p = new Pl(e.n, e.sp, false, e.lv | 0); p.kind = host ? 'lb' : 'rb'; }
+    p.seat = i; p.heard = nowMs(); return p;
+  });
+  mp = { mid: id, host, hostUid, roster: R, bbAt: nowMs(), snAcc: 0, bbAcc: 0, wd: 0, over: false };
+  match = new Match(P, matchHooks());
+  hold = null; holdUsed = false; popup = null; result = null; hurtFlash = 0; paused = false;
   fixOrder = shuffle([0, 1, 2, 3, 4, 5, 6]);
 }
+function enterPlay() { spawn(); scene = 'play'; paused = false; popup = null; }
+/* 開局：我在名單裡而且有按準備 → 扣款後上場；否則只是觀戰 */
+function goMatch(R, id, hostUid) {
+  fakes.fill(null);
+  const inIt = R.some(e => e.u === myId());
+  if (inIt && myReady) {
+    buildMatch(R, id, hostUid, true);
+    if (embed) { scene = 'paying'; parent.postMessage({ t: 'tt-fee' }, '*'); } else { balance -= FEE; enterPlay(); }
+  } else spectate(R, id, hostUid, [], 0);
+}
+function spectate(R, id, hostUid, dead, t0) {
+  fakes.fill(null); myReady = false;
+  buildMatch(R, id, hostUid, false);
+  match.t = t0 || 0;
+  (dead || []).forEach(d => { const p = match.P[d.s]; if (p) { p.alive = false; p.rank = d.r; } });
+  if (R.some(e => e.u === myId())) { const p = match.P.find(q => q.uid === myId()); if (p) { p.alive = false; p.rank = 8; netSend({ k: 'ko', mid: id, s: p.seat, r: 8, by: -1 }); } }
+  scene = 'spec'; popup = null;
+}
+function failPay(msg) {
+  if (!match || !me) { scene = 'lobby'; myReady = false; popup = { s: msg || '金幣不足', t: 2 }; return; }
+  match.kill(me, null);      // 沒付到款 = 這場棄權（其他人會看到我被淘汰）
+  scene = match.over ? 'lobby' : 'spec'; if (scene === 'lobby') { match = null; mp = null; } myReady = false; popup = { s: msg || '金幣不足', t: 2.5 };
+}
+function onGo(from, m) {
+  const R = cleanRoster(m.seats); if (!R || typeof m.mid !== 'string' || m.mid.length > 60) return;
+  if (mp && (mp.mid === m.mid || !mp.over)) return;
+  if ((scene === 'count' || scene === 'waitgo') && myReady) goMatch(R, m.mid, from);
+  else if (scene === 'lobby') spectate(R, m.mid, from, [], 0);
+}
+function onNet(from, m) {
+  if (!NET.on || typeof from !== 'string' || from === NET.uid || !m || typeof m !== 'object' || typeof m.k !== 'string') return;
+  const k = m.k, t = nowMs();
+  if (k === 'hb') {
+    const isNew = !peers.has(from); if (isNew && peers.size >= 12) return;
+    peers.set(from, { name: cleanName(m.n), seat: cint(m.s, 0, 7, 0), st: ['idle', 'ready', 'play'].includes(m.st) ? m.st : 'idle', cl: cint(m.cl, 0, 9, 0), t });
+    if (isNew) sendHb();
+    return;
+  }
+  if (k === 'go') { onGo(from, m); return; }
+  if (k === 'who') { if (mp && mp.host && !mp.over && match && typeof from === 'string') netSend({ k: 'ro', to: from, mid: mp.mid, seats: mp.roster, dead: match.P.filter(p => !p.alive).map(p => ({ s: p.seat, r: p.rank })), t: match.t }); return; }
+  if (k === 'ro') {
+    if (m.to !== NET.uid || scene !== 'lobby' || (mp && !mp.over)) return;
+    const R = cleanRoster(m.seats); if (!R || typeof m.mid !== 'string') return;
+    const dead = (Array.isArray(m.dead) ? m.dead : []).slice(0, 8).map(d => ({ s: cint(d && d.s, 0, 7, 0), r: cint(d && d.r, 1, 8, 8) }));
+    spectate(R, m.mid, from, dead, typeof m.t === 'number' ? Math.min(900, Math.max(0, m.t)) : 0); return;
+  }
+  if (!mp || !match || m.mid !== mp.mid) return;
+  const P = match.P;
+  if (k === 'sn') {
+    const p = P.find(q => q.kind === 'rh' && q.uid === from); if (!p || !p.alive || typeof m.g !== 'string' || !G_RE.test(m.g)) return;
+    p.grid = decG(m.g); p.heard = t; const n = cint(m.pd, 0, 40, 0); p.pending = n ? [{ n, hole: 0, from: null }] : [];
+  } else if (k === 'bb') {
+    if (from !== mp.hostUid || !Array.isArray(m.b)) return;
+    mp.bbAt = t;
+    m.b.slice(0, 8).forEach(e => {
+      const p = e && P[cint(e.s, 0, 7, -1)]; if (!p || p.kind !== 'rb' || !p.alive || typeof e.g !== 'string' || !G_RE.test(e.g)) return;
+      p.grid = decG(e.g); const n = cint(e.pd, 0, 40, 0); p.pending = n ? [{ n, hole: 0, from: null }] : [];
+    });
+  } else if (k === 'atk') {
+    const p = P[cint(m.to, 0, 7, -1)]; if (!p || !p.alive || (p.kind !== 'me' && p.kind !== 'lb')) return;
+    const f = P[cint(m.fs, 0, 7, -1)] || null;
+    p.pending.push({ n: cint(m.n, 1, 20, 1), hole: cint(m.h, 0, COLS - 1, 0), from: f });
+    if (p.isMe) { p.lastAtk = f; p.lastHit = match.t; }
+  } else if (k === 'ko') {
+    const p = P[cint(m.s, 0, 7, -1)]; if (!p || !p.alive) return;
+    if (!((p.kind === 'rh' && p.uid === from) || (p.kind === 'rb' && from === mp.hostUid))) return;
+    const by = P[cint(m.by, 0, 7, -1)] || null;
+    match.remoteKo(p, cint(m.r, 0, 8, 0), by && by.kind === 'me' ? by : null);
+    if (by && by.kind === 'lb') by.kos++;
+  }
+}
+/* 每幀：心跳、傳自己的盤面、機器的盤面（主持人）、看門狗 */
+function netTick(dt) {
+  hbAcc += dt; if (hbAcc >= 1200) { hbAcc = 0; sendHb(); }
+  if (!NET.on) return;
+  if (!mp && scene === 'lobby' && peersPlaying() && nowMs() - whoAt > 1500) { whoAt = nowMs(); netSend({ k: 'who' }); }
+  if (!mp || !match) return;
+  if (match.over) { mp.over = true; return; }
+  if (scene === 'paying') return;
+  mp.snAcc += dt; mp.bbAcc += dt;
+  if (mp.snAcc >= 330) { mp.snAcc = 0; if (me && me.alive) netSend({ k: 'sn', mid: mp.mid, g: encG(me.grid), pd: me.pend }); }
+  if (mp.host && mp.bbAcc >= 330) {
+    mp.bbAcc = 0; const b = match.P.filter(p => p.kind === 'lb' && p.alive).map(p => ({ s: p.seat, g: encG(p.grid), pd: p.pend }));
+    if (b.length) netSend({ k: 'bb', mid: mp.mid, b });
+  }
+  mp.wd += dt;
+  if (mp.wd >= 1000) {
+    mp.wd = 0; const t = nowMs();
+    match.P.forEach(p => { if (p.alive && p.kind === 'rh' && t - p.heard > 6000) match.remoteKo(p, 0, null); });   // 對方斷線／離開
+    if (!mp.host && t - mp.bbAt > 3500) match.P.filter(p => p.alive && p.kind === 'rb').forEach(p => match.remoteKo(p, 0, null));   // 主持人走了，補位的就退場
+    if (match.over) mp.over = true;
+  }
+}
+function lowestReady() { const c = [myId()]; freshPeers().forEach(([u, p]) => { if (p.st === 'ready') c.push(u); }); c.sort(); return c[0]; }
+function hostGo() { const R = makeRoster(), id = myId().slice(0, 8) + Date.now().toString(36); netSend({ k: 'go', mid: id, seats: R }); goMatch(R, id, myId()); }
+function endCount() {
+  fakes.fill(null);
+  if (lowestReady() === myId()) hostGo(); else { scene = 'waitgo'; waitT = 4; }
+}
+
+function startReady() {
+  if (netBusy()) { popup = { s: '本場進行中，結束後就能加入', t: 2 }; return; }
+  if (!trial && balance < FEE) { popup = { s: '金幣不足', t: 1.5 }; return; }
+  const live = freshPeers().filter(([u, p]) => p.st === 'ready' && p.cl > 0.5).map(([u, p]) => p.cl);
+  scene = 'count'; countT = live.length ? Math.min(5, Math.min(...live)) : 5; fillAcc = 0; myReady = true; sendHb();
+}
+let fillAcc = 0;
+function cancelReady() { scene = 'lobby'; myReady = false; fakes.fill(null); sendHb(); }
+
 let fixOrder = [0, 1, 2, 3, 4, 5, 6];
 function spawn(type) {
   const t = type || me.take(); cur = { t, r: 0, x: t === 'O' ? 4 : 3, y: 1 }; gT = 0; lockT = 0; resets = 0;
@@ -272,7 +450,7 @@ function press(a) {
 }
 function release(a) { if (a === 'left') { keys._l = false; if (das.dir === -1) das.dir = keys._r ? 1 : 0; } if (a === 'right') { keys._r = false; if (das.dir === 1) das.dir = keys._l ? -1 : 0; } if (a === 'soft') soft = false; }
 const KEYMAP = { ArrowLeft: 'left', ArrowRight: 'right', ArrowDown: 'soft', ArrowUp: 'cw', w: 'cw', W: 'cw', x: 'cw', X: 'cw', a: 'left', A: 'left', d: 'right', D: 'right', s: 'soft', S: 'soft', z: 'ccw', Z: 'ccw', ' ': 'drop', c: 'hold', C: 'hold', Shift: 'hold', p: 'pause', P: 'pause', Escape: 'pause' };
-addEventListener('keydown', e => { const a = KEYMAP[e.key]; if (a) { e.preventDefault(); if (!e.repeat) press(a); } else if ((e.key === 'Enter') && scene === 'lobby') startReady(); else if (e.key === 'Enter' && scene === 'result') { backToLobby(true); } });
+addEventListener('keydown', e => { const a = KEYMAP[e.key]; if (a) { e.preventDefault(); if (!e.repeat) press(a); } else if ((e.key === 'Enter') && scene === 'lobby') startReady(); else if (e.key === 'Enter' && scene === 'result' && !(mp && !mp.over)) { backToLobby(true); } });
 addEventListener('keyup', e => { const a = KEYMAP[e.key]; if (a) release(a); });
 padEl.addEventListener('pointerdown', e => { const b = e.target.closest('.b'); if (!b) return; e.preventDefault(); b.setPointerCapture && b.setPointerCapture(e.pointerId); b.classList.add('on'); press(b.dataset.act); });
 ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(ev => padEl.addEventListener(ev, e => { const b = e.target.closest('.b'); if (!b) return; b.classList.remove('on'); release(b.dataset.act); }));
@@ -282,7 +460,7 @@ cv.addEventListener('pointerdown', e => {
   for (let i = hits.length - 1; i >= 0; i--) { const h = hits[i]; if (x >= h.x && x < h.x + h.w && y >= h.y && y < h.y + h.h) { h.fn(); return; } }
   if (paused) paused = false;
 });
-function backToLobby(again) { scene = 'lobby'; newSeats(); match = null; if (again) startReady(); }
+function backToLobby(again) { scene = 'lobby'; myReady = false; match = null; mp = null; me = null; fakes.fill(null); sendHb(); if (again) startReady(); }
 
 /* ---------- 每幀更新 ---------- */
 let last = 0;
@@ -292,14 +470,28 @@ function frame(ts) {
 }
 function update(dt) {
   if (popup && popup.t > 0) { popup.t -= dt / 1000; if (popup.t <= 0) popup = null; }
+  netTick(dt);
   if (scene === 'count') {
     countT -= dt / 1000; fillAcc += dt;
-    if (fillAcc > 600) { fillAcc = 0; const emp = []; seats.forEach((s, i) => { if (!s) emp.push(i); }); if (emp.length && countT > 0.4) { const i = emp[rnd(emp.length)]; seats[i] = { n: NAME_POOL[rnd(NAME_POOL.length)], s: [0,1,2,3,4,5,7][rnd(7)] }; } }
-    if (countT <= 0) { seats.forEach((s, i) => { if (!s) seats[i] = { n: NAME_POOL[rnd(NAME_POOL.length)], s: [0,1,2,3,4,5,7][rnd(7)] }; }); if (embed) { scene = 'paying'; parent.postMessage({ t: 'tt-fee' }, '*'); } else startMatch(); }
+    if (fillAcc > 600) {
+      fillAcc = 0; const v = lobbyView(), emp = []; v.forEach((x, i) => { if (!x) emp.push(i); });
+      if (emp.length && countT > 0.4) { const i = emp[rnd(emp.length)]; fakes[i] = { n: NAME_POOL[rnd(NAME_POOL.length)], s: [0, 1, 2, 3, 4, 5, 7][rnd(7)] }; }
+    }
+    if (countT <= 0) endCount();
+    return;
+  }
+  if (scene === 'waitgo') {
+    waitT -= dt / 1000;
+    if (waitT <= 0) { if (lowestReady() === myId()) hostGo(); else { scene = 'lobby'; myReady = false; popup = { s: '這場沒開成，請再按一次準備', t: 2.5 }; sendHb(); } }
     return;
   }
   if (scene === 'paying') return;
-  if (scene === 'dying') { koT -= dt / 1000; match.t += dt / 1000; match.tickBots(dt * 2); if (koT <= 0 || match.over) finish(); return; }
+  if (scene === 'spec' || scene === 'result') {
+    if (match && mp && !mp.over) { match.t += dt / 1000; match.tickBots(dt); if (match.over) mp.over = true; }
+    if (scene === 'spec' && match && match.over) { const w = match.P.find(p => p.alive); backToLobby(false); popup = { s: w ? '這場結束・冠軍：' + w.name : '這場結束了', t: 3 }; }
+    return;
+  }
+  if (scene === 'dying') { koT -= dt / 1000; match.t += dt / 1000; match.tickBots(mp && mp.roster.filter(e => e.u).length > 1 ? dt : dt * 2); if (koT <= 0 || match.over) finish(); return; }
   if (scene !== 'play' || paused) return;
   match.t += dt / 1000;
   if (auto) { autoMe(dt); } else {
@@ -412,23 +604,24 @@ function btnC(x, y, w, h, label, col, fn, size = 10) {
 }
 function star(x, y) { ['...#...', '...#...', '#######', '.#####.', '..###..', '.##.##.', '.#...#.'].forEach((row, yy) => [...row].forEach((c, xx) => { if (c === '#') r('#ffd34d', x + xx * 2, y + yy * 2, 2, 2); })); }
 function drawLobby() {
-  const counting = scene === 'count' || scene === 'paying';
+  const counting = scene === 'count' || scene === 'paying' || scene === 'waitgo', busy = netBusy();
   ob('#12182c', '#ff7ab8', LW / 2 - 110, 8, 220, 20); T('俄羅斯方塊大亂鬥' + (counting ? '・準備中' : '・遊戲機'), LW / 2, 18.5, 10, '#ffd34d');
-  seats.forEach((s, n) => {
+  lobbyView().forEach((s, n) => {
     let x, y, w, h;
     if (land) { w = 80; h = 66; x = 40 + (n % 4) * 100; y = 38 + Math.floor(n / 4) * 78; } else { w = 112; h = 52; x = 18 + (n % 2) * 122; y = 32 + Math.floor(n / 2) * 58; }
     if (s && s.me) ob('#ffd34d', '#8a6012', x - 2, y - 2, w + 4, h + 4);
     panel(x, y, w, h);
     if (!s) { fa('#0a0e1c', .35, x + 2, y + 2, w - 4, h - 4); T('空位', x + w / 2, y + h / 2 - 2, 8, '#5a6a8a'); return; }
-    if (land) { if (s.me) star(x + 33, y + 6); else sprite(s.s, x + 32, y + 6); T(s.me ? '你' : s.n, x + 40, y + 31, 9, '#fffaf0'); const ok = counting || !s.me; ob(ok ? '#2f7a46' : '#3a4a6a', '#0a0e1c', x + 18, y + 44, 44, 14); T(ok ? '已準備' : '尚未準備', x + 40, y + 51.5, 7.5, ok ? '#d8ffe4' : '#9fb0d0', 'm', null); }
-    else { if (s.me) star(x + 8, y + 10); else sprite(s.s, x + 8, y + 8); T(s.me ? '你' : s.n, x + 34, y + 16, 9, '#fffaf0', 'l'); const ok = counting || !s.me; ob(ok ? '#2f7a46' : '#3a4a6a', '#0a0e1c', x + 32, y + 28, 44, 14); T(ok ? '已準備' : '尚未準備', x + 54, y + 35.5, 7.5, ok ? '#d8ffe4' : '#9fb0d0', 'm', null); }
+    if (land) { if (s.me) star(x + 33, y + 6); else sprite(s.s, x + 32, y + 6); T(s.me ? '你' : s.n, x + 40, y + 31, 9, '#fffaf0'); const ok = s.rdy || s.play; ob(ok ? '#2f7a46' : '#3a4a6a', '#0a0e1c', x + 18, y + 44, 44, 14); T(s.play ? '對戰中' : ok ? '已準備' : '尚未準備', x + 40, y + 51.5, 7.5, ok ? '#d8ffe4' : '#9fb0d0', 'm', null); }
+    else { if (s.me) star(x + 8, y + 10); else sprite(s.s, x + 8, y + 8); T(s.me ? '你' : s.n, x + 34, y + 16, 9, '#fffaf0', 'l'); const ok = s.rdy || s.play; ob(ok ? '#2f7a46' : '#3a4a6a', '#0a0e1c', x + 32, y + 28, 44, 14); T(s.play ? '對戰中' : ok ? '已準備' : '尚未準備', x + 54, y + 35.5, 7.5, ok ? '#d8ffe4' : '#9fb0d0', 'm', null); }
   });
   const bx = land ? 40 : 18, by = land ? 198 : 270, bw = land ? 80 : 74, bh = land ? 62 : 62;
-  if (counting) { ob('#12182c', '#ff5c7a', bx, by, bw, bh); T('' + Math.max(1, Math.ceil(countT)), bx + bw / 2, by + 24, 30, '#ffd34d'); hits.push({ x: bx, y: by + 38, w: bw, h: 24, fn: cancelReady }); T('點此取消', bx + bw / 2, by + 50, 8, '#ffd1d9'); }
+  if (counting) { ob('#12182c', '#ff5c7a', bx, by, bw, bh); T(scene === 'waitgo' ? '…' : '' + Math.max(1, Math.ceil(countT)), bx + bw / 2, by + 24, 30, '#ffd34d'); hits.push({ x: bx, y: by + 38, w: bw, h: 24, fn: cancelReady }); T('點此取消', bx + bw / 2, by + 50, 8, '#ffd1d9'); }
+  else if (busy) { ob('#12182c', '#5a6a8a', bx, by, bw, bh); T('本場進行中', bx + bw / 2, by + 26, 9, '#9fb0d0'); T('請稍候', bx + bw / 2, by + 42, 8, '#5a6a8a'); }
   else btnC(bx, by, bw, bh, '準備', '#7fd08a', startReady, 14);
   const ix = land ? 140 : 100, iw = land ? 300 : 152;
   ob('#12182c', '#5ae0ff', ix, by, iw, bh); const cx = ix + iw / 2;
-  T('入場費 ' + FEE + 'G・開局後不退費', cx, by + 16, land ? 9 : 8, '#bff3ff'); T('沒坐滿的位置自動補滿', cx, by + 31, 8, '#9fb0d0'); T(trial ? '試營運：免費入場' : '你的金幣 ' + balance + 'G', cx, by + 47, 8, '#ffd34d');
+  T('入場費 ' + FEE + 'G・開局後不退費', cx, by + 16, land ? 9 : 8, '#bff3ff'); T(busy ? '有人正在對戰，等這場結束' : '沒坐滿的位置自動補滿', cx, by + 31, 8, '#9fb0d0'); T(trial ? '試營運：免費入場' : '你的金幣 ' + balance + 'G', cx, by + 47, 8, '#ffd34d');
   if (popup && popup.s) T(popup.s, LW / 2, LH - 10, 9, '#ff9bb3');
 }
 function drawResult() {
@@ -440,13 +633,26 @@ function drawResult() {
   T('第 ' + result.rank + ' 名', LW / 2, py + 52, 26, result.win ? '#ffd34d' : '#fffaf0');
   const row = (k, v, y) => { T(k, px + 30, y, 8, '#9fb0d0', 'l'); T(v, px + pw - 30, y, 9, '#fffaf0', 'r'); };
   row('存活時間', fmtT(result.time), py + 88); row('總攻擊行數', '' + result.sent, py + 106); row('擊倒人數', '' + result.kos, py + 124); row('你的金幣', balance + 'G', py + 142);
-  btnC(px + 20, py + ph - 62, pw - 40, 24, '再來一場（-' + FEE + 'G）', '#7fd08a', () => backToLobby(true), 9);
-  btnC(px + 20, py + ph - 32, pw - 40, 22, '回大廳', '#5ae0ff', () => backToLobby(false), 9);
+  if (mp && !mp.over) { T('這場還沒結束', LW / 2, py + ph - 70, 8, '#9fb0d0'); btnC(px + 20, py + ph - 52, pw - 40, 34, '看比賽', '#5ae0ff', () => { scene = 'spec'; }, 11); }
+  else {
+    btnC(px + 20, py + ph - 62, pw - 40, 24, '再來一場（-' + FEE + 'G）', '#7fd08a', () => backToLobby(true), 9);
+    btnC(px + 20, py + ph - 32, pw - 40, 22, '回大廳', '#5ae0ff', () => backToLobby(false), 9);
+  }
+}
+function drawPaying() { drawLobby(); }
+function drawSpec() {
+  const al = match.alive().length;
+  if (land) { ob('#12182c', '#5ae0ff', 150, 6, 180, 17); T('觀戰中・存活 ' + al + ' / 8', 240, 15, 9, '#bff3ff'); }
+  else { ob('#12182c', '#5ae0ff', 40, 6, 190, 17); T('觀戰中・存活 ' + al + ' / 8', 135, 15, 9, '#bff3ff'); }
+  match.P.forEach((p, i) => { const x = land ? 12 + i * 58 : 12 + (i % 4) * 64, y = land ? 64 : 40 + Math.floor(i / 4) * 112; oppCard(p, x, y, 46, 90, false, false); });
+  const by = land ? 190 : 270;
+  ob('#12182c', '#ffd34d', LW / 2 - 110, by, 220, 34); T('這場結束後，下一場就能加入', LW / 2, by + 11, 8, '#ffe58a'); T(me ? '你的名次：第 ' + (me.rank || '?') + ' 名' : '想玩請等這場結束', LW / 2, by + 24, 8, '#9fb0d0');
+  if (popup && popup.s) T(popup.s, LW / 2, LH - 10, 9, '#ff9bb3');
 }
 function draw() {
   const pv = (scene === 'play' || scene === 'dying') ? 'visible' : 'hidden'; if (padEl.style.visibility !== pv) padEl.style.visibility = pv;
   texts = []; hits = []; bg();
-  if (scene === 'lobby' || scene === 'count' || scene === 'paying') drawLobby(); else if (scene === 'result') drawResult(); else drawPlay();
+  if (scene === 'lobby' || scene === 'count' || scene === 'paying' || scene === 'waitgo') { if (scene === 'paying' && match) drawPaying(); else drawLobby(); } else if (scene === 'result') drawResult(); else if (scene === 'spec') drawSpec(); else drawPlay();
   ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.imageSmoothingEnabled = false; ctx.clearRect(0, 0, cv.width, cv.height);
   ctx.drawImage(off, 0, 0, LW, LH, 0, 0, cv.width, cv.height);
   const k = cv.width / LW;
@@ -456,14 +662,16 @@ function draw() {
     ctx.fillStyle = col; ctx.fillText(s, x * k, y * k);
   }
 }
-window.__demo = { get scene() { return scene; }, get match() { return match; }, startReady, set balance(v) { balance = v; }, get S() { return S; }, press, force(s) { scene = s; } };
+window.__demo = { get mp() { return mp; }, get peers() { return peers; }, get me() { return me; }, get myReady() { return myReady; }, get scene() { return scene; }, get match() { return match; }, startReady, set balance(v) { balance = v; }, get S() { return S; }, press, force(s) { scene = s; } };
 addEventListener('message', e => {
   const d = e.data; if (!embed || !d || e.source !== parent) return;
-  if (d.t === 'tt-bal') { if (typeof d.v === 'number') balance = d.v; trial = !!d.trial; if (typeof d.fee === 'number') FEE = d.fee; }
+  if (d.t === 'tt-me') { NET.on = !!d.net && typeof d.uid === 'string' && d.uid.length > 0; NET.uid = typeof d.uid === 'string' ? d.uid : ''; NET.name = cleanName(d.name); NET.seat = cint(d.seat, 0, 7, 7); sendHb(); }
+  else if (d.t === 'tt-in') { try { onNet(d.from, d.m); } catch (err) { /* 別人的訊息出錯不要影響自己 */ } }
+  else if (d.t === 'tt-bal') { if (typeof d.v === 'number') balance = d.v; trial = !!d.trial; if (typeof d.fee === 'number') FEE = d.fee; }
   else if (d.t === 'tt-fee-res') {
     if (typeof d.v === 'number') balance = d.v; trial = !!d.trial;
-    if (d.ok && scene === 'paying') startMatch();
-    else if (scene === 'paying') { scene = 'lobby'; newSeats(); popup = { s: d.msg || '金幣不足', t: 2 }; }
+    if (d.ok && scene === 'paying') enterPlay();
+    else if (scene === 'paying') failPay(d.msg);
   }
 });
 layout(); requestAnimationFrame(frame);

@@ -145,7 +145,7 @@ function renderFriends() {
   h += '<h3>我的好友</h3>';
   if (!fr.friends.length) h += '<p class="empty">還沒有好友。在廣場面向其他玩家按動作鍵，或在下面輸入帳號。</p>';
   else {
-    const list = fr.friends.slice().sort((a, b) => (onlineMap.has(b.uid) ? 1 : 0) - (onlineMap.has(a.uid) ? 1 : 0));
+    const list = fr.friends.slice().sort((a, b) => ((onlineMap.has(b.uid) ? 1 : 0) - (onlineMap.has(a.uid) ? 1 : 0)) || ((+seenMap[b.uid] || 0) - (+seenMap[a.uid] || 0)));   // 在線的排前面，其餘依最後上線時間（新到舊）
     h += list.map(f => {
       const w = onlineMap.get(f.uid);
       return '<div class="frow fr2"><div class="meta"><b><span class="fdot' + (w ? ' on' : '') + '"></span>' + esc(f.name) + ' <span class="bondtag" title="友情等級">❤️Lv.' + bondOf(f.uid).lv + '</span></b><small>@' + esc(f.username) + ' · ' + (w ? WHERE[w] : agoText(+seenMap[f.uid] || 0)) + '<br>' + bondLine(bondOf(f.uid)) + '</small></div><div class="acts">' +

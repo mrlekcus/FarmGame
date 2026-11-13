@@ -5,7 +5,7 @@
    店員：機器人「嗶嗶」站在櫃檯後面，面向櫃檯按動作鍵可以聊天。
    【規則】每場入場費 100 G，開局（倒數結束）時才扣；沒坐滿的位置系統補滿；沒有任何獎勵，純消費。
    【結算】伺服器建好 arcade_tetris_enter（扣 100 G、回傳 { coins }）後自動啟用；函式不存在時維持「試營運」：不扣 G。
-   【多人】店內的玩家互相看得到（世界代號 'g'）；對局本身目前只在自己的畫面裡跑，之後再接伺服器。 */
+   【多人】店內的玩家互相看得到（世界代號 'g'）。坐在椅子上的真人會一起對戰（事件 'gs'，由 tetris.html 的連線層處理）；沒坐滿的位置系統補滿；開局後才坐下的人只能觀戰。 */
 const GSW = 16, GSH = 16;
 const GS_FEE = 100;
 const GS_SEATS = [[2, 4], [5, 4], [8, 4], [11, 4], [2, 9], [5, 9], [8, 9], [11, 9]];   // 8 張高腳椅（格子座標）
@@ -116,10 +116,21 @@ async function gsCharge() {
   }
   return { ok: true, v: gsCoins(), trial: true };
 }
+/* 真人連線：iframe 裡的對戰程式只管邏輯，訊息由這裡轉到店內頻道（事件 'gs'）；收到別人的再轉進 iframe */
+const gsSeatIdx = () => (gs && gs.sit) ? GS_SEATS.findIndex(([x, y]) => x === gs.sit.x && y === gs.sit.y) : -1;
+function gsSend(m) {
+  if (!net || !net.ok || !m || typeof m !== 'object') return;
+  try { if (JSON.stringify(m).length > 6000) return; net.ch.send({ type: 'broadcast', event: 'gs', payload: { i: myUid, m } }); } catch (e) { /* 略過 */ }
+}
+function onGsMsg(p) {
+  if (!p || typeof p !== 'object' || typeof p.i !== 'string' || !UID_RE.test(p.i) || p.i === myUid || scene !== 'arcade' || !gsFrame || !p.m || typeof p.m !== 'object') return;
+  gsPost({ t: 'tt-in', from: p.i, m: p.m });
+}
 window.addEventListener('message', e => {
   if (!gsFrame || e.source !== gsFrame.contentWindow) return;
   const d = e.data; if (!d || typeof d !== 'object') return;
-  if (d.t === 'tt-ready') gsPost({ t: 'tt-bal', v: gsCoins(), trial: gsEco === false, fee: GS_FEE });
+  if (d.t === 'tt-ready') { gsPost({ t: 'tt-bal', v: gsCoins(), trial: gsEco === false, fee: GS_FEE }); gsPost({ t: 'tt-me', net: !!(net && net.ok), uid: myUid, name: me ? me.name : '', seat: Math.max(0, gsSeatIdx()) }); }
+  else if (d.t === 'tt-net') gsSend(d.m);
   else if (d.t === 'tt-fee') gsCharge().then(r => gsPost({ t: 'tt-fee-res', ok: r.ok, v: r.v, trial: r.trial, msg: r.msg }));
   else if (d.t === 'tt-exit') closeTetris();
 });
