@@ -475,6 +475,10 @@ button.hbs{padding:0;cursor:pointer;font:inherit}
 /* ---- 手機操控 ---- */
 html{-webkit-text-size-adjust:100%}
 body{-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+/* 手機長按不要選取文字／跳出系統選單（金幣、日期、按鈕…）；輸入框與可複製欄位仍可選取 */
+body{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+input,textarea,[contenteditable],.selectable{-webkit-user-select:text;user-select:text;-webkit-touch-callout:default}
+img{-webkit-user-drag:none}
 .pad,.dpad,.act,.hotbar,.slot,.menubtn{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
 .dpad{position:relative;touch-action:none}
 .dpad button{pointer-events:none}
