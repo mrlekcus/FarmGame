@@ -445,11 +445,12 @@ sndShow(); sndEl.onclick = () => { SND.toggle(); sndShow(); };
 ['pointerdown', 'keydown', 'touchstart'].forEach(ev => addEventListener(ev, () => SND.unlock(), { capture: true, passive: true }));
 
 /* ---------- 版面 ---------- */
+let curTall = false;
 function layout() {
   const iw = innerWidth, ih = innerHeight; land = iw >= ih;
   let side = 0, bottom = 0;
-  if (land) { LW = 480; LH = 270; side = touch ? 128 : 0; bottom = touch ? 0 : 18; S = Math.min((iw - 2 * side) / LW, (ih - bottom) / LH); }
-  else { LW = 270; LH = 340; bottom = touch ? 172 : 24; S = Math.min(iw / LW, (ih - bottom) / LH); }
+  if (land) { LW = 480; LH = 270; side = touch ? 100 : 0; bottom = touch ? 0 : 18; S = Math.min((iw - 2 * side) / LW, (ih - bottom) / LH); }
+  else { curTall = scene === 'play' || scene === 'dying' || scene === 'result'; LW = 270; LH = curTall ? 420 : 340; bottom = touch ? 140 : 24; S = Math.min(iw / LW, (ih - bottom) / LH); }
   S = Math.max(1, S); DPR = Math.min(3, window.devicePixelRatio || 1);
   const cw = Math.round(LW * S), ch = Math.round(LH * S);
   cv.style.width = cw + 'px'; cv.style.height = ch + 'px'; cv.width = Math.round(cw * DPR); cv.height = Math.round(ch * DPR);
@@ -460,21 +461,56 @@ function layout() {
   sndEl.style.cssText = land ? (touch ? 'top:8px;left:8px' : 'bottom:3px;left:8px;padding:5px 9px') : 'bottom:10px;left:8px';
   hintEl.textContent = touch ? '' : '← → 或 A D 移動　↓ 或 S 下壓　↑ / W / X 右轉　Z 左轉　空白 直落　C 暫存　點對手換目標';
 }
+/* 手勢：整個畫面都能滑（按鈕、音效鈕、離開鈕除外） */
+const GCELL = 26; let gst = null;
+function gHit(e) {
+  const rc = cv.getBoundingClientRect(), x = (e.clientX - rc.left) / S, y = (e.clientY - rc.top) / S;
+  if (x < 0 || y < 0 || x > LW || y > LH) return false;
+  return hits.some(h => x >= h.x && x < h.x + h.w && y >= h.y && y < h.y + h.h);
+}
+document.addEventListener('pointerdown', e => {
+  if (!touch || scene !== 'play' || gst || e.pointerType === 'mouse' && !('ontouchstart' in window)) return;
+  if (e.target.closest && e.target.closest('.b,#snd,#x')) return;
+  gst = { id: e.pointerId, x0: e.clientX, y0: e.clientY, lx: e.clientX, ly: e.clientY, t0: performance.now(), moved: false, ax: 0, onHit: e.target === cv && gHit(e) };
+});
+document.addEventListener('pointermove', e => {
+  if (!gst || e.pointerId !== gst.id) return;
+  const dx = e.clientX - gst.lx, dy = e.clientY - gst.y0;
+  gst.lx = e.clientX; gst.ly = e.clientY; gst.ax += dx;
+  if (Math.abs(e.clientX - gst.x0) > 10 || Math.abs(dy) > 10) gst.moved = true;
+  while (gst.ax >= GCELL) { move(1); gst.ax -= GCELL; }
+  while (gst.ax <= -GCELL) { move(-1); gst.ax += GCELL; }
+  soft = dy > 28 && Math.abs(dy) > Math.abs(e.clientX - gst.x0);
+});
+const gEnd = e => {
+  if (!gst || e.pointerId !== gst.id) return;
+  const dt = performance.now() - gst.t0, dy = gst.ly - gst.y0;
+  soft = false;
+  if (!gst.moved && dt < 300) { if (!gst.onHit && scene === 'play') rotate(1); }
+  else if (scene === 'play' && dy > 60 && dy / Math.max(dt, 1) > 0.9 && Math.abs(gst.lx - gst.x0) < dy) hardDrop();
+  gst = null;
+};
+document.addEventListener('pointerup', gEnd); document.addEventListener('pointercancel', gEnd);
+function buildHint(x, y, w, lines, size, align) {
+  const d = document.createElement('div');
+  d.style.cssText = `position:absolute;left:${x}px;top:${y}px;width:${w}px;box-sizing:border-box;color:#8d9cc0;font:700 ${size}px/1.5 "Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;text-align:${align};pointer-events:none`;
+  d.innerHTML = lines; padEl.appendChild(d);
+}
 function buildPad(cw, ch) {
   padEl.innerHTML = ''; if (!touch) { padEl.style.display = 'none'; return; }
   padEl.style.display = 'block';
   const mk = (act, label, cls, x, y, w, h) => { const b = document.createElement('div'); b.className = 'b ' + cls; b.textContent = label; b.style.cssText += `left:${x}px;top:${y}px;width:${w}px;height:${h}px`; b.dataset.act = act; padEl.appendChild(b); };
   if (land) {
     const iw = innerWidth, ih = innerHeight; padEl.style.cssText = `display:block;left:0;top:0;width:${iw}px;height:${ih}px;pointer-events:none`;
-    const sz = 54, gap = 8, y0 = ih - 2 * sz - gap - 22, xl = 14, xr = iw - 14 - 2 * sz - gap;
-    mk('left', '◀', '', xl, y0, sz, sz); mk('right', '▶', '', xl + sz + gap, y0, sz, sz); mk('soft', '▼', 'y', xl, y0 + sz + gap, sz, sz); mk('drop', '直落', 'p', xl + sz + gap, y0 + sz + gap, sz, sz);
-    mk('cw', '右轉', 'g', xr, y0, sz, sz); mk('ccw', '左轉', 'g', xr + sz + gap, y0, sz, sz); mk('hold', '暫存', 'v', xr, y0 + sz + gap, sz, sz); mk('pause', '暫停', 'k', xr + sz + gap, y0 + sz + gap, sz, sz);
+    const top = 54, bot = 12, gap = 8, sw = 80, bh = (ih - top - bot - gap * 2) / 3, xr = iw - 14 - sw;
+    mk('ccw', '左轉', 'g', xr, top, sw, bh); mk('hold', '暫存', 'v', xr, top + bh + gap, sw, bh); mk('drop', '直落', 'p', xr, top + 2 * (bh + gap), sw, bh);
+    buildHint(8, top, 84, '左右滑 移動<br>點一下 右轉<br>下滑 下壓<br>快甩 直落<br><span style="font-weight:400;opacity:.8">（螢幕任何位置都能滑）</span>', 11, 'center');
   } else {
-    const iw = innerWidth, top = ch + 8; padEl.style.cssText = `display:block;left:0;top:0;width:${iw}px;height:${innerHeight}px;pointer-events:none`;
-    const sz = Math.min(54, (iw - 40) / 7), gap = 8, xl = (iw - (sz * 6 + gap * 5)) / 2;
-    const ymid = top + 6;
-    mk('left', '◀', '', xl, ymid + 0, sz, sz); mk('right', '▶', '', xl + 2 * (sz + gap), ymid, sz, sz); mk('drop', '直落', 'p', xl + sz + gap, ymid, sz, sz); mk('soft', '▼', 'y', xl + sz + gap, ymid + sz + gap, sz, sz);
-    mk('cw', '右轉', 'g', xl + 3 * (sz + gap), ymid, sz * 1.5 + gap / 2, sz * 1.5 + gap / 2); mk('ccw', '左轉', 'g', xl + 3 * (sz + gap) + sz * 1.5 + gap * 1.5, ymid, sz * 1.5 - gap / 2, sz); mk('hold', '暫存', 'v', xl + 3 * (sz + gap), ymid + sz * 1.5 + gap * 1.5, sz * 1.5 + gap / 2, sz * .9); mk('pause', '暫停', 'k', xl + 3 * (sz + gap) + sz * 1.5 + gap * 1.5, ymid + sz + gap, sz * 1.5 - gap / 2, sz * .9);
+    const iw = innerWidth, ih = innerHeight;
+    padEl.style.cssText = `display:block;left:0;top:0;width:${iw}px;height:${ih}px;pointer-events:none`;
+    const bh = 46, gap = 8, by = ih - bh - 58, bw = (iw - 28 - gap * 2) / 3;
+    mk('ccw', '左轉', 'g', 14, by, bw, bh); mk('hold', '暫存', 'v', 14 + bw + gap, by, bw, bh); mk('drop', '直落', 'p', 14 + 2 * (bw + gap), by, bw, bh);
+    buildHint(0, by - 24, iw, '左右滑移動　點一下右轉　下滑下壓　快甩直落　<span style="opacity:.75">（任何位置都能滑）</span>', 12, 'center');
   }
   padEl.querySelectorAll('.b').forEach(b => { b.style.pointerEvents = 'auto'; });
 }
@@ -484,7 +520,7 @@ addEventListener('resize', layout);
 let scene = 'lobby';      // lobby | count | play | dying | result
 let balance = embed ? 0 : 1000, FEE = 100;
 let match = null, me = null, cur = null, hold = null, holdUsed = false, gT = 0, lockT = 0, resets = 0, soft = false;
-let countT = 0, popup = null, koT = 0, paused = false, result = null, resultAt = 0, hurtFlash = 0;
+let countT = 0, popup = null, koT = 0, result = null, resultAt = 0, hurtFlash = 0;
 const keys = {}, das = { left: 0, right: 0, dir: 0 };
 let wasGr = false, pendPrev = 0, lastKos = 0, lastCnt = -1; const prevAlive = new Map();
 
@@ -557,11 +593,11 @@ function buildMatch(R, id, hostUid, asPlayer) {
   });
   mp = { mid: id, host, hostUid, roster: R, bbAt: nowMs(), snAcc: 0, bbAcc: 0, wd: 0, over: false };
   match = new Match(P, matchHooks());
-  hold = null; holdUsed = false; popup = null; result = null; hurtFlash = 0; paused = false;
+  hold = null; holdUsed = false; popup = null; result = null; hurtFlash = 0;
   fxReset(); prevAlive.clear(); match.P.forEach(q => prevAlive.set(q, true)); lastKos = 0; pendPrev = 0;
   fixOrder = shuffle([0, 1, 2, 3, 4, 5, 6]);
 }
-function enterPlay() { spawn(); scene = 'play'; paused = false; popup = null; pendPrev = me.pend; SND.go(); }
+function enterPlay() { spawn(); scene = 'play'; popup = null; pendPrev = me.pend; SND.go(); }
 /* 開局：我在名單裡而且有按準備 → 扣款後上場；否則只是觀戰 */
 function goMatch(R, id, hostUid) {
   fakes.fill(null);
@@ -712,11 +748,10 @@ function press(a) {
     else if (a === 'soft') soft = true;
     else if (a === 'drop') hardDrop();
     else if (a === 'cw') rotate(1); else if (a === 'ccw') rotate(-1); else if (a === 'hold') doHold();
-    else if (a === 'pause') paused = !paused;
-  } else if (a === 'pause' && paused) paused = false;
+  }
 }
 function release(a) { if (a === 'left') { keys._l = false; if (das.dir === -1) das.dir = keys._r ? 1 : 0; } if (a === 'right') { keys._r = false; if (das.dir === 1) das.dir = keys._l ? -1 : 0; } if (a === 'soft') soft = false; }
-const KEYMAP = { ArrowLeft: 'left', ArrowRight: 'right', ArrowDown: 'soft', ArrowUp: 'cw', w: 'cw', W: 'cw', x: 'cw', X: 'cw', a: 'left', A: 'left', d: 'right', D: 'right', s: 'soft', S: 'soft', z: 'ccw', Z: 'ccw', ' ': 'drop', c: 'hold', C: 'hold', Shift: 'hold', p: 'pause', P: 'pause', Escape: 'pause' };
+const KEYMAP = { ArrowLeft: 'left', ArrowRight: 'right', ArrowDown: 'soft', ArrowUp: 'cw', w: 'cw', W: 'cw', x: 'cw', X: 'cw', a: 'left', A: 'left', d: 'right', D: 'right', s: 'soft', S: 'soft', z: 'ccw', Z: 'ccw', ' ': 'drop', c: 'hold', C: 'hold', Shift: 'hold' };
 addEventListener('keydown', e => { const a = KEYMAP[e.key]; if (a) { e.preventDefault(); if (!e.repeat) press(a); } else if ((e.key === 'Enter') && scene === 'lobby') startReady(); else if (e.key === 'Enter' && scene === 'result' && !(mp && !mp.over)) { backToLobby(true); } });
 addEventListener('keyup', e => { const a = KEYMAP[e.key]; if (a) release(a); });
 padEl.addEventListener('pointerdown', e => { const b = e.target.closest('.b'); if (!b) return; e.preventDefault(); b.setPointerCapture && b.setPointerCapture(e.pointerId); b.classList.add('on'); press(b.dataset.act); });
@@ -725,13 +760,13 @@ document.addEventListener('contextmenu', e => e.preventDefault());
 cv.addEventListener('pointerdown', e => {
   const rc = cv.getBoundingClientRect(), x = (e.clientX - rc.left) / S, y = (e.clientY - rc.top) / S;
   for (let i = hits.length - 1; i >= 0; i--) { const h = hits[i]; if (x >= h.x && x < h.x + h.w && y >= h.y && y < h.y + h.h) { h.fn(); return; } }
-  if (paused) paused = false;
 });
 function backToLobby(again) { fxReset(); scene = 'lobby'; myReady = false; match = null; mp = null; me = null; fakes.fill(null); sendHb(); if (again) startReady(); }
 
 /* ---------- 每幀更新 ---------- */
 let last = 0;
 function frame(ts) {
+  { const tl = !land && (scene === 'play' || scene === 'dying' || scene === 'result'); if (tl !== curTall) layout(); }
   const dt = Math.min(50, ts - (last || ts)); last = ts;
   update(dt); draw(); requestAnimationFrame(frame);
 }
@@ -761,7 +796,7 @@ function update(dt) {
     return;
   }
   if (scene === 'dying') { koT -= dt / 1000; match.t += dt / 1000; match.tickBots(mp && mp.roster.filter(e => e.u).length > 1 ? dt : dt * 2); if (koT <= 0 || match.over) finish(); return; }
-  if (scene !== 'play' || paused) return;
+  if (scene !== 'play') return;
   match.t += dt / 1000;
   if (auto) { autoMe(dt); } else {
     /* DAS / ARR */
@@ -869,15 +904,14 @@ function drawPlay() {
     ob('#12182c', '#ff7ab8', 76, 6, 118, 15); T('俄羅斯方塊大亂鬥', 135, 13.5, 8, '#ffd34d');
     ob('#12182c', '#ffd34d', 202, 6, 62, 15); T('入場 ' + FEE + 'G', 233, 13.5, 7, '#ffe58a');
     O.forEach((p, i) => oppCard(p, 5 + i * 37, 26, 34, 78, p === tg, hitFrom.has(p)));
-    BR = { x: 85, y: 114, cell: 10 }; boardFx(() => { drawBoard(85, 114, 10, me.grid, true, scene === 'play' ? cur : null, true, lkv()); garbageBar(74, 114, 200, me.pend); });
-    holdBox(28, 114, hold, 40); nextBox(196, 114, me.queue.slice(0, 3), 40);
-    T('擊倒 ' + me.kos, 48, 166, 7, '#ff9bb3'); T('攻擊 ' + me.sent, 48, 178, 7, '#ffd34d');
-    if (popup && popup.lines) { popup.lines.forEach((s, i) => T(s, 48, 198 + i * 12, 8, i === 0 ? '#ffd34d' : '#ff9bb3')); if (popup.atk) T('+' + popup.atk + ' 行', 232, 232, 9, '#fff'); }
-    ob('#12182c', '#ff5c7a', 22, 320, 226, 16); T(tg ? '目標：' + tg.name + (match.manual === tg ? '（手動）' : '　（點上方頭像可換）') : '', 135, 328, 7.5, '#ffd1d9');
+    BR = { x: 65, y: 112, cell: 14 }; boardFx(() => { drawBoard(65, 112, 14, me.grid, true, scene === 'play' ? cur : null, true, lkv()); garbageBar(53, 112, 280, me.pend); });
+    holdBox(6, 112, hold, 40); nextBox(212, 112, me.queue.slice(0, 3), 40);
+    T('擊倒 ' + me.kos, 26, 166, 7, '#ff9bb3'); T('攻擊 ' + me.sent, 26, 178, 7, '#ffd34d');
+    if (popup && popup.lines) { popup.lines.forEach((s, i) => T(s, 28, 198 + i * 12, 8, i === 0 ? '#ffd34d' : '#ff9bb3')); if (popup.atk) T('+' + popup.atk + ' 行', 232, 232, 9, '#fff'); }
+    ob('#12182c', '#ff5c7a', 22, 398, 226, 16); T(tg ? '目標：' + tg.name + (match.manual === tg ? '（手動）' : '　（點上方頭像可換）') : '', 135, 406, 7.5, '#ffd1d9');
   }
   fxDrawTop();
   if (scene === 'dying') { fa('#0a0e1c', .6, 0, 0, LW, LH); T('KO', LW / 2, LH / 2 - 8, 34 * (1 + Math.max(0, 1 - (1.6 - koT) / .22) * 1.1), '#ff5c7a'); T('第 ' + me.rank + ' 名', LW / 2, LH / 2 + 22, 11, '#fffaf0'); }
-  if (paused) { fa('#0a0e1c', .7, 0, 0, LW, LH); T('暫停中', LW / 2, LH / 2 - 6, 16, '#ffd34d'); T('點一下畫面繼續', LW / 2, LH / 2 + 14, 8, '#fff'); }
 }
 function btnC(x, y, w, h, label, col, fn, size = 10) {
   ob('#2a3656', col, x, y, w, h); r('#3a4a72', x + 2, y + 2, w - 4, 2); T(label, x + w / 2, y + h / 2 + 1, size, '#fff'); hits.push({ x, y, w, h, fn });
