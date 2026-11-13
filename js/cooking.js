@@ -218,6 +218,8 @@ function drawCooking(now) {
   const lives = c.maxMiss + 1, x0 = Math.round(rx - (lives * 6 - 1) / 2), hy = below ? ry + R + 3 : ppy + 17;   // 生命（愛心）：頭頂模式放腳下
   for (let k = 0; k < lives; k++) heartPx(x0 + k * 6, hy, k < lives - c.miss ? '#ef6a7a' : '#cdbfb4');
 }
+/* 在外面（廣場、沼澤營地）煮菜時，頭上一直冒著一個小鍋子泡泡（別人看得到）：煮的期間每 1.5 秒補送一次，煮完或取消就消失。自己的畫面不顯示，頭上已經有火候條了 */
+setInterval(() => { if (ready && me && cooking && cooking.plaza) cookEmote(); }, 1500);
 /* ---------- 別人煮菜時，同一間屋子的人看到的畫面：爐火氣氛＋頭上名牌＋喝采 ---------- */
 const COOK_ST = ['start', 'heat', 'ok', 'bad', 'done', 'fail', 'stop'], COOK_SHOW = 5000;
 function onCook(p) {

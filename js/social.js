@@ -8,7 +8,9 @@ const EMOTES = [
   { id: 'what', ic: '❓', n: '疑問' }, { id: 'idea', ic: '💡', n: '靈感' }, { id: 'star', ic: '✨', n: '閃亮' }, { id: 'like', ic: '👍', n: '讚' },
   { id: 'clap', ic: '👏', n: '喝采', hide: true },   // 有人煮菜時的「喝采」按鈕用，不放進表情選單
   { id: 'paint', ic: '🎨', n: '畫畫', hide: true },   // 在畫架上畫畫時自動顯示（art.js），不放進表情選單
-  { id: 'deco', ic: '🏠', n: '佈置屋子', hide: true }   // 在自己家開著「布置模式」時自動顯示（見下面 decoEmote），不放進表情選單
+  { id: 'deco', ic: '🏠', n: '佈置屋子', hide: true },   // 在自己家開著「布置模式」時自動顯示（見下面 decoEmote），不放進表情選單
+  { id: 'cook', ic: '🍲', n: '煮東西', hide: true },   // 在外面（廣場、沼澤營地）煮菜時自動顯示（見 cooking.js 的計時器），不放進表情選單
+  { id: 'tetris', ic: '🧱', n: '玩俄羅斯方塊', hide: true }   // 坐在遊戲店椅子上玩「俄羅斯方塊大亂鬥」時自動顯示（見 arcade.js 的計時器），不放進表情選單。別的遊戲之後各做自己的泡泡
 ];
 const ANIMS = {
   wave: { ic: '👋', n: '揮手', dur: 1800 }, jump: { ic: '🦘', n: '跳躍', dur: 1000 }, dance: { ic: '💃', n: '跳舞', dur: 3000 },
@@ -102,6 +104,20 @@ function emoteBubble(e, cx, cy, now) {
     r('#ffffff', cx + 10, y + 8, 2, 2);
     ctx.globalAlpha = 1; return;
   }
+  if (em.id === 'cook') {   // 煮東西：小鍋子，上面一直冒白煙（用像素畫，不靠 emoji 字型）
+    for (let k = 0; k < 3; k++) { const ph = Math.floor(now / 200 + k * 2) % 4; r('#b4bccf', cx + 4 + k * 3, y + 5 - ph, 1, 2); }
+    r('#444a5e', cx + 1, y + 8, 1, 2); r('#444a5e', cx + 12, y + 8, 1, 2);
+    r('#6b6f85', cx + 2, y + 7, 10, 4); r('#8a90a8', cx + 3, y + 7, 8, 1); r('#6b6f85', cx + 3, y + 11, 8, 1);
+    ctx.globalAlpha = 1; return;
+  }
+  if (em.id === 'tetris') {   // 玩俄羅斯方塊：T 形和 O 形方塊掉下來，底下一排堆好的方塊，其中一格閃一下（用像素畫，不靠 emoji 字型）
+    const ox = cx + 2, oy = y + 2, c = (i, j, col) => r(col, ox + i * 2, oy + j * 2, 2, 2), bl = Math.floor(now / 400) % 2;
+    [[1, 0], [0, 1], [1, 1], [2, 1]].forEach(([i, j]) => c(i, j, '#b388eb'));
+    [[3, 0], [4, 0], [3, 1], [4, 1]].forEach(([i, j]) => c(i, j, '#ffd34d'));
+    ['#4cc9f0', '#f72585', '#80ed99', null, '#4cc9f0'].forEach((col, i) => { if (col) c(i, 3, col); else c(i, 3, bl ? '#ffffff' : '#ffd34d'); });
+    ['#f72585', '#80ed99', '#4cc9f0', '#ffd34d', '#f72585'].forEach((col, i) => c(i, 4, col));
+    ctx.globalAlpha = 1; return;
+  }
   if (em.id === 'deco') {   // 佈置屋子：紅屋頂小房子＋閃爍的小星星（用像素畫，不靠 emoji 字型）
     const ox = cx + 2, oy = y + 2, bl = Math.floor(now / 380) % 2;
     r('#e8604f', ox + 4, oy + 0, 2, 1); r('#e8604f', ox + 3, oy + 1, 4, 1); r('#e8604f', ox + 2, oy + 2, 6, 1); r('#e8604f', ox + 1, oy + 3, 8, 1);
@@ -152,6 +168,21 @@ function paintEmote() {
   myEmo = { id: 'paint', at: performance.now() };
   if (syncScene() && net && net.ok) {
     try { net.ch.send({ type: 'broadcast', event: 'emo', payload: { i: myUid, k: 'e', e: 'paint' } }); } catch (e) { /* 略過 */ }
+  }
+}
+/* 玩俄羅斯方塊時頭上的方塊泡泡：arcade.js 在坐著玩的期間每 1.5 秒呼叫一次，泡泡就一直在；同店的人也看得到 */
+/* 在外面煮菜時頭上的小鍋子泡泡：只廣播給別人，不設自己的 myEmo（自己頭上有火候條，不要被蓋住） */
+function cookEmote() {
+  if (!ready || !me) return;
+  if (syncScene() && net && net.ok) {
+    try { net.ch.send({ type: 'broadcast', event: 'emo', payload: { i: myUid, k: 'e', e: 'cook' } }); } catch (e) { /* 略過 */ }
+  }
+}
+function tetrisEmote() {
+  if (!ready || !me) return;
+  myEmo = { id: 'tetris', at: performance.now() };
+  if (syncScene() && net && net.ok) {
+    try { net.ch.send({ type: 'broadcast', event: 'emo', payload: { i: myUid, k: 'e', e: 'tetris' } }); } catch (e) { /* 略過 */ }
   }
 }
 /* 吃料理的動作：d = 料理 key、b = buff 種類（只用來決定顏色和圖示） */

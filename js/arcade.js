@@ -76,6 +76,12 @@ function arcadeTick() {
   if (gs.sit) pl.face = 'up';
 }
 
+/* 坐著玩的時候頭上一直有方塊泡泡（別人看得到）；起身、關掉遊戲或離開店內就消失 */
+setInterval(() => {
+  const on = ready && me && scene === 'arcade' && gs && gs.sit && gsOpen;
+  if (on) tetrisEmote(); else if (myEmo && myEmo.id === 'tetris') myEmo = null;
+}, 1500);
+
 /* ---------- 俄羅斯方塊大亂鬥（嵌入 tetris.html） ---------- */
 let gsFrame = null;   // gsOpen（面板開著）宣告在 state.js，paused() 要用
 const gsEl = document.createElement('div');
