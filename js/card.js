@@ -23,7 +23,7 @@ const ACH = [
   { id: 'star_dish', ic: '💫', n: '五星廚師', d: '5 道料理的圖鑑品質達到 ★5' }, { id: 'star_all', ic: '👑', n: '星光圖鑑王', d: '魚、蟲、料理圖鑑全部達到 ★5' },
   { id: 'sweet_all', ic: '🧁', n: '烘焙名師', d: '所有甜點、烘焙類料理都煮過' }, { id: 'dish100', ic: '🍽️', n: '百份料理', d: '累計煮出 100 份料理' }
 ];
-FITS.forEach((nm, i) => { if (i >= FREE_N.fits) ACH.push({ id: 'fit' + i, ic: FIT_IC[i] || '👗', n: nm + '收藏家', d: '集齊「' + nm + '」的 ' + OUTFITS.length + ' 種顏色' }); });
+FITS.forEach((nm, i) => { if (i >= FREE_N.fits && i < 20) ACH.push({ id: 'fit' + i, ic: FIT_IC[i] || '👗', n: nm + '收藏家', d: '集齊「' + nm + '」的 ' + OUTFITS.length + ' 種顏色' }); });
 /* 成就分類：成長、技能、收集、生活、服裝（服裝成就 id 都是 fit 開頭） */
 const ACH_CATS = [
   { k: 'g', ic: '🌱', n: '成長', ids: ['days7', 'days30', 'pl5', 'pl10'] },
