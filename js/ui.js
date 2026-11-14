@@ -149,7 +149,7 @@ function updateTip() {
       else if (K[y][x] === MB) s = '碼頭留言板：按動作鍵看大家的便利貼，也能貼一張（每天 3 次）。';
       else if (K[y][x] === CKP) s = ((campAt(x, y) || {}).n || '') + '：按動作鍵做料理。';
       else if (K[y][x] === CMD) s = ((campAt(x, y) || {}).n || '') + '。';
-      else if (K[y][x] === TS) s = '塔羅小攤：按動作鍵走進去，找 Lekcus 抽今天的運勢牌。';
+      else if (K[y][x] === TS) s = '塔羅屋：按動作鍵走進去，找 Lekcus 抽今天的運勢牌。';
     }
   } else if (scene === 'barn') {
     s = '穀倉：和動物面對面按動作鍵看狀態；飼料槽餵乾草、收成籃收蛋奶毛；買動物和乾草到小村的牧場小屋。';

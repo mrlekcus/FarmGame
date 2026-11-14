@@ -10,40 +10,14 @@ function drawGate(px, py, now) {
   const w = Math.floor(now / 400) % 2;
   r('#ff8fa8', px + 14, py - 1 + w, 2, 2);
 }
-/* 塔羅小攤（廣場 x9–11、y1–2，共 48×32 像素） */
+/* 塔羅屋（帳篷版，99×85 像素的圖，見 art/temple-church.js 的 tarot_ext）：
+   佔廣場 x13–17、y2–4（新座標），門在 x14–16、y4；這裡是舊座標（外面有 translate），所以圖的底邊對 y=34（新座標 80 像素）、中心對 x=168 */
 function drawTarotStall(now) {
-  const px = 9 * T, py = 1 * T;
-  r('rgba(70,40,90,.18)', px + 1, py + 30, 47, 2);
-  // 後牆與桌子
-  ob('#5a3d7a', '#3d2757', px + 2, py + 9, 44, 21);
-  r('#4a3068', px + 4, py + 11, 40, 15);
-  // 星空布幔
-  for (let i = 0; i < 8; i++) {
-    const tw = (Math.sin(now / 420 + i * 1.7) + 1) / 2;
-    r(tw > 0.55 ? '#ffe9a8' : '#c9a6f0', px + 7 + (i * 11) % 36, py + 13 + (i * 5) % 9, 1 + (tw > 0.8 ? 1 : 0), 1);
-  }
-  // 桌布
-  ob('#8d6bbd', '#4d3170', px + 1, py + 22, 46, 9);
-  r('#e0b24a', px + 2, py + 23, 44, 1);
-  for (let i = 0; i < 11; i++) r('#e0b24a', px + 4 + i * 4, py + 29, 2, 2);
-  // 水晶球
-  const gl = 0.5 + 0.5 * Math.sin(now / 600);
-  r('rgba(190,150,255,' + (0.18 + 0.18 * gl).toFixed(2) + ')', px + 18, py + 11, 12, 12);
-  ob('#bfe3ff', '#7a8fc9', px + 20, py + 14, 8, 8);
-  r('#ffffff', px + 21, py + 15, 2, 2); r('#e4d4ff', px + 25, py + 19, 2, 1);
-  r('#e0b24a', px + 19, py + 22, 10, 2);
-  // 桌上的牌
-  ob('#fff3d0', '#b98a2e', px + 6, py + 18, 6, 9); r('#7b5ea7', px + 8, py + 21, 2, 3);
-  ob('#fff3d0', '#b98a2e', px + 12, py + 19, 6, 9); r('#e0b24a', px + 14, py + 22, 2, 3);
-  ob('#7b5ea7', '#3d2757', px + 35, py + 19, 6, 9); r('#e0b24a', px + 37, py + 22, 2, 2);
-  // 遮陽篷
-  ob('#7b5ea7', '#3d2757', px, py, 48, 9);
-  for (let i = 0; i < 6; i++) { r(i % 2 ? '#a583d6' : '#6a4a96', px + 2 + i * 8, py + 1, 4, 7); r(i % 2 ? '#a583d6' : '#6a4a96', px + 2 + i * 8, py + 8, 4, 2); }
-  r('#e0b24a', px, py + 8, 48, 1);
-  // 招牌星星
-  const tw = 0.5 + 0.5 * Math.sin(now / 350);
-  r('#ffe9a8', px + 23, py - 2, 2, 5); r('#ffe9a8', px + 21, py, 6, 1);
-  r('rgba(255,233,168,' + (0.3 + 0.4 * tw).toFixed(2) + ')', px + 20, py - 3, 8, 8);
+  const im = typeof tcArt !== 'undefined' ? tcArt.img('tarot_ext') : null;
+  if (!im) return;
+  ctx.drawImage(im, Math.round(168 - im.width / 2), 34 - im.height);
+  const tw = 0.5 + 0.5 * Math.sin(now / 350);   // 招牌星星的光暈
+  ctx.globalAlpha = 0.18 + 0.3 * tw; r('#ffe9a8', 168 - 5, 34 - im.height + 2, 10, 8); ctx.globalAlpha = 1;
 }
 function drawRim(px, py, tx, ty) {
   r('#e9e2d6', px, py, T, T);

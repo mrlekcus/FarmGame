@@ -2,7 +2,7 @@
 /* 廣場早晚光影（方案 B）—— 雷克斯農場。所有檔案共用同一個全域範圍，載入順序見 index.html。 */
 /* 路燈（大件，不能走過去）、夜裡的光暈、早晨的霧與斜光與小鳥、傍晚天光、夜晚暗角、螢火蟲。
    光暈和路燈只在 plaza 場景出現。 */
-const PL_LAMPS = [[9, 4], [11, 4], [9, 10], [11, 10], [7, 6], [13, 8]];
+const PL_LAMPS = [];   // 路燈已全部拿掉（原本 6 盞：[9,4] [11,4] [9,10] [11,10] [7,6] [13,8]，舊座標），會擋路
 const PL_BLK = new Set(PL_LAMPS.map(a => a[0] + ',' + a[1]));
 const plBlocked = (x, y) => scene === 'plaza' && PL_BLK.has((x - PXO) + ',' + (y - PYO));
 const plCache = {};   // 光暈不會動，先畫在圖上，每一幀只用透明度貼一次
@@ -19,7 +19,8 @@ function plBuild() {
   const g = cv2.getContext('2d'), R = (c, x, y, w, h) => { g.fillStyle = c; g.fillRect(x, y, w, h); };
   g.translate(PXO * T, PYO * T);
   PL_LAMPS.forEach(a => { plDisc(g, a[0] * T + 8, a[1] * T + 4, 22, '255,214,120', 1.3); R('#ffe9a0', a[0] * T + 5, a[1] * T + 2, 6, 3); });
-  plDisc(g, 168, 33, 22, '150,170,255', 1.1);   // 塔羅攤水晶球
+  plDisc(g, 145, 4, 22, '150,170,255', 1.1);   // 塔羅屋水晶球
+  plDisc(g, 125, -12, 14, '255,176,90', 0.8); plDisc(g, 207, -12, 14, '255,176,90', 0.8);   // 塔羅屋兩盞燈籠
   plDisc(g, 224, 36, 18, '255,200,120', 0.7);
   return cv2;
 }

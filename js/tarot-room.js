@@ -49,7 +49,7 @@ function leaveLekcus(silent) {
   if (scene !== 'tarot') return;
   closeLekcus();
   scene = 'plaza'; K = pkind; W = PLW; H = PLH;
-  pl.x = pl.sx = PXO + 10; pl.y = pl.sy = PYO + 3; pl.prog = 1; pl.face = 'down'; pressed.length = 0;
+  pl.x = pl.sx = PXO + 10; pl.y = pl.sy = PYO + 2; pl.prog = 1; pl.face = 'down'; pressed.length = 0;
   view.snap = true; fitView(); lastPosKey = ''; posAcc = 999; trackSelf();
   if (!silent) toast('回到廣場了');
 }

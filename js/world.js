@@ -239,6 +239,13 @@ pkind[GSB.y + GSB.h - 1][GSB.x + 2] = GSD;
 const TPD = 99, CHD = 100, TCX = 101;   // TPD 神廟門  CHD 教堂門  TCX 室內擺設（走不進去；是哪一個要用 temple.js 的 tcObjAt 查）
 const TPB = { x: 23, y: 6, w: 6, h: 4 }, CHB = { x: 18, y: 6, w: 5, h: 4 };
 pkind[9][21] = G; pkind[9][22] = G; pkind[11][19] = BN; pkind[11][20] = BN;
+/* 塔羅屋搬到噴泉正北邊：佔 x13–17、y2–4，門在 x14–16、y4；原本的攤位（x14–16、y4–5）和圈裡的樹拿掉，沙路從 (15,5) 接到門口 */
+{
+  for (let y = 1; y <= 5; y++) for (let x = 13; x <= 17; x++) pkind[y][x] = G;
+  for (let y = 2; y <= 4; y++) for (let x = 13; x <= 17; x++) pkind[y][x] = HB;
+  for (let x = 14; x <= 16; x++) pkind[4][x] = TS;
+  pkind[5][15] = P;
+}
 for (const B of [TPB, CHB]) for (let y = B.y; y < B.y + B.h; y++) for (let x = B.x; x < B.x + B.w; x++) pkind[y][x] = HB;
 pkind[TPB.y + TPB.h - 1][TPB.x + 2] = TPD; pkind[TPB.y + TPB.h - 1][TPB.x + 3] = TPD;
 pkind[CHB.y + CHB.h - 1][CHB.x + 2] = CHD;
