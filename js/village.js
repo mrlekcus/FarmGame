@@ -42,13 +42,13 @@ function typingBubble(cx, cy, now) {
 const typingOn = rp => !!rp.typing && performance.now() - rp.typing < 6000;   // 對方每 3 秒會補送一次，超過 6 秒沒更新就當作沒在輸入了
 /* 同步的「世界」：p 廣場、t 塔羅屋、h 屋子（拜訪朋友或自己的家，各屋子有自己的頻道）。
    廣場和塔羅屋共用同一條村頻道，靠位置訊息裡的 w 分開；只有和自己同一個世界的人才會畫出來。 */
-const worldKey = () => scene === 'swamp' ? 's' : scene === 'cafe' ? 'c' : scene === 'arcade' ? 'g' : scene === 'tarot' ? 't' : scene === 'house' ? 'h' : scene === 'boat' ? 'b' : 'p';
-const syncScene = () => scene === 'plaza' || scene === 'swamp' || scene === 'tarot' || scene === 'cafe' || scene === 'arcade' || scene === 'boat' || (scene === 'house' && !!net);
+const worldKey = () => scene === 'swamp' ? 's' : scene === 'cafe' ? 'c' : scene === 'arcade' ? 'g' : scene === 'temple' ? 'm' : scene === 'church' ? 'k' : scene === 'tarot' ? 't' : scene === 'house' ? 'h' : scene === 'boat' ? 'b' : 'p';
+const syncScene = () => scene === 'plaza' || scene === 'swamp' || scene === 'tarot' || scene === 'cafe' || scene === 'arcade' || scene === 'temple' || scene === 'church' || scene === 'boat' || (scene === 'house' && !!net);
 const hereRp = rp => (rp.w || 'p') === worldKey();
-const worldOf = w => w === 's' ? 's' : w === 'c' ? 'c' : w === 'g' ? 'g' : w === 't' ? 't' : w === 'h' ? 'h' : w === 'b' ? 'b' : 'p';
-const worldW = w => w === 's' ? SWW : w === 'c' ? CFW : w === 'g' ? GSW : w === 't' ? RMW : w === 'h' ? houseMapW() : w === 'b' ? BTW : PLW;
-const worldH = w => w === 's' ? SWH : w === 'c' ? CFH : w === 'g' ? GSH : w === 't' ? RMH : w === 'h' ? houseMapH() : w === 'b' ? BTH : PLH;
-const WORLD_IN = { s: '來到霧語沼澤', p: '來到廣場', c: '進了咖啡廳', g: '進了遊戲店', t: '進了塔羅屋', h: '來到屋子裡', b: '上船了' };
+const worldOf = w => w === 's' ? 's' : w === 'c' ? 'c' : w === 'g' ? 'g' : w === 'm' ? 'm' : w === 'k' ? 'k' : w === 't' ? 't' : w === 'h' ? 'h' : w === 'b' ? 'b' : 'p';
+const worldW = w => w === 's' ? SWW : w === 'c' ? CFW : w === 'g' ? GSW : w === 'm' || w === 'k' ? TCW : w === 't' ? RMW : w === 'h' ? houseMapW() : w === 'b' ? BTW : PLW;
+const worldH = w => w === 's' ? SWH : w === 'c' ? CFH : w === 'g' ? GSH : w === 'm' || w === 'k' ? TCH : w === 't' ? RMH : w === 'h' ? houseMapH() : w === 'b' ? BTH : PLH;
+const WORLD_IN = { s: '來到霧語沼澤', p: '來到廣場', c: '進了咖啡廳', g: '進了遊戲店', m: '進了福神廟', k: '進了小教堂', t: '進了塔羅屋', h: '來到屋子裡', b: '上船了' };
 const remoteAt = (x, y) => {
   let hit = null;
   remotes.forEach(rp => { if (rp.tx === x && rp.ty === y && hereRp(rp)) hit = rp; });
@@ -120,7 +120,7 @@ function renderVillage() {
   remotes.forEach(rp => names.push(esc(rp.name)));
   vList.innerHTML = names.map(x => '<span class="pchip">' + x + '</span>').join('');
 }
-const sitCode = () => pose ? (pose.ground ? 2 : pose.bench ? 1 : pose.id != null ? (pose.type === 'lie' ? 4 : 3) : 0) : 0;   // 0 站著、1 坐長椅、2 坐在地上、3 坐家具（椅子／沙發）、4 躺床
+const sitCode = () => pose ? (pose.kneel ? 5 + (pose.em | 0) : pose.pew ? 8 + (pose.em | 0) : pose.ground ? 2 : pose.bench ? 1 : pose.id != null ? (pose.type === 'lie' ? 4 : 3) : 0) : 0;   // 0 站著、1 坐長椅、2 坐在地上、3 坐家具（椅子／沙發）、4 躺床
 /* Supabase Realtime 限制：每個用戶端 30 秒內最多 5 次 presence 呼叫（track／untrack），超過整條頻道會被伺服器關掉
    （就是「連線中斷，重新連線中…」）。不確定這個額度是每條頻道還是整條連線共用，所以廣場和好友在線兩條頻道的 track
    一律經過這裡，全部合起來兩次之間至少隔 7.5 秒（30 秒內最多 4 次）；太密的呼叫合併成一次稍後補送，
@@ -154,7 +154,7 @@ function onSync(ch) {
     seen.add(id);
     let rp = remotes.get(id);
     if (!rp) {
-      rp = { id, name, w: wk, char: toChar(name, m.c), x, y, tx: x, ty: y, f, bubble: null, sit: wk === 'p' && m.s === 1 && pkind[y][x] === BN, gsit: m.s === 2, fs: wk === 'h' && (m.s === 3 || m.s === 4) ? m.s : 0, hw: intIn(m.h, 0, 3, 0), heard: performance.now() };
+      rp = { id, name, w: wk, char: toChar(name, m.c), x, y, tx: x, ty: y, f, bubble: null, sit: wk === 'p' && m.s === 1 && pkind[y][x] === BN, gsit: m.s === 2, kn: m.s >= 5 && m.s <= 7 ? m.s - 4 : 0, ps: m.s >= 8 && m.s <= 10 ? m.s - 7 : 0, fs: wk === 'h' && (m.s === 3 || m.s === 4) ? m.s : 0, hw: intIn(m.h, 0, 3, 0), heard: performance.now() };
       remotes.set(id, rp);
       if (net.synced) addSys(name + ' ' + WORLD_IN[wk]);
     } else {
@@ -163,7 +163,7 @@ function onSync(ch) {
       if (performance.now() - (rp.posAt || 0) > 12000) {   // presence 現在更新較慢，位置可能是舊的：只要最近收過他的 pos 廣播就以廣播為準，12 秒都沒收到才改用 presence 的位置
 
         if (rp.w !== wk) { rp.w = wk; rp.x = x; rp.y = y; }       // 換了世界（進出塔羅屋）：直接放到新位置，不要從舊位置滑過去
-        rp.bv = parseVis(m.v); rp.tx = x; rp.ty = y; rp.f = f; rp.sit = wk === 'p' && m.s === 1 && pkind[y][x] === BN; rp.gsit = m.s === 2; rp.fs = wk === 'h' && (m.s === 3 || m.s === 4) ? m.s : 0;
+        rp.bv = parseVis(m.v); rp.tx = x; rp.ty = y; rp.f = f; rp.sit = wk === 'p' && m.s === 1 && pkind[y][x] === BN; rp.gsit = m.s === 2; rp.kn = m.s >= 5 && m.s <= 7 ? m.s - 4 : 0; rp.ps = m.s >= 8 && m.s <= 10 ? m.s - 7 : 0; rp.fs = wk === 'h' && (m.s === 3 || m.s === 4) ? m.s : 0;
       }   // 剛收到更新的走動訊息就不要被舊位置蓋回去
     }
   });
@@ -193,7 +193,7 @@ function onPos(p) {
   if (nx !== rp.tx || ny !== rp.ty) rp.fish = null;
   if (rp.w !== wk) { rp.w = wk; rp.x = nx; rp.y = ny; rp.fish = null; rp.bubble = null; rp.typing = 0; }   // 換了世界：直接放到新位置
   rp.tx = nx; rp.ty = ny; rp.f = intIn(p.f, 0, 3, rp.f); rp.posAt = performance.now();
-  rp.cs = wk === 'c' ? intIn(p.cs, 0, 40, 0) : 0; rp.sit = wk === 'p' && p.s === 1 && pkind[ny][nx] === BN; rp.gsit = p.s === 2; rp.fs = wk === 'h' && (p.s === 3 || p.s === 4) ? p.s : 0;                  // 只有真的在長椅那一格才當作坐著
+  rp.cs = wk === 'c' ? intIn(p.cs, 0, 40, 0) : 0; rp.sit = wk === 'p' && p.s === 1 && pkind[ny][nx] === BN; rp.gsit = p.s === 2; rp.kn = p.s >= 5 && p.s <= 7 ? p.s - 4 : 0; rp.ps = p.s >= 8 && p.s <= 10 ? p.s - 7 : 0; rp.fs = wk === 'h' && (p.s === 3 || p.s === 4) ? p.s : 0;                  // 只有真的在長椅那一格才當作坐著
 }
 function onBye(p) { if (p && typeof p.i === 'string') dropRemote(p.i); }
 /* 清道夫：很久沒收到位置廣播、presence 也沒有他的人才移除 */
@@ -329,6 +329,8 @@ window.addEventListener('pagehide', sayBye);
 function leaveVillage(silent) {
   leaveCafe(true);
   leaveArcade(true);
+  leaveTemple(true);
+  leaveChurch(true);
   leaveLekcus(true);
   pAct = null; pIn = null; hidePactBox(); sayBye(); stopNet(); clearInterval(pingTimer); if (pose && (pose.bench || pose.ground)) pose = null;
   const was = scene === 'plaza';
@@ -368,7 +370,7 @@ function sendPos(dt) {
 /* 看門狗：頻道連上後如果掉線又沒自己恢復，就整條重建；回到前景、網路恢復時也會檢查 */
 function netWatch(force) {
   if (!ready || !sb) return;
-  if (net && (scene === 'plaza' || scene === 'swamp' || scene === 'tarot' || scene === 'cafe' || scene === 'arcade' || scene === 'house' || scene === 'boat')) {
+  if (net && (scene === 'plaza' || scene === 'swamp' || scene === 'tarot' || scene === 'cafe' || scene === 'arcade' || scene === 'temple' || scene === 'church' || scene === 'house' || scene === 'boat')) {
     const st = net.ch.state;
     if (st === 'joined') {
       net.bad = 0; if (!net.ok) { net.ok = true; trackSelf(); }

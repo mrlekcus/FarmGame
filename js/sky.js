@@ -187,6 +187,7 @@ function draw(now) {
   else if (scene === 'tarot') drawTarotRoom(now);
   else if (scene === 'cafe') drawCafeRoom(now);
   else if (scene === 'arcade') drawArcadeRoom(now);
+  else if (scene === 'temple' || scene === 'church') drawTcRoom(now);
   else if (scene === 'boat') drawBoatScene(now);
   else {
   for (let ty = 0; ty < H; ty++) for (let tx = 0; tx < W; tx++) {
@@ -229,7 +230,7 @@ function draw(now) {
   else if (scene === 'forest') FOREST_BLD.forEach(b => drawBldg(b, now, dark > 0.15));
   else if (scene === 'swamp') drawSwampProps(now);
   else {
-    if (scene === 'plaza') { drawPlazaBoat(now); drawMsgBoard(now); drawPlazaCamp(now); drawCafeBldg(now, dark > 0.15); drawGameBldg(now, dark > 0.15); }
+    if (scene === 'plaza') { drawPlazaBoat(now); drawMsgBoard(now); drawPlazaCamp(now); drawCafeBldg(now, dark > 0.15); drawGameBldg(now, dark > 0.15); drawTcBldg(); }
     ctx.save(); ctx.translate(PXO * T, PYO * T);   // 塔羅攤、路燈、噴水池是舊廣場座標，位移後再畫
     drawTarotStall(now);
     if (scene === 'plaza') drawPlazaLamps(now);   // 廣場路燈（js/plaza-light.js）
@@ -266,8 +267,8 @@ function draw(now) {
       ents.push({ y: ry, draw: () => arcadeDrawSeated(ch, now) });
     } else if (pose && ((pose.bench && (scene === 'plaza' || (pose.yard && scene === 'farm'))) || (pose.ground && syncScene()))) {
       ents.push({ y: ry, draw: () => {
-        (pose.ground ? drawGroundSeated : drawBenchSeated)(Math.round(pl.x * T), Math.round(pl.y * T), ch);
-        nameTag(ch.name, Math.round(pl.x * T) + 8, Math.round(pl.y * T) - 7, '#ffffff');
+        if (pose.pew) tcPewDraw(Math.round(pl.x * T), Math.round(pl.y * T), ch, pose.em | 0, now); else if (pose.kneel) tcKneelDraw(Math.round(pl.x * T), Math.round(pl.y * T), ch, pose.em | 0, now); else (pose.ground ? drawGroundSeated : drawBenchSeated)(Math.round(pl.x * T), Math.round(pl.y * T), ch);
+        nameTag(ch.name, Math.round(pl.x * T) + 8, Math.round(pl.y * T) + (pose.kneel ? 24 : pose.pew ? 24 : -7), '#ffffff');
       } });
     } else ents.push({ y: ry, draw: () => {
       drawPlayerFx(Math.round(rx * T), Math.round(ry * T), pl.face, pl.prog < 1, (Math.floor(pl.prog * 2) + pl.step) % 2, ch, pl.prog < 1 ? null : animFx(anim, now));
@@ -308,14 +309,16 @@ function draw(now) {
       else { drawSeated(px, py, fit, rp.char, Math.round(rp.x) - (RX + fit.x)); seatNameTag(rp.name, fit, px, py, '#fff3b0'); }
       return;
     }
-    if (seated) drawBenchSeated(px, py, rp.char);
+    if (rp.ps && !mv && rp.w === 'k') tcPewDraw(px, py, rp.char, rp.ps - 1, now);
+    else if (rp.kn && !mv && rp.w === 'm') tcKneelDraw(px, py, rp.char, rp.kn - 1, now);
+    else if (seated) drawBenchSeated(px, py, rp.char);
     else if (gs) drawGroundSeated(px, py, rp.char);
     else {
       if (mv) rp.anim = null;
       drawPlayerFx(px, py, FACES[rp.f], mv, Math.floor(now / 140) % 2, rp.char, mv ? null : animFx(rp.anim, now));
     }
     if (rp.fish && !mv) drawRod(px, py, FACES[rp.f], rp.fish, now);
-    nameTag(rp.name, px + 8, py - (seated ? 7 : 5), '#fff3b0');
+    nameTag(rp.name, px + 8, py + (rp.kn && !mv ? 24 : rp.ps && !mv ? 24 : seated ? -7 : -5), '#fff3b0');
   } }));
   ents.sort((a, b) => a.y - b.y).forEach(en => en.draw());
   if (scene === 'boat') voyDrawReady(now, rx, ry);
@@ -351,7 +354,7 @@ function draw(now) {
 
   if (scene === 'swamp') drawSwampMist(now);   // 霧語沼澤的霧
   drawBoatFx(now, voyFogLevel(now));
-  const indoors = scene === 'house' || scene === 'barn' || scene === 'tarot' || scene === 'stylist' || scene === 'cave' || scene === 'cafe' || scene === 'arcade';
+  const indoors = scene === 'house' || scene === 'barn' || scene === 'tarot' || scene === 'stylist' || scene === 'cave' || scene === 'cafe' || scene === 'arcade' || scene === 'temple' || scene === 'church';
   const warm = indoors ? 0 : Math.max(0, 1 - Math.abs(w.min - 1110) / 100) * 0.2;
   if (!indoors && SEA === 'autumn') r('rgba(255,170,70,.06)', 0, 0, W * T, H * T);
   else if (!indoors && SEA === 'winter') r('rgba(215,232,255,.07)', 0, 0, W * T, H * T);

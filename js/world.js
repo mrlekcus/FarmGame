@@ -234,6 +234,14 @@ pkind[CFB.y + CFB.h - 1][CFB.x + 2] = CFD;
 const GSD = 95, GSX = 96, GSM = 97, GST = 98, GSB = { x: PXO - 3, y: PYO + 3, w: 5, h: 4 };   // GSD 門  GSX 擺設／檯面  GSM 街機  GST 高腳椅（店內用）
 for (let y = GSB.y; y < GSB.y + GSB.h; y++) for (let x = GSB.x; x < GSB.x + GSB.w; x++) pkind[y][x] = HB;
 pkind[GSB.y + GSB.h - 1][GSB.x + 2] = GSD;
+/* 教堂（5×4）和神廟（6×4）並排在噴水池右邊的空地（教堂 x18~22、神廟 x23~28，y6~9），和咖啡廳、遊戲店一樣門在底部、站在下面的大路上面向上按動作鍵進去：js/temple.js。
+   原本蓋住的樹換成建築，兩張長椅（21,9）（22,9）搬到大路南邊。 */
+const TPD = 99, CHD = 100, TCX = 101;   // TPD 神廟門  CHD 教堂門  TCX 室內擺設（走不進去；是哪一個要用 temple.js 的 tcObjAt 查）
+const TPB = { x: 23, y: 6, w: 6, h: 4 }, CHB = { x: 18, y: 6, w: 5, h: 4 };
+pkind[9][21] = G; pkind[9][22] = G; pkind[11][19] = BN; pkind[11][20] = BN;
+for (const B of [TPB, CHB]) for (let y = B.y; y < B.y + B.h; y++) for (let x = B.x; x < B.x + B.w; x++) pkind[y][x] = HB;
+pkind[TPB.y + TPB.h - 1][TPB.x + 2] = TPD; pkind[TPB.y + TPB.h - 1][TPB.x + 3] = TPD;
+pkind[CHB.y + CHB.h - 1][CHB.x + 2] = CHD;
 /* ---------- 廣場最西邊的出口：石拱門（SWG）通往霧語沼澤，玩家 Lv.6 才能進入。
    東西向大路的西端換成入口，上下各立一根石柱（上面那根兩格高），旁邊立一塊告示牌（SWS）。畫法在 js/art/swamp.js。 ---------- */
 const SWG = 90, SWP = 91, SWS = 92, SWR = 93, SWC = 94;   // SWG 石拱門（面向它按動作鍵）  SWP 石柱  SWS 告示牌  SWR 岩石（都走不進去）

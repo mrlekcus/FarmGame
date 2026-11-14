@@ -13,11 +13,13 @@ function dishIcon(c2d, k) {
   drawDish(0, 0, k);
   g = ctx;
 }
-const BUFF_N = { swift: '走路變快', fish: '釣魚運氣變好', bug: '捕蟲網變大', lamp: '身邊亮著暖燈', spark: '走過的路閃閃發光', heart: '頭上飄愛心', music: '哼著歌', petal: '身邊飄著季節小物', moon: '月光步' };
-const BUFF_I = { swift: '👟', fish: '🎣', bug: '🦋', lamp: '💡', spark: '✨', heart: '💕', music: '🎵', petal: '🌸', moon: '🌙' };   // 圖示
+const BUFF_N = { swift: '走路變快', fish: '釣魚運氣變好', bug: '捕蟲網變大', lamp: '身邊亮著暖燈', spark: '走過的路閃閃發光', heart: '頭上飄愛心', music: '哼著歌', petal: '身邊飄著季節小物', moon: '月光步', tp_a: '香火：香煙繚繞', tp_b: '香火：福字紅包', tp_c: '香火：蓮花', tp_d: '香火：金元寶', tp_f: '香火：平安符', tp_j: '香火：愛心＋香' };
+const BUFF_I = { swift: '👟', fish: '🎣', bug: '🦋', lamp: '💡', spark: '✨', heart: '💕', music: '🎵', petal: '🌸', moon: '🌙', tp_a: '🙏', tp_b: '🧧', tp_c: '🪷', tp_d: '💰', tp_f: '🧿', tp_j: '❤️' };   // 圖示
 const BUFF_D = { swift: '移動速度變快（約 +25%）', fish: '釣魚時運氣更好', bug: '捕蟲網的範圍變大',
   lamp: '身邊一圈暖暖的光，夜晚和室內更明顯', spark: '走過的路會留下一小串閃亮的星星', heart: '頭上不時飄出愛心泡泡', music: '不時飄出音符，走路時更頻繁',
-  petal: '身邊飄著小東西：春天花瓣、夏天螢火蟲、秋天落葉、冬天雪花', moon: '夜晚走路變快，身邊有月光（白天沒有速度效果）' };   // 點開後的說明
+  petal: '身邊飄著小東西：春天花瓣、夏天螢火蟲、秋天落葉、冬天雪花', moon: '夜晚走路變快，身邊有月光（白天沒有速度效果）',
+  tp_a: '在神廟上香得到：頭旁邊飄著香煙，其他玩家看得到（30 分鐘）', tp_b: '在神廟上香得到：頭旁邊掛著福字紅包，其他玩家看得到（30 分鐘）', tp_c: '在神廟上香得到：頭旁邊開著蓮花，其他玩家看得到（30 分鐘）',
+  tp_d: '在神廟上香得到：頭旁邊閃著金元寶，其他玩家看得到（30 分鐘）', tp_f: '在神廟上香得到：頭旁邊掛著平安符，其他玩家看得到（30 分鐘）', tp_j: '在神廟上香得到：頭旁邊一顆愛心冒著香煙，其他玩家看得到（30 分鐘）' };   // 點開後的說明
 const BUFF_MAX = 60 * 60000;   // 單一效果最多累積 60 分鐘，圓環以此為滿
 const ckEl = $('ckm'), ckCard = $('ckcard');
 let ckBusy = false;
@@ -358,7 +360,7 @@ let cookLog = {};
    自己和同一個地方的其他玩家都看得到：每個人的 buff 種類跟著位置訊息（pos／presence 的 v 欄位）一起送，不另外多送訊息。
    bfx 放飄動的 emoji／小光點；update() 每幀呼叫 buffFxTick，sky.js 在夜色濾鏡之後呼叫 drawBuffFx（才不會被壓暗） */
 const bfx = [], bfxAcc = {};
-const VIS_BUFFS = ['lamp', 'spark', 'heart', 'music', 'petal', 'moon'];
+const VIS_BUFFS = ['lamp', 'spark', 'heart', 'music', 'petal', 'moon', 'tp_a', 'tp_b', 'tp_c', 'tp_d', 'tp_f', 'tp_j'];   // tp_* 是神廟的香火表情（temple.js），圖示由 tcDrawIcons 畫
 let moonFast = false, moonChk = 1000, lastVis = '';
 const BF_FONT = '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
 const BF_SEA = { spring: '🌸', autumn: '🍂', winter: '❄️' };   // 夏天用螢火蟲光點
@@ -366,7 +368,7 @@ const bfRnd = (a, b) => a + Math.random() * (b - a);
 const myVisList = () => VIS_BUFFS.filter(k => buffOn(k));
 const myVisBuffs = () => myVisList().join(',');   // 送給別人的 buff 種類，例如 "lamp,heart"
 const parseVis = v => typeof v === 'string' ? VIS_BUFFS.filter(k => v.split(',').includes(k)) : [];   // 收到的資料只認得清單裡的種類
-const bfIndoors = () => scene === 'house' || scene === 'barn' || scene === 'tarot' || scene === 'stylist' || scene === 'cave' || scene === 'cafe' || scene === 'arcade';
+const bfIndoors = () => scene === 'house' || scene === 'barn' || scene === 'tarot' || scene === 'stylist' || scene === 'cave' || scene === 'cafe' || scene === 'arcade' || scene === 'temple' || scene === 'church';
 function bfEmit(kinds, px, py, moving, acc, dt) {
   const every = (k, ms) => { acc[k] = (acc[k] || 0) + dt; if (acc[k] < ms) return false; acc[k] = 0; return true; };
   const add = o => bfx.push(Object.assign({ l: 0, vx: 0, vy: -0.3, max: 1800, sc: scene }, o));
@@ -439,4 +441,5 @@ function drawBuffFx(now, dark) {
     ctx.fillText(p.e, Math.round(p.x), Math.round(p.y));
   });
   ctx.restore();
+  try { tcDrawIcons(now); } catch (e) { /* 略過 */ }
 }

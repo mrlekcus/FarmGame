@@ -229,7 +229,7 @@ function drawBldg(b, now, lit) {
 
 /* ---------- 出海團：船上的場景（js/voyage.js 管流程，這裡只負責進出）---------- */
 function quietToFarm() {                 // 從任何場景安靜地回到農場（地圖大小各不相同，不先離開的話離開後尺寸會停在錯的值）
-  if (scene === 'plaza' || scene === 'tarot' || scene === 'cafe' || scene === 'arcade') leaveVillage(true);
+  if (scene === 'plaza' || scene === 'tarot' || scene === 'cafe' || scene === 'arcade' || scene === 'temple' || scene === 'church') leaveVillage(true);
   if (scene === 'house') leaveHouse(true);
   if (scene === 'stylist') leaveStylist(true);
   if (scene === 'swamp') leaveSwamp(true);

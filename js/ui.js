@@ -178,6 +178,25 @@ function updateTip() {
       else if (k === GSM) s = '街機：坐旁邊的椅子就能玩。';
       else if (k === GSX && y >= 11 && y <= 12 && x >= 10 && x <= 13) s = '嗶嗶（店員機器人）：按動作鍵聊天。';
     }
+  } else if (scene === 'temple') {
+    s = '福神廟：籤筒求籤（每天免費一次）、香爐上香（10 G，拿表情 buff）、右邊小桌打小人（100 G）。';
+    if (x >= 0 && y >= 0 && x < W && y < H) {
+      const k = K[y][x], o = tcObjs.temple.get(x + ',' + y);
+      if (k === BX) s = '門口：按動作鍵回廣場。';
+      else if (o === 'tube') s = '籤筒：按動作鍵求籤，每天免費一次。';
+      else if (o === 'censer') s = '香爐：按動作鍵上香（10 G），選一個表情 buff，持續 30 分鐘。';
+      else if (o === 'curse') s = '打小人：按動作鍵，寫下想像中的小人拍它出氣（100 G）。';
+      else if (o === 'monk') s = '廟祝：按動作鍵聊天。';
+    }
+  } else if (scene === 'church') {
+    s = '小教堂：神父有今天的祝福語、祈福台可以寫卡片給好友、蠟燭架可以點許願蠟燭。';
+    if (x >= 0 && y >= 0 && x < W && y < H) {
+      const k = K[y][x], o = tcObjs.church.get(x + ',' + y);
+      if (k === BX) s = '門口：按動作鍵回廣場。';
+      else if (o === 'priest') s = '神父：按動作鍵聽今天的祝福語。';
+      else if (o === 'bless') s = '祈福台：寫祈福卡給好友（每天 3 次，對方收到 20 G）。';
+      else if (o === 'candle') s = '蠟燭架：點一支許願蠟燭（免費，每天重置）。';
+    }
   } else if (scene === 'cafe') {
     s = '咖啡廳：坐高腳椅按動作鍵點餐；想打工就走到吧台右邊的小門穿圍裙。（有結算時：點餐扣款、送餐領薪水）';
     if (x >= 0 && y >= 0 && x < W && y < H) {
