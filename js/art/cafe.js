@@ -339,4 +339,4 @@ function cfAnimal(px, py, s, dir, bob, now, o) {
   if (s.whisk && dir === 'down') { R('#c9a37a', H.x - 1, ey + 2, 2, 1); R('#c9a37a', H.x + H.w - 1, ey + 2, 2, 1); R('#c9a37a', H.x - 1, ey + 4, 2, 1); R('#c9a37a', H.x + H.w - 1, ey + 4, 2, 1); }
   if (s.head) s.head(K, dir, ey);
 }
-function cfActor(px, py, key, dir, bob, now, o) { const s = CF_NPCS[key]; if (!s) return; (s.type === 'animal' ? cfAnimal : cfHuman)(px, py, s, dir || 'down', bob || 0, now || 0, o || {}); }
+function cfActor(px, py, key, dir, bob, now, o) { const s = CF_NPCS[key]; if (!s) return; if (s.draw) return s.draw(px, py, dir || 'down', bob || 0, now || 0); (s.type === 'animal' ? cfAnimal : cfHuman)(px, py, s, dir || 'down', bob || 0, now || 0, o || {}); }

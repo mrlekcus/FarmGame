@@ -11,7 +11,7 @@ const BGM_FILES = { farm: 'bgm/bgm-farm.mp3', town: 'bgm/bgm-town.mp3', plaza: '
   cafe6: 'bgm/cafe-6.mp3', cafe7: 'bgm/cafe-7.mp3', cafe8: 'bgm/cafe-8.mp3', cafe9: 'bgm/cafe-9.mp3', cafe10: 'bgm/cafe-10.mp3' };   // cafe1~10：咖啡廳點唱機的歌（歌單在 cafe.js 的 CF_SONGS）
 let cfSong = '';   // 咖啡廳點唱機目前放的歌（'' = 沒點歌，沿用廣場那首）
 try { cfSong = localStorage.getItem('dewfarm_cafe_song') || ''; } catch (e) { /* 略過 */ }
-const SCENE_BGM = { farm: 'farm', house: 'farm', forest: 'farm', swamp: 'plaza', cave: 'farm', town: 'town', plaza: 'plaza', cafe: 'plaza', temple: 'temple', church: 'church', arcade: 'arcade', tarot: 'tarot', boat: 'boat' };   // 場景 -> 用哪一首（沒列的場景用合成音樂）
+const SCENE_BGM = { farm: 'farm', house: 'farm', barn: 'farm', forest: 'farm', swamp: 'plaza', cave: 'farm', town: 'town', plaza: 'plaza', cafe: 'plaza', temple: 'temple', church: 'church', arcade: 'arcade', tarot: 'tarot', boat: 'boat' };   // 場景 -> 用哪一首（沒列的場景用合成音樂）
 function createSceneBgm(win, urls) {
   const AC = win.AudioContext || win.webkitAudioContext;
   if (!AC || !win.Audio) return null;

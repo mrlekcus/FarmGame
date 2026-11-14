@@ -173,6 +173,22 @@ const FURN = {
     r('#ff8fa8', px + 7, py + 8, 5, 3); r('#8fc8f4', px + 20, py + 8, 5, 3);
     r('#9b6a44', px + 4, py + 31, 3, 1); r('#9b6a44', px + 25, py + 31, 3, 1);
   },
+  wardrobeAjar(px, py, left) {                     // 衣櫥轉向左右：一扇門開一條縫，看得到裡面掛的衣服（left=true 左門開、false 右門開）；直接旋轉正面圖會變成上下疊的抽屜，很怪
+    r('rgba(90,60,40,.18)', px + 2, py + 30, 28, 2);
+    ob('#d9a066', '#9b6a44', px + 2, py + 3, 28, 28);
+    r('#9b6a44', px + 4, py + 31, 3, 1); r('#9b6a44', px + 25, py + 31, 3, 1);
+    const x0 = left ? 5 : 17, x1 = left ? 15 : 27;   // 縫隙裡的衣服
+    r('#4a3328', px + x0, py + 5, x1 - x0, 24); r('#6b4a3a', px + x0, py + 5, x1 - x0, 1);
+    const cs = ['#ff8fa8', '#8fc8f4', '#fff3d0', '#b8e6a8', '#ffd27a', '#d6b8ff'];
+    for (let k = 0; k < x1 - x0 - 1; k += 3) { r(cs[(k / 3 | 0) % 6], px + x0 + 1 + k, py + 7, 2, 14); r('#9b8a7a', px + x0 + 1 + k, py + 6, 2, 1); }
+    if (left) {
+      r('#e8b27a', px + 4, py + 5, 4, 24); r('#9b6a44', px + 8, py + 5, 1, 24); r('#ff8fa8', px + 5, py + 8, 2, 3);
+      r('#e8b27a', px + 17, py + 5, 11, 24); r('#9b6a44', px + 15, py + 3, 2, 28); r('#fff3b0', px + 18, py + 16, 2, 3); r('#8fc8f4', px + 20, py + 8, 5, 3);
+    } else {
+      r('#e8b27a', px + 4, py + 5, 11, 24); r('#fff3b0', px + 12, py + 16, 2, 3); r('#ff8fa8', px + 7, py + 8, 5, 3); r('#9b6a44', px + 15, py + 3, 2, 28);
+      r('#e8b27a', px + 24, py + 5, 4, 24); r('#9b6a44', px + 23, py + 5, 1, 24); r('#8fc8f4', px + 25, py + 8, 2, 3);
+    }
+  },
   mirror(px, py) {                                 // 鏡子（掛牆 1x2）：按動作鍵換造型
     ob('#d9a066', '#9b6a44', px + 1, py + 2, 14, 28);
     r('#cfeaf7', px + 3, py + 4, 10, 24); r('#eaf7fd', px + 4, py + 5, 3, 10); r('#ffffff', px + 4, py + 6, 1, 6);
@@ -316,6 +332,7 @@ function drawFurn(it, px, py, now) {
   if (!f || !d) return;
   if (it.k === 'chair') { FURN.chairDir(px, py, chairFace(it)); return; }   // 椅子：依朝向直接畫
   const rt = (it.r | 0) & 3;
+  if (it.k === 'wardrobe' && rt) { if (rt & 1) FURN.wardrobeAjar(px, py, rt === 1); else FURN.wardrobe(px, py); return; }   // 衣櫥轉向：轉 90 度左門開一條縫、轉 270 度右門開一條縫，倒過來（180 度）維持正面，都不整張旋轉（轉了會變抽屜、腳跑到上面）
   if (it.k === 'tv' && rt) { drawTvTurned(it, px, py, now); return; }   // 電視：不整張圖旋轉（會倒過來），轉過去畫背面／側面，見 tv.js
   let ox = px, oy = py;
   g.save();

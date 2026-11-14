@@ -71,6 +71,7 @@ const shopIcon = it => it.dot ? '<i class="dot" style="--c:' + it.dot + '"></i>'
 function shopActLabel(v, q, tot) {
   const it = v.it;
   if (it.lock) return it.lock;
+  if (q < 1) return '先選數量';
   if (shopFull(it)) return '已滿 ' + INV_CAP + ' 個';
   if (it.buy && tot > v.coins) return '金幣不夠';
   return (it.buy ? '買 ' : '賣 ') + q + ' 個 · ' + tot + ' G';
@@ -119,7 +120,7 @@ function renderShop() {
   const keep = sameCat ? [shopCard.scrollTop, spOld ? spOld.scrollTop : 0, (shopCard.querySelector('.shmain') || {}).scrollTop | 0] : [0, 0, 0];   // 手機直向捲的是整張卡，橫向捲的是 .shsplit
   shopLast = { cat: shopCat, ids: list.map(x => x.id) };
   const cur = list.find(x => x.id === shopSel) || null;
-  if (cur) { const mx = shopMax(cur, coins); shopQ[cur.id] = Math.max(1, Math.min(mx, shopQ[cur.id] | 0 || 1)); shopView = { it: cur, max: mx, coins }; } else shopView = null;
+  if (cur) { const mx = shopMax(cur, coins); shopQ[cur.id] = Math.max(0, Math.min(mx, shopQ[cur.id] | 0)); shopView = { it: cur, max: mx, coins }; } else shopView = null;   // 數量從 0 開始，按 1／5／10 是往上加
   let sellKinds = 0, grand = 0;
   { const sl = shopCat === 'sell' ? list : shopItems('sell'); sellKinds = sl.length; sl.forEach(it => { if (it.a === 'sell' || it.a === 'sellfish' || it.a === 'sellbug' || it.a === 'sellm') grand += shopTotal(it, it.stock); }); }   // 「全部賣出」（SQL sell_all）賣作物、魚、蟲和雜物（不含料理、乾草），金額也只算這幾種
   const rail = shopCats().map(c => '<button type="button" class="shri" data-cat="' + c[0] + '" aria-pressed="' + (c[0] === shopCat) + '"><b>' + c[1] + '</b>' + c[2] + (c[0] === 'sell' && sellKinds ? '<span class="shn">' + sellKinds + '</span>' : '') + '</button>').join('');
@@ -137,10 +138,10 @@ function renderShop() {
   let sheet = '';
   if (shopCat !== 'up' && cur) {
     const q = shopQ[cur.id], mx = shopView.max, tot = shopTotal(cur, q);
-    const chips = [1, 5, 10].map(n => '<button type="button" class="shch" data-sq="=' + n + '">' + n + '</button>').concat(['<button type="button" class="shch" data-sq="=' + mx + '">' + (cur.buy ? '最大 ' : '全賣 ') + mx + '</button>']).join('');
+    const chips = [1, 5, 10].map(n => '<button type="button" class="shch" data-sq="+' + n + '">' + n + '</button>').concat(['<button type="button" class="shch" data-sq="=' + mx + '">' + (cur.buy ? '最大 ' : '全賣 ') + mx + '</button>', '<button type="button" class="shch" data-sq="=0">清空</button>']).join('');
     sheet = '<div class="shsheet"><div class="shsh-h">' + shopIcon(cur) + '<b>' + esc(cur.name) + '</b><small>' + (cur.buy ? '每個 ' + cur.price + ' G · 持有 ' + have(cur.id) + ' / ' + INV_CAP + ' · 這次最多 ' + mx : '有 ' + cur.stock + ' 個') + '</small></div>' +
-      '<div class="shsh-row"><div class="shsh-q"><button type="button" class="shsb" data-sq="-1">−</button><input type="number" id="shin" min="1" max="' + mx + '" value="' + q + '" inputmode="numeric" aria-label="數量"><button type="button" class="shsb" data-sq="+1">＋</button></div>' +
-      '<button type="button" class="btn" id="shgo" data-a="' + cur.a + '" data-c="' + esc(cur.c) + '" data-n="' + q + '"' + (shopBusy || cur.lock || shopFull(cur) || (cur.buy && tot > coins) ? ' disabled' : '') + '>' + shopActLabel(shopView, q, tot) + '</button></div>' +
+      '<div class="shsh-row"><div class="shsh-q"><button type="button" class="shsb" data-sq="-1">−</button><input type="number" id="shin" min="0" max="' + mx + '" value="' + q + '" inputmode="numeric" aria-label="數量"><button type="button" class="shsb" data-sq="+1">＋</button></div>' +
+      '<button type="button" class="btn" id="shgo" data-a="' + cur.a + '" data-c="' + esc(cur.c) + '" data-n="' + q + '"' + (shopBusy || q < 1 || cur.lock || shopFull(cur) || (cur.buy && tot > coins) ? ' disabled' : '') + '>' + shopActLabel(shopView, q, tot) + '</button></div>' +
       '<div class="shsh-c">' + chips + '</div></div>';
   }
   shopCard.innerHTML = '<div class="shop-h"><h2>' + (shopMode === 'work' ? '園藝工坊' : '雜貨攤') + '</h2><span class="chip gold">' + coins + ' G</span></div>' +
@@ -157,22 +158,22 @@ function renderShop() {
 function shopSetQty(v, fromInput) {
   if (!shopView) return;
   const it = shopView.it, mx = shopView.max;
-  let q = Math.round(+v); if (!(q >= 1)) q = 1; q = Math.min(mx, q);
+  let q = Math.round(+v); if (!(q >= 0)) q = 0; q = Math.min(mx, q);
   shopQ[it.id] = q;
   const tot = shopTotal(it, q), go = $('shgo');
   const rg = $('shrg'), inp = $('shin'), tt = $('shtot');
   if (rg) rg.value = q;
   if (inp && !fromInput) inp.value = q;
   if (tt) tt.textContent = '合計 ' + tot + ' G';
-  if (go) { go.dataset.n = q; go.textContent = shopActLabel(shopView, q, tot); go.disabled = !!(shopBusy || it.lock || shopFull(it) || (it.buy && tot > shopView.coins)); }
+  if (go) { go.dataset.n = q; go.textContent = shopActLabel(shopView, q, tot); go.disabled = !!(shopBusy || q < 1 || it.lock || shopFull(it) || (it.buy && tot > shopView.coins)); }
 }
 shopCard.addEventListener('click', e => {
   const c = e.target.closest('[data-cat]'); if (c) { shopCat = c.dataset.cat; shopSel = ''; renderShop(); return; }
   const s = e.target.closest('[data-sel]'); if (s) { shopSel = s.dataset.sel; renderShop(); return; }
   const q = e.target.closest('[data-sq]');
   if (q && shopView) {
-    const d = q.dataset.sq, cur = shopQ[shopView.it.id] | 0 || 1;
-    shopSetQty(d === '-1' ? cur - 1 : d[0] === '+' ? cur + (+d.slice(1) || 0) : +d.slice(1));   // 1 / 5 / 10 / 最大：= 是直接把數量設成那個數字（超過上限會自動夾到上限）
+    const d = q.dataset.sq, cur = shopQ[shopView.it.id] | 0;
+    shopSetQty(d === '-1' ? cur - 1 : d[0] === '+' ? cur + (+d.slice(1) || 0) : +d.slice(1));   // 1 / 5 / 10 是往上加（+），最大／全賣是直接設成上限（=）；數量從 0 開始；＝是直接把數量設成那個數字（超過上限會自動夾到上限）
   }
 });
 shopCard.addEventListener('input', e => {
