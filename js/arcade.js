@@ -3,7 +3,7 @@
    廣場上咖啡廳左邊的空地蓋了一間遊戲店面（外觀見 art/gameshop.js 的 gsExt），走到門口按動作鍵進入店內（scene = 'arcade'，16×16 格，霓虹夜光街機廳）。
    店內兩排街機、每排 4 台，每台旁邊一張高腳椅，共 8 張椅子（一區最多 8 人）。面向空椅子按動作鍵坐下，就會開啟「俄羅斯方塊大亂鬥」（tetris.html，嵌在 iframe 裡）。
    店員：機器人「嗶嗶」站在櫃檯後面，面向櫃檯按動作鍵可以聊天。
-   【規則】免費場 0G、只跟 Bot（沒有 token）；付費場 1000 G，可連線真人，第一名得 1 token（每天最多 1 個，由後端 bb_tetris_award 發放）。開局（倒數結束）時才扣；沒坐滿的位置系統補滿。
+   【規則】免費場 0G（沒有 token）、付費場 1000 G，兩種場都能連線真人（各自分房，沒坐滿的補 Bot）；付費場第一名得 1 token（每天最多 1 個，由後端 bb_tetris_award 發放）。開局（倒數結束）時才扣；沒坐滿的位置系統補滿。
    【結算】arcade_tetris_enter(p_paid)（付費扣 1000 G、回傳 { coins, log_id }）；函式不存在時維持「試營運」：不扣 G。
    【多人】店內的玩家互相看得到（世界代號 'g'）。坐在椅子上的真人會一起對戰（事件 'gs'，由 tetris.html 的連線層處理）；沒坐滿的位置系統補滿；開局後才坐下的人只能觀戰。 */
 const GSW = 16, GSH = 16;
@@ -94,7 +94,7 @@ function openTetris() {
   if (gsOpen || !gs) return;
   gsOpen = true; pressed.length = 0; actHeld = false;
   gsFrame = document.createElement('iframe');
-  gsFrame.src = 'tetris.html?embed=1';
+  gsFrame.src = 'tetris.html?embed=1&v=tt2';
   gsFrame.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;border:0;background:#0e1222';
   gsFrame.setAttribute('allow', 'fullscreen');
   gsEl.innerHTML = ''; gsEl.appendChild(gsFrame); gsEl.hidden = false;

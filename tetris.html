@@ -537,17 +537,18 @@ const myId = () => NET.uid || 'me';
 const sprOf = u => { let h = 0; for (let i = 0; i < u.length; i++) h = (h * 31 + u.charCodeAt(i)) >>> 0; return [0, 1, 2, 3, 4, 5, 7][h % 7]; };
 const cleanName = v => String(v == null ? '' : v).replace(/[\u0000-\u001f<>]/g, '').slice(0, 8) || '玩家';
 const cint = (v, a, b, d) => (typeof v === 'number' && isFinite(v)) ? Math.min(b, Math.max(a, Math.round(v))) : d;
-const netOn = () => NET.on && MODE === 'paid';
+const netOn = () => NET.on;   // 免費場、付費場都要連線（各自分房，用 md 區分）；差別只在扣款和 token
 function netSend(m) { if (embed && netOn()) parent.postMessage({ t: 'tt-net', m }, '*'); }
 const CODE = '.IOTSZJLG';
 const encG = grid => grid.map(row => row.map(c => { if (!c) return '0'; const i = CODE.indexOf(c); return String(i > 0 ? i : 8); }).join('')).join('');
 const decG = s => Array.from({ length: ROWS }, (_, y) => Array.from({ length: COLS }, (_, x) => { const d = s.charCodeAt(y * COLS + x) - 48; return d > 0 ? CODE[d] : null; }));
 const G_RE = new RegExp('^[0-8]{' + (COLS * ROWS) + '}$');
-const freshPeers = () => [...peers.entries()].filter(([u, p]) => nowMs() - p.t < 5000);
+const freshAll = () => [...peers.entries()].filter(([u, p]) => nowMs() - p.t < 5000);
+const freshPeers = () => freshAll().filter(([u, p]) => p.md === MODE);   // 只算跟我同一種場的人
 const peersPlaying = () => freshPeers().some(([u, p]) => p.st === 'play');
 const netBusy = () => !!(mp && !mp.over) || peersPlaying();
-function myState() { return (scene === 'play' || scene === 'dying' || scene === 'paying') ? 'play' : ((scene === 'count' || scene === 'waitgo') && myReady) ? 'ready' : 'idle'; }
-function sendHb() { netSend({ k: 'hb', n: NET.name, s: NET.seat, st: myState(), cl: scene === 'count' ? Math.max(0, countT) : 0 }); }
+function myState() { return (scene === 'play' || scene === 'dying' || scene === 'paying' || (scene === 'spec' && mp && !mp.over)) ? 'play' : ((scene === 'count' || scene === 'waitgo') && myReady) ? 'ready' : 'idle'; }
+function sendHb() { netSend({ k: 'hb', md: MODE, n: NET.name, s: NET.seat, st: myState(), cl: scene === 'count' ? Math.max(0, countT) : 0 }); }
 /* 大廳 8 個位置：我、同店真人、（倒數時）暫時填的空位 */
 function lobbyView() {
   const v = Array(8).fill(null);
@@ -593,7 +594,7 @@ function buildMatch(R, id, hostUid, asPlayer) {
     else { p = new Pl(e.n, e.sp, false, e.lv | 0); p.kind = host ? 'lb' : 'rb'; }
     p.seat = i; p.heard = nowMs(); return p;
   });
-  mp = { mid: id, host, hostUid, roster: R, bbAt: nowMs(), snAcc: 0, bbAcc: 0, wd: 0, over: false };
+  mp = { md: MODE, mid: id, host, hostUid, roster: R, bbAt: nowMs(), snAcc: 0, bbAcc: 0, wd: 0, over: false };
   match = new Match(P, matchHooks());
   hold = null; holdUsed = false; popup = null; result = null; hurtFlash = 0;
   fxReset(); prevAlive.clear(); match.P.forEach(q => prevAlive.set(q, true)); lastKos = 0; pendPrev = 0;
@@ -624,7 +625,7 @@ function failPay(msg) {
   scene = match.over ? 'lobby' : 'spec'; if (scene === 'lobby') { match = null; mp = null; } myReady = false; popup = { s: msg || '金幣不足', t: 2.5 };
 }
 function onGo(from, m) {
-  const R = cleanRoster(m.seats); if (!R || typeof m.mid !== 'string' || m.mid.length > 60) return;
+  const R = cleanRoster(m.seats); if (!R || typeof m.mid !== 'string' || m.mid.length > 60 || m.md !== MODE) return;   // 不同種場的對局不理
   if (mp && (mp.mid === m.mid || !mp.over)) return;
   if ((scene === 'count' || scene === 'waitgo') && myReady) goMatch(R, m.mid, from);
   else if (scene === 'lobby') spectate(R, m.mid, from, [], 0);
@@ -634,14 +635,14 @@ function onNet(from, m) {
   const k = m.k, t = nowMs();
   if (k === 'hb') {
     const isNew = !peers.has(from); if (isNew && peers.size >= 12) return;
-    peers.set(from, { name: cleanName(m.n), seat: cint(m.s, 0, 7, 0), st: ['idle', 'ready', 'play'].includes(m.st) ? m.st : 'idle', cl: cint(m.cl, 0, 9, 0), t });
+    peers.set(from, { md: m.md === 'paid' ? 'paid' : 'free', name: cleanName(m.n), seat: cint(m.s, 0, 7, 0), st: ['idle', 'ready', 'play'].includes(m.st) ? m.st : 'idle', cl: cint(m.cl, 0, 9, 0), t });
     if (isNew) sendHb();
     return;
   }
   if (k === 'go') { onGo(from, m); return; }
-  if (k === 'who') { if (mp && mp.host && !mp.over && match && typeof from === 'string') netSend({ k: 'ro', to: from, mid: mp.mid, seats: mp.roster, dead: match.P.filter(p => !p.alive).map(p => ({ s: p.seat, r: p.rank })), t: match.t }); return; }
+  if (k === 'who') { if (mp && mp.host && !mp.over && match && m.md === mp.md && typeof from === 'string') netSend({ k: 'ro', md: mp.md, to: from, mid: mp.mid, seats: mp.roster, dead: match.P.filter(p => !p.alive).map(p => ({ s: p.seat, r: p.rank })), t: match.t }); return; }
   if (k === 'ro') {
-    if (m.to !== NET.uid || scene !== 'lobby' || (mp && !mp.over)) return;
+    if (m.to !== NET.uid || scene !== 'lobby' || (mp && !mp.over) || m.md !== MODE) return;
     const R = cleanRoster(m.seats); if (!R || typeof m.mid !== 'string') return;
     const dead = (Array.isArray(m.dead) ? m.dead : []).slice(0, 8).map(d => ({ s: cint(d && d.s, 0, 7, 0), r: cint(d && d.r, 1, 8, 8) }));
     spectate(R, m.mid, from, dead, typeof m.t === 'number' ? Math.min(900, Math.max(0, m.t)) : 0); return;
@@ -675,7 +676,7 @@ function onNet(from, m) {
 function netTick(dt) {
   hbAcc += dt; if (hbAcc >= 1200) { hbAcc = 0; sendHb(); }
   if (!netOn()) return;
-  if (!mp && scene === 'lobby' && peersPlaying() && nowMs() - whoAt > 1500) { whoAt = nowMs(); netSend({ k: 'who' }); }
+  if (!mp && scene === 'lobby' && peersPlaying() && nowMs() - whoAt > 1500) { whoAt = nowMs(); netSend({ k: 'who', md: MODE }); }
   if (!mp || !match) return;
   if (match.over) { mp.over = true; return; }
   if (scene === 'paying') return;
@@ -694,7 +695,7 @@ function netTick(dt) {
   }
 }
 function lowestReady() { const c = [myId()]; freshPeers().forEach(([u, p]) => { if (p.st === 'ready') c.push(u); }); c.sort(); return c[0]; }
-function hostGo() { const R = makeRoster(), id = myId().slice(0, 8) + Date.now().toString(36); netSend({ k: 'go', mid: id, seats: R }); goMatch(R, id, myId()); }
+function hostGo() { const R = makeRoster(), id = myId().slice(0, 8) + Date.now().toString(36); netSend({ k: 'go', md: MODE, mid: id, seats: R }); goMatch(R, id, myId()); }
 function endCount() {
   fakes.fill(null);
   if (lowestReady() === myId()) hostGo(); else { scene = 'waitgo'; waitT = 4; }
@@ -702,7 +703,7 @@ function endCount() {
 
 function setMode(m) {
   if (MODE === m || scene !== 'lobby' || myReady) return;
-  MODE = m; peers.clear(); fakes.fill(null); sendHb();
+  MODE = m; fakes.fill(null); sendHb();
 }
 function startReady() {
   if (netBusy()) { popup = { s: '本場進行中，結束後就能加入', t: 2 }; return; }
@@ -949,15 +950,16 @@ function drawLobby() {
     T(label, x + bwid / 2, by + 14.5, 8, on ? '#12182c' : '#9fb0d0');
     if (!locked) hits.push({ x, y: by + 4, w: bwid, h: 20, fn: () => setMode(m) });
   };
-  modeBtn('free', '免費', ix + 6); modeBtn('paid', '付費 ' + FEE + 'G', ix + 12 + bwid);
+  const cntOf = md => freshAll().filter(([u, p]) => p.md === md).length;   // 該種場裡其他真人的人數
+  modeBtn('free', '免費' + (cntOf('free') ? '・' + cntOf('free') + '人' : ''), ix + 6); modeBtn('paid', '付費 ' + FEE + 'G' + (cntOf('paid') ? '・' + cntOf('paid') + '人' : ''), ix + 12 + bwid);
   if (MODE === 'paid' && tokInfo) {
     const full = tokInfo.tokens >= 10;
     if (tokInfo.claimed) T('今天已經拿過 token 了（明天再來）', cx, by + 34, land ? 8.5 : 7.5, '#ff9bb3');
     else if (full) T('token 已滿 10 個，這場拿不到', cx, by + 34, land ? 8.5 : 7.5, '#ff9bb3');
     else T('今天還能拿 1 個 token！第一名就得', cx, by + 34, land ? 8.5 : 7.5, '#8fe09a');
-  } else T(MODE === 'paid' ? '可連線真人・第一名得 1 token' : '只跟 Bot 玩・沒有 token', cx, by + 34, land ? 8.5 : 7.5, '#bff3ff');
+  } else T(MODE === 'paid' ? '可連線真人・第一名得 1 token' : '免費場：真人＋Bot 對戰・沒有 token', cx, by + 34, land ? 8.5 : 7.5, '#bff3ff');
   T(MODE === 'paid' ? (tokInfo ? '可連線真人・開局後不退費' : '開局後不退費・每天最多 1 token') : '純粹玩爽，不扣金幣', cx, by + 45, land ? 8 : 7, '#9fb0d0');
-  T(busy ? '有人正在對戰，等這場結束' : (MODE === 'paid' ? (trial ? '試營運：免費入場' : '你的金幣 ' + balance + 'G') : '空位由 Bot 補滿'), cx, by + 56, 7.5, '#ffd34d');
+  T(busy ? '有人正在對戰，等這場結束' : (MODE === 'paid' ? (trial ? '試營運：免費入場' : '你的金幣 ' + balance + 'G') : '空位由 Bot 補滿（免費、付費場各自分開）'), cx, by + 56, 7.5, '#ffd34d');
   if (popup && popup.s) T(popup.s, LW / 2, LH - 10, 9, '#ff9bb3');
 }
 function drawResult() {
