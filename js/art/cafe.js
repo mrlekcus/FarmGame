@@ -77,6 +77,20 @@ function cfStool(x, y, th) { ob(th.stool, shade(th.stool, .6), x + 3, y + 5, 10,
 function cfSofaBack(x, y, c) { ob(c[0], c[1], x + 2, y + 2, 44, 12); r(c[2], x + 4, y + 4, 40, 2); r(c[1], x + 17, y + 3, 1, 10); r(c[1], x + 31, y + 3, 1, 10); ob(c[0], c[1], x, y + 4, 7, 22); ob(c[0], c[1], x + 41, y + 4, 7, 22); r(c[2], x + 2, y + 6, 3, 2); r(c[2], x + 43, y + 6, 3, 2); }
 function cfSofaFront(x, y, c) { ob(c[2], c[1], x + 6, y + 14, 36, 11); r(c[0], x + 8, y + 16, 32, 1); r(c[1], x + 23, y + 15, 1, 9); r('rgba(90,60,40,.2)', x + 2, y + 26, 44, 1); }
 function cfTable(x, y, th, dish) { ob(th.tbl, '#8a6a3a', x + 1, y + 4, 14, 10); r(shade(th.tbl, 1.12), x + 3, y + 5, 10, 1); r('#8a6a3a', x + 7, y + 13, 2, 3); if (dish) CFI.dish(x, y - 6, dish); }
+function cfEll(cx, cy, rx, ry, c) { for (let dy = -ry; dy < ry; dy++) { const w = Math.round(rx * Math.sqrt(1 - ((dy + .5) / ry) * ((dy + .5) / ry))); r(c, cx - w, cy + dy, w * 2, 1); } }
+function cfCardTable(x, y, th) {   // 牌桌：圓形綠絨桌（木框＋桌布＋散著幾張牌）
+  const cx = x + 8, cy = y + 7;
+  cfEll(cx, cy, 13, 10, '#3a2214'); cfEll(cx, cy, 12, 9, '#7a4a2a'); cfEll(cx, cy, 10, 7, '#2f7a4a'); r('#4aa86a', cx - 6, cy - 6, 12, 1);
+  r('#fffaf0', cx - 6, cy - 3, 4, 5); r('#e8453c', cx - 5, cy - 2, 2, 3); r('#2a2a38', cx - 1, cy - 4, 4, 5); r('#f2c230', cx, cy - 3, 2, 3); r('#3b7be0', cx + 3, cy - 1, 4, 5);
+  r('#ffffff', cx + 4, cy + 3, 2, 2); r('#e8453c', cx + 7, cy + 3, 2, 2); r('#3a2214', cx - 1, cy + 9, 2, 4);
+}
+function cfCardChair(x, y, side) {   // 牌桌的木椅：椅背在遠離桌子的那一邊
+  const o = '#3a2214', f = '#c99a5e', h = '#e0b878', ob2 = (a, b, w, hh) => { r(o, x + a, y + b, w, hh); r(f, x + a + 1, y + b + 1, w - 2, hh - 2); };
+  if (side === 'N') { ob2(2, 0, 12, 4); ob2(3, 4, 10, 9); r(h, x + 4, y + 5, 8, 1); }
+  else if (side === 'S') { ob2(3, 2, 10, 9); ob2(2, 11, 12, 4); r(h, x + 4, y + 3, 8, 1); }
+  else if (side === 'W') { ob2(0, 2, 4, 12); ob2(4, 3, 9, 10); r(h, x + 5, y + 4, 1, 8); }
+  else { ob2(12, 2, 4, 12); ob2(3, 3, 9, 10); r(h, x + 10, y + 4, 1, 8); }
+}
 function cfChair(x, y, th, back, flip) { ob(th.chair, '#7a5230', x + 3, y + 9, 10, 6); if (back) { ob(th.chair, '#7a5230', flip ? x + 11 : x + 2, y + 2, 3, 9); } }
 function cfCoffeeTable(x, y, th) { ob(th.tbl, '#8a6a3a', x + 1, y + 4, 30, 9); r(shade(th.tbl, 1.12), x + 3, y + 5, 26, 1); r('#8a6a3a', x + 3, y + 12, 2, 3); r('#8a6a3a', x + 27, y + 12, 2, 3); CFI.plate(x + 1, y - 4); CFI.plate(x + 15, y - 4); ob('#fffaf0', '#c9b79a', x + 8, y + 1, 5, 4); r('#d9a56a', x + 9, y + 2, 3, 1); }
 function cfJuke(x, y, on, now) {
@@ -153,7 +167,7 @@ const CF_C = { W: 16, H: 16, stools: [2, 4, 6, 8],
     items: [
       { t: 'rug', x: 5, y: 9, w: 6, h: 5 },
       { t: 'sofa', x: 11, y: 2 }, { t: 'coffee', x: 12, y: 4 }, { t: 'juke', x: 14, y: 6 },
-      { t: 'tbl', x: 3, y: 10, dish: 'latte' }, { t: 'tbl', x: 3, y: 13, dish: 'pancake' }, { t: 'tbl', x: 12, y: 10, dish: 'americano' }, { t: 'tbl', x: 12, y: 13, dish: 'latte' },
+      { t: 'cardtbl', x: 3, y: 12 }, { t: 'tbl', x: 12, y: 10, dish: 'americano' }, { t: 'tbl', x: 12, y: 13, dish: 'latte' },
       { t: 'plant', x: 1, y: 8 }, { t: 'cat', x: 14, y: 8 }, { t: 'corner', x: 14, y: 14 }, { t: 'plant', x: 5, y: 14 }
     ] };
 function cafeRoom(thKey, now, cast, lit) {
@@ -207,6 +221,7 @@ function cafeRoom(thKey, now, cast, lit) {
     if (i.t === 'sofa') { add(py + 10, () => cfSofaBack(px, py, th.sofa)); add(py + 2 * T_ + 8, () => cfSofaFront(px, py + 0, th.sofa)); }
     else if (i.t === 'coffee') add(py + T_ + 4, () => cfCoffeeTable(px, py + 4, th));
     else if (i.t === 'tbl') add(py + 12, () => { cfChair(px - T_, py, th, true, false); cfChair(px + T_, py, th, true, true); cfTable(px, py, th, i.dish); });
+    else if (i.t === 'cardtbl') { [[0, -1, 'N'], [1, 0, 'E'], [0, 1, 'S'], [-1, 0, 'W']].forEach(([dx, dy, sd]) => add(py + dy * T_ + 12, () => cfCardChair(px + dx * T_, py + dy * T_, sd))); add(py + 12, () => cfCardTable(px, py, th)); }
     else if (i.t === 'juke') add(py + 2 * T_, () => cfJuke(px, py, cast.some(c => c.juke), now));
     else if (i.t === 'plant') add(py + T_, () => cfPlant(px, py, true));
     else if (i.t === 'cat') add(py + T_, () => cfCat(px + 8, py, now));

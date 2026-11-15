@@ -280,6 +280,7 @@ function startNet(rm, priv, tries) {
       .on('broadcast', { event: 'emo' }, m => onEmo(m && m.payload))
       .on('broadcast', { event: 'cf' }, m => { try { onCafeMsg(m && m.payload); } catch (e) { /* 咖啡廳同步出錯不要影響其他功能 */ } })
       .on('broadcast', { event: 'gs' }, m => { try { onGsMsg(m && m.payload); } catch (e) { /* 街機同步出錯不要影響其他功能 */ } })
+      .on('broadcast', { event: 'cg' }, m => { try { onCgMsg(m && m.payload); } catch (e) { /* 牌局同步出錯不要影響其他功能 */ } })
       .on('broadcast', { event: 'st5' }, m => onStar5(m && m.payload))
     .on('broadcast', { event: 'cook' }, m => onCook(m && m.payload))
       .on('broadcast', { event: 'pact' }, m => onPact(m && m.payload))

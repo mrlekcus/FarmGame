@@ -66,9 +66,30 @@ function renderMakerPanel() {
   });
   m.querySelectorAll('canvas[data-k]').forEach(cv => {
     const c2 = cv.getContext('2d'); c2.clearRect(0, 0, 16, 22); g = c2;
-    try { drawPlayer(0, 6, 'down', false, 0, { ...draft, [cv.dataset.k]: +cv.dataset.i }); } catch (e) { /* 略過 */ }
+    try { drawPlayer(0, 6, 'down', false, 0, { ...draft, [cv.dataset.k]: +cv.dataset.i, ...mkItemCol(cv.dataset.k, +cv.dataset.i) }); } catch (e) { /* 略過 */ }
     g = ctx;
   });
+}
+/* 每個款式各自記住自己的顏色：A 衣服選了青色，換去 B 衣服再換回來，A 還是青色；B 的顏色不會影響別的款式 */
+const MK_COLKEYS = ['hair', 'hatc', 'glassc', 'outfit'];
+const mkColKey = k => k === 'fits' ? 'outfit' : LOOK_COLKEY[k];
+let mkIC = {};   // mkIC[分類][款式編號] = 該款式上次用的顏色
+function mkItemCols(k, i) {
+  let cols = k === 'fits' ? ownedCols(i) : lookCols(k, i);
+  if (k === 'glass') cols = cols.filter(c => c > 0);
+  return cols;
+}
+function mkItemCol(k, i) {   // 這個款式該用什麼顏色：自己記住的 → 沒記過就用它第一個有的顏色
+  const ck = mkColKey(k);
+  if (!ck) return {};
+  if (draft && draft[k] === i) return {};
+  const cols = mkItemCols(k, i);
+  if (!cols.length) return {};
+  const m = mkIC[k] && mkIC[k][i];
+  return { [ck]: m != null && cols.includes(m) ? m : cols[0] };
+}
+function mkRemember() {   // 離開目前款式前，記住它現在的顏色
+  ['style', 'hat', 'glass', 'fits'].forEach(k => { const ck = mkColKey(k); (mkIC[k] = mkIC[k] || {})[draft[k] | 0] = draft[ck] | 0; });
 }
 /* 穿搭存檔：衣櫥裡存 3 套造型（髮型、髮色、帽子、眼鏡、衣服、衣服顏色；不含性別和膚色），存在伺服器 look_presets。
    「穿上」只是套到目前的預覽，按「完成」才真的換裝；沒買到的款式伺服器不會讓你存成目前造型（_look_guard 照常檢查）。 */
@@ -124,7 +145,14 @@ mkSplit.addEventListener('click', e => {
   if (sa_) { setsAct(sa_.dataset.sa, +sa_.dataset.n); return; }
   const b = e.target.closest('button[data-k]');
   if (!b) return;
-  draft[b.dataset.k] = +b.dataset.i; syncMaker();
+  const bk = b.dataset.k, bi = +b.dataset.i;
+  if (mkColKey(bk) && !MK_COLKEYS.includes(bk)) {   // 換款式：先記住舊款的顏色，再套上新款自己的顏色
+    mkRemember();
+    const nc = mkItemCol(bk, bi), ck = mkColKey(bk);
+    draft[bk] = bi;
+    if (ck in nc) draft[ck] = nc[ck];
+  } else draft[bk] = bi;
+  syncMaker();
 });
 function drawPreview() {
   g = pctx;
@@ -156,7 +184,7 @@ function syncMaker() {
 function openMaker(first) {
   if (shopOpen || makerOpen) return;
   makerOpen = true; firstTime = first; pressed.length = 0; lookSets = null;
-  draft = first ? { ...DEF_CHAR, name: '' } : myChar();
+  mkIC = {}; draft = first ? { ...DEF_CHAR, name: '' } : myChar();
   $('mk-name').value = draft.name === DEF_CHAR.name && first ? '' : draft.name;
   $('mk-cancel').hidden = first;
   $('mk-ok').textContent = first ? '開始農場生活' : '完成';

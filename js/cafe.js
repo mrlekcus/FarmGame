@@ -25,10 +25,10 @@ const CF_SPOTS = [   // 休閒區可以坐／站的位置（中心點，格子�
   { k: 'sofa', x: 11.5, y: 2.5, dy: -1, sy: 2, stand: [14, 3], dir: 'down' },
   { k: 'sofa', x: 12.5, y: 2.5, dy: -1, sy: 2, stand: [14, 3], dir: 'down' },
   { k: 'sofa', x: 13.5, y: 2.5, dy: -1, sy: 2, stand: [14, 3], dir: 'down' },
-  { k: 'tbl', x: 2.5, y: 10.5, dy: -3, rim: 1, stand: [2, 9], dir: 'right' },
-  { k: 'tbl', x: 4.5, y: 10.5, dy: -3, rim: 1, stand: [4, 9], dir: 'left' },
-  { k: 'tbl', x: 2.5, y: 13.5, dy: -3, rim: 1, stand: [2, 12], dir: 'right' },
-  { k: 'tbl', x: 4.5, y: 13.5, dy: -3, rim: 1, stand: [4, 12], dir: 'left' },
+  { k: 'card', x: 3.5, y: 11.5, dy: -3, rim: 1, stand: [3, 10], dir: 'down' },   // 牌桌四個座位（順時針：上、右、下、左），牌局座位順序＝這四個
+  { k: 'card', x: 4.5, y: 12.5, dy: -3, rim: 1, stand: [5, 12], dir: 'left' },
+  { k: 'card', x: 3.5, y: 13.5, dy: -3, rim: 1, stand: [3, 14], dir: 'up' },
+  { k: 'card', x: 2.5, y: 12.5, dy: -3, rim: 1, stand: [1, 12], dir: 'right' },
   { k: 'tbl', x: 11.5, y: 10.5, dy: -3, rim: 1, stand: [11, 9], dir: 'right' },
   { k: 'tbl', x: 13.5, y: 10.5, dy: -3, rim: 1, stand: [13, 9], dir: 'left' },
   { k: 'tbl', x: 11.5, y: 13.5, dy: -3, rim: 1, stand: [11, 12], dir: 'right' },
@@ -37,7 +37,7 @@ const CF_SPOTS = [   // 休閒區可以坐／站的位置（中心點，格子�
   { k: 'plant', x: 1.5, y: 9.5, stand: [1, 9], dir: 'up' }
 ];
 const CF_JUKE = CF_SPOTS.findIndex(q => q.k === 'juke');
-const CF_SEAT_TILE = { '11,2': 0, '12,2': 1, '13,2': 2, '11,3': 0, '12,3': 1, '13,3': 2, '2,10': 3, '4,10': 4, '2,13': 5, '4,13': 6, '11,10': 7, '13,10': 8, '11,13': 9, '13,13': 10 };   // 面向這些格子按動作鍵＝坐下
+const CF_SEAT_TILE = { '11,2': 0, '12,2': 1, '13,2': 2, '11,3': 0, '12,3': 1, '13,3': 2, '3,11': 3, '4,12': 4, '3,13': 5, '2,12': 6, '11,10': 7, '13,10': 8, '11,13': 9, '13,13': 10 };   // 面向這些格子按動作鍵＝坐下
 const CF_DEF = [   // 操作間的檯子（縮在左上角：x1~9、第 2~5 排；吧台在第 6 排）
   { k: 'crate', type: 'bean', c: 'b', x: 1, y: 2 }, { k: 'crate', type: 'milk', c: 'm', x: 2, y: 2 }, { k: 'crate', type: 'dough', c: 'd', x: 3, y: 2 },
   { k: 'grind', x: 4, y: 2 }, { k: 'grind', x: 5, y: 2 },
@@ -60,8 +60,8 @@ cfkind[CFH - 1][7] = BX; cfkind[CFH - 1][8] = BX;
   put(11, 2, 3, 2, CFSEAT);                 // 沙發
   put(12, 4, 2, 1, CFX);                    // 茶几
   put(14, 6, 1, 2, CFJ);                    // 音樂機
-  [[2, 10], [4, 10], [2, 13], [4, 13], [11, 10], [13, 10], [11, 13], [13, 13]].forEach(([x, y]) => put(x, y, 1, 1, CFSEAT));   // 四張圓桌的椅子
-  [[3, 10], [3, 13], [12, 10], [12, 13]].forEach(([x, y]) => put(x, y, 1, 1, CFX));   // 圓桌
+  [[3, 11], [4, 12], [3, 13], [2, 12], [11, 10], [13, 10], [11, 13], [13, 13]].forEach(([x, y]) => put(x, y, 1, 1, CFSEAT));   // 四張圓桌的椅子
+  [[3, 12], [12, 10], [12, 13]].forEach(([x, y]) => put(x, y, 1, 1, CFX));   // 牌桌（左）與兩張圓桌
   put(14, 8, 1, 1, CFX); put(14, 14, 1, 1, CFX); put(5, 14, 1, 1, CFX);   // 貓窩、暖爐、盆栽
 }
 CFI.burnt = (x, y) => { CFI.plate(x, y); ob('#3a3030', '#1a1010', x + 3, y + 4, 10, 6); };
@@ -124,7 +124,7 @@ function cfFreeSpot(c) { if (c.spot) { c.spot.o = 0; c.spot = null; } }
 function cfLeave(c) { cfFreeSpot(c); c.seat = -1; c.state = 'out'; cfGo(c, [7, 14], [7.5, 15.5]); }
 function cfStartRoam(c) {
   c.seat = -1; cfFreeSpot(c);
-  const f = CF_SPOTS.filter((s, i) => !s.o && !cfRemoteSeat(20 + i));
+  const f = CF_SPOTS.filter((s, i) => !s.o && s.k !== 'card' && !cfRemoteSeat(20 + i));
   if (!f.length) { cfLeave(c); return; }
   const s = f[Math.floor(Math.random() * f.length)]; s.o = 1; c.spot = s; c.state = 'roam'; c.rounds++;
   cfGo(c, s.stand, [s.x, s.y]);
@@ -397,8 +397,11 @@ function cafeAct(x, y) {
     if (i == null) return;
     const sp = CF_SPOTS[i];
     if (sp.o || cfRemoteSeat(20 + i)) { pop(x, y, '有人坐了', '#fff3b0'); return; }
-    sp.o = 1; cafeSit({ kind: 'spot', spot: sp, stand: sp.stand }); toast('坐下休息中（按方向鍵起身）', 1800); return;
+    sp.o = 1; cafeSit({ kind: 'spot', spot: sp, stand: sp.stand });
+    if (sp.k === 'card' && typeof openCards === 'function') { openCards(); return; }
+    toast('坐下休息中（按方向鍵起身）', 1800); return;
   }
+  if (k === CFX && x === 3 && y === 12 && typeof openCardsWatch === 'function') { openCardsWatch(); return; }   // 站著點牌桌＝看牌（觀戰）
   if (k === CFJ) { cfJukeMenu(); return; }
   if (k === CFV) { pop(x, y, '出餐口：店員把餐點放這裡', '#fff3b0'); return; }
   if (k === CFX) pop(x, y, y === 6 && x <= 9 ? '吧台：想打工就走到右邊的小門穿圍裙' : '', '#fff3b0');
@@ -407,6 +410,7 @@ const cfSitCode = () => scene === 'cafe' && cf && cf.sit ? (cf.sit.kind === 'sto
 function cafeSit(s) { cf.sit = s; if (s.kind === 'stool') { pl.x = pl.sx = s.x; pl.y = pl.sy = s.y; } else { pl.x = pl.sx = Math.floor(s.spot.x); pl.y = pl.sy = Math.floor(s.spot.y); } pl.prog = 1; pl.face = 'up'; pressed.length = 0; cf.ordered = false; lastPosKey = ''; posAcc = 999; }
 function cafeStand() {
   const s = cf.sit; if (!s) return;
+  if (cgOpen) closeCards();
   if (s.kind === 'spot') s.spot.o = 0;
   cfPayEnd(false);
   if (cf.role === 'host') cf.custs = cf.custs.filter(c => !(c.isPlayer && c.own === myUid));
