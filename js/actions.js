@@ -87,6 +87,7 @@ function harvestOne(x, y, p, bt) {
 function act() {
   if (vfOn) { vfPress(); return; }                 // 出海團拉扯小遊戲：動作鍵＝切換收線
   if (fpOpen()) { closeFriendPop(); return; }   // 互動浮窗開著時再按動作鍵＝收起來
+  if (pose && pose.kneel && typeof tcKneelAct === 'function' && tcKneelAct()) return;   // 神廟跪拜：動作鍵＝換成／敲木魚，方向鍵起身
   if (pose) { standUp(); return; }
   if (cooking) { cookAct(); return; }
   const [x, y] = facing();

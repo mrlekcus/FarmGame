@@ -185,7 +185,7 @@ function updateTip() {
       if (k === BX) s = '門口：按動作鍵回廣場。';
       else if (o === 'tube') s = '籤筒：按動作鍵求籤，每天免費一次。';
       else if (o === 'censer') s = '香爐：按動作鍵上香（10 G），選一個表情 buff，持續 30 分鐘。';
-      else if (o === 'curse') s = '打小人：按動作鍵，寫下想像中的小人拍它出氣（100 G）。';
+      else if (o === 'curse') s = '打小人：按動作鍵，寫下想像中的小人，親手拿拖鞋打它（一次 10 G、不限次數，打完可領 30 分鐘表情）；跪拜時再按動作鍵可敲木魚。';
       else if (o === 'monk') s = '廟祝：按動作鍵聊天。';
     }
   } else if (scene === 'church') {

@@ -267,7 +267,7 @@ function draw(now) {
       ents.push({ y: ry, draw: () => arcadeDrawSeated(ch, now) });
     } else if (pose && ((pose.bench && (scene === 'plaza' || (pose.yard && scene === 'farm'))) || (pose.ground && syncScene()))) {
       ents.push({ y: ry, draw: () => {
-        if (pose.pew) tcPewDraw(Math.round(pl.x * T), Math.round(pl.y * T), ch, pose.em | 0, now); else if (pose.kneel) tcKneelDraw(Math.round(pl.x * T), Math.round(pl.y * T), ch, pose.em | 0, now); else (pose.ground ? drawGroundSeated : drawBenchSeated)(Math.round(pl.x * T), Math.round(pl.y * T), ch);
+        if (pose.pew) tcPewDraw(Math.round(pl.x * T), Math.round(pl.y * T), ch, pose.em | 0, now); else if (pose.kneel) tcKneelDraw(Math.round(pl.x * T), Math.round(pl.y * T), ch, pose.em | 0, now, { mt: tcMeritShown(), hit: tcKnockAt }); else (pose.ground ? drawGroundSeated : drawBenchSeated)(Math.round(pl.x * T), Math.round(pl.y * T), ch);
         nameTag(ch.name, Math.round(pl.x * T) + 8, Math.round(pl.y * T) + (pose.kneel ? 24 : pose.pew ? 24 : -7), '#ffffff');
       } });
     } else ents.push({ y: ry, draw: () => {
@@ -310,7 +310,7 @@ function draw(now) {
       return;
     }
     if (rp.ps && !mv && rp.w === 'k') tcPewDraw(px, py, rp.char, rp.ps - 1, now);
-    else if (rp.kn && !mv && rp.w === 'm') tcKneelDraw(px, py, rp.char, rp.kn - 1, now);
+    else if (rp.kn && !mv && rp.w === 'm') tcKneelDraw(px, py, rp.char, rp.kn - 1, now, { mt: rp.mt | 0, hit: rp.knockAt || 0 });
     else if (seated) drawBenchSeated(px, py, rp.char);
     else if (gs) drawGroundSeated(px, py, rp.char);
     else {

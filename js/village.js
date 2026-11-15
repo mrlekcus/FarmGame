@@ -120,7 +120,12 @@ function renderVillage() {
   remotes.forEach(rp => names.push(esc(rp.name)));
   vList.innerHTML = names.map(x => '<span class="pchip">' + x + '</span>').join('');
 }
-const sitCode = () => pose ? (pose.kneel ? 5 + (pose.em | 0) : pose.pew ? 8 + (pose.em | 0) : pose.ground ? 2 : pose.bench ? 1 : pose.id != null ? (pose.type === 'lie' ? 4 : 3) : 0) : 0;   // 0 站著、1 坐長椅、2 坐在地上、3 坐家具（椅子／沙發）、4 躺床
+/* 別人敲木魚：功德數變多就記下敲的時間（畫面冒音波圈），附近的人聽得到小聲的木魚聲 */
+function rpMerit(rp, v) {
+  const n = intIn(v, 0, 1000, 0); if (rp.kn === 4 && rp.mt != null && n > rp.mt) { rp.knockAt = performance.now(); try { if (Math.abs(rp.x - pl.x) + Math.abs(rp.y - pl.y) < 8) tcKnockSnd(0.06); } catch (e) { /* 略過 */ } }
+  rp.mt = n;
+}
+const sitCode = () => (typeof cuPlaying !== 'undefined' && cuPlaying) ? 11 : pose ? (pose.kneel ? (pose.em === 3 ? 12 : 5 + (pose.em | 0)) : pose.pew ? 8 + (pose.em | 0) : pose.ground ? 2 : pose.bench ? 1 : pose.id != null ? (pose.type === 'lie' ? 4 : 3) : 0) : 0;   // 0 站著、1 坐長椅、2 坐在地上、3 坐家具（椅子／沙發）、4 躺床
 /* Supabase Realtime 限制：每個用戶端 30 秒內最多 5 次 presence 呼叫（track／untrack），超過整條頻道會被伺服器關掉
    （就是「連線中斷，重新連線中…」）。不確定這個額度是每條頻道還是整條連線共用，所以廣場和好友在線兩條頻道的 track
    一律經過這裡，全部合起來兩次之間至少隔 7.5 秒（30 秒內最多 4 次）；太密的呼叫合併成一次稍後補送，
@@ -138,7 +143,7 @@ function trackSelf() {
   if (!net || !net.ok) return;
   trackLimited('self', () => {
     if (!net || !net.ok) return;
-    try { net.ch.track({ n: me.name, c: me.look, w: worldKey(), x: pl.x, y: pl.y, f: FACEIDX[pl.face], s: sitCode(), v: myVisBuffs() }); } catch (e) { /* 略過 */ }
+    try { net.ch.track({ n: me.name, c: me.look, w: worldKey(), x: pl.x, y: pl.y, f: FACEIDX[pl.face], s: sitCode(), v: myVisBuffs(), mt: tcMeritKey() || 0 }); } catch (e) { /* 略過 */ }
   });
 }
 function onSync(ch) {
@@ -163,7 +168,7 @@ function onSync(ch) {
       if (performance.now() - (rp.posAt || 0) > 12000) {   // presence 現在更新較慢，位置可能是舊的：只要最近收過他的 pos 廣播就以廣播為準，12 秒都沒收到才改用 presence 的位置
 
         if (rp.w !== wk) { rp.w = wk; rp.x = x; rp.y = y; }       // 換了世界（進出塔羅屋）：直接放到新位置，不要從舊位置滑過去
-        rp.bv = parseVis(m.v); rp.tx = x; rp.ty = y; rp.f = f; rp.sit = wk === 'p' && m.s === 1 && pkind[y][x] === BN; rp.gsit = m.s === 2; rp.kn = m.s >= 5 && m.s <= 7 ? m.s - 4 : 0; rp.ps = m.s >= 8 && m.s <= 10 ? m.s - 7 : 0; rp.fs = wk === 'h' && (m.s === 3 || m.s === 4) ? m.s : 0;
+        rp.bv = parseVis(m.v); rp.tx = x; rp.ty = y; rp.f = f; rp.sit = wk === 'p' && m.s === 1 && pkind[y][x] === BN; rp.gsit = m.s === 2; rp.kn = m.s >= 5 && m.s <= 7 ? m.s - 4 : m.s === 12 ? 4 : 0; rp.cu = m.s === 11; rpMerit(rp, m.mt); rp.ps = m.s >= 8 && m.s <= 10 ? m.s - 7 : 0; rp.fs = wk === 'h' && (m.s === 3 || m.s === 4) ? m.s : 0;
       }   // 剛收到更新的走動訊息就不要被舊位置蓋回去
     }
   });
@@ -193,7 +198,7 @@ function onPos(p) {
   if (nx !== rp.tx || ny !== rp.ty) rp.fish = null;
   if (rp.w !== wk) { rp.w = wk; rp.x = nx; rp.y = ny; rp.fish = null; rp.bubble = null; rp.typing = 0; }   // 換了世界：直接放到新位置
   rp.tx = nx; rp.ty = ny; rp.f = intIn(p.f, 0, 3, rp.f); rp.posAt = performance.now();
-  rp.cs = wk === 'c' ? intIn(p.cs, 0, 40, 0) : 0; rp.sit = wk === 'p' && p.s === 1 && pkind[ny][nx] === BN; rp.gsit = p.s === 2; rp.kn = p.s >= 5 && p.s <= 7 ? p.s - 4 : 0; rp.ps = p.s >= 8 && p.s <= 10 ? p.s - 7 : 0; rp.fs = wk === 'h' && (p.s === 3 || p.s === 4) ? p.s : 0;                  // 只有真的在長椅那一格才當作坐著
+  rp.cs = wk === 'c' ? intIn(p.cs, 0, 40, 0) : 0; rp.sit = wk === 'p' && p.s === 1 && pkind[ny][nx] === BN; rp.gsit = p.s === 2; rp.kn = p.s >= 5 && p.s <= 7 ? p.s - 4 : p.s === 12 ? 4 : 0; rp.cu = p.s === 11; rpMerit(rp, p.mt); rp.ps = p.s >= 8 && p.s <= 10 ? p.s - 7 : 0; rp.fs = wk === 'h' && (p.s === 3 || p.s === 4) ? p.s : 0;                  // 只有真的在長椅那一格才當作坐著
 }
 function onBye(p) { if (p && typeof p.i === 'string') dropRemote(p.i); }
 /* 清道夫：很久沒收到位置廣播、presence 也沒有他的人才移除 */
@@ -352,7 +357,7 @@ function sendPos(dt) {
   posAcc += dt;
   const now = performance.now();
   const cs = typeof cfSitCode === 'function' ? cfSitCode() : 0;   // 咖啡廳裡坐在哪（沒坐 0）
-  const key = worldKey() + ',' + pl.x + ',' + pl.y + ',' + pl.face + ',' + (sitCode()) + ',' + cs;
+  const key = worldKey() + ',' + pl.x + ',' + pl.y + ',' + pl.face + ',' + (sitCode()) + ',' + cs + ',' + (typeof tcMeritKey === 'function' ? tcMeritKey() : '');
   /* 節流（為了不超過 Supabase 免費版 Realtime 每秒 100 則的上限）：
      有別人在房間：走動最多每 200ms 一則（最後停下的那格一定會補送）、心跳維持每 3 秒（對方 8 秒沒聽到才會移除，要留掉一則包的餘裕）；
      房間裡只有自己：沒人在聽，走動不廣播、心跳拉長到 10 秒（新來的人會從 presence 拿到你的位置）。 */
@@ -362,7 +367,7 @@ function sendPos(dt) {
   if ((moved || beat) && net && net.ok) {
     posAcc = 0; lastPosKey = key; lastSendAt = now;
     if (moved) lastMoveAt = now;
-    try { net.ch.send({ type: 'broadcast', event: 'pos', payload: beat ? { i: myUid, w: worldKey(), x: pl.x, y: pl.y, f: FACEIDX[pl.face], s: sitCode(), cs, n: me.name, c: me.look, v: myVisBuffs() } : { i: myUid, w: worldKey(), x: pl.x, y: pl.y, f: FACEIDX[pl.face], s: sitCode(), cs, v: myVisBuffs() } }); } catch (e) { /* 略過 */ }
+    try { net.ch.send({ type: 'broadcast', event: 'pos', payload: beat ? { i: myUid, w: worldKey(), x: pl.x, y: pl.y, f: FACEIDX[pl.face], s: sitCode(), cs, n: me.name, c: me.look, v: myVisBuffs(), mt: tcMeritKey() || 0 } : { i: myUid, w: worldKey(), x: pl.x, y: pl.y, f: FACEIDX[pl.face], s: sitCode(), cs, v: myVisBuffs(), mt: tcMeritKey() || 0 } }); } catch (e) { /* 略過 */ }
     if (moved && now - lastTrackAt > 4000) { lastTrackAt = now; trackSelf(); }   // presence 只當備援，降低頻率以免超過 Realtime 的訊息上限
   }
   if (lastMoveAt && now - lastMoveAt > 500) { lastMoveAt = 0; trackSelf(); }

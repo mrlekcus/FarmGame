@@ -90,6 +90,7 @@ function tcApply(r) {
   if (typeof r.candle === 'number') tcS.candle = r.candle;
   if (typeof r.curse_n === 'number') tcS.curse_n = r.curse_n;
   if (typeof r.bless_left === 'number') tcS.bless_left = r.bless_left;
+  if (typeof r.merit === 'number') tcS.merit = r.merit;
   if ('buff' in r) { tcS.buff = typeof r.buff === 'string' && /^tp_[abcdfj]$/.test(r.buff) ? r.buff : null; tcS.until = tcS.buff ? +r.until || 0 : 0; tcKeep(); }
   if (typeof r.coins === 'number' && me) { me.coins = r.coins; try { refreshHud(); } catch (e) { /* 略過 */ } }
 }
@@ -123,6 +124,8 @@ function tcEnter(which) {
 function tcLeave(which, silent) {
   if (scene !== which) return;
   tcClose();
+  try { cuQuit(); } catch (e) { /* 略過 */ }
+  try { tcFlush(); } catch (e) { /* 略過 */ }
   const B = which === 'temple' ? TPB : CHB;
   scene = 'plaza'; K = pkind; W = PLW; H = PLH;
   pl.x = pl.sx = B.x + 2; pl.y = pl.sy = B.y + B.h; pl.prog = 1; pl.face = 'down'; pressed.length = 0;
@@ -184,10 +187,10 @@ function tcKneel(x, y) {
   if (remoteAt(x, y)) { toast('這個蒲團已經有人在拜了', 1400); return; }
   pose = { type: 'sit', ground: true, kneel: true, em: Math.floor(Math.random() * 3), ox: pl.x, oy: pl.y, face0: pl.face, tile: 0, t: 0 };
   pl.x = pl.sx = x; pl.y = pl.sy = y; pl.prog = 1; pl.face = 'up'; pressed.length = 0;
-  lastPosKey = ''; posAcc = 999; trackSelf(); toast('心裡默默許願…（再按動作鍵起身）', 1800);
+  lastPosKey = ''; posAcc = 999; trackSelf(); toast('心裡默默許願…（再按動作鍵會換成敲木魚，方向鍵起身）', 2400);
 }
 /* 畫跪拜的人：px,py = 蒲團那一格的左上角；em 0 默念… / 1 金光閃閃 / 2 香煙裊裊 */
-function tcKneelDraw(px, py, ch, em, now) {
+function tcKneelDraw(px, py, ch, em, now, ex) {
   const y = py - 4, t = now || 0, PANT = '#4a6fa5', SH = '#6b4a35';
   if (em === 1) { ctx.globalAlpha = 0.35; ctx.fillStyle = '#ffe9a8'; ctx.beginPath(); ctx.ellipse(px + 8, y + 4, 11, 13, 0, 0, 7); ctx.fill(); ctx.globalAlpha = 1; }
   ctx.save(); ctx.beginPath(); ctx.rect(px - 8, y - 20, 32, 31); ctx.clip(); drawPlayer(px, y + 3, 'up', false, 0, ch); ctx.restore();
@@ -199,11 +202,53 @@ function tcKneelDraw(px, py, ch, em, now) {
   } else if (em === 1) {
     const f = Math.floor(t / 300) % 2, st = (X, Y, c) => { r(c, X + 1, Y, 1, 3); r(c, X, Y + 1, 3, 1); };
     st(px - 2, ey - 14 + f, '#fff3b0'); st(px + 14, ey - 8 - f, '#ffe066'); st(px + 7, ey - 22, '#fff3b0'); r('#ffffff', px + 8, ey - 21 + f, 1, 1);
+  } else if (em === 3) {   // 敲木魚：身旁一個木魚＋木槌，頭上常駐「功德 N」牌（超過 999 顯示 999+），敲下去冒音波圈和 +1
+    tcMuyuDraw(px, py, ey, t, ex || {});
   } else {
     for (let i = 0; i < 3; i++) { const ph = ((t / 900) + i / 3) % 1; ctx.globalAlpha = 0.8 * (1 - ph); r('#ffffff', px + 7 + Math.round(Math.sin(ph * 7 + i * 2) * 3), ey - 9 - Math.round(ph * 18), 2, 2); }
     ctx.globalAlpha = 1; r('#c0392b', px + 7, ey - 14, 1, 5); r('#e8c98a', px + 7, ey - 9, 1, 2);
   }
 }
+/* ---------- 敲木魚（跪拜時按動作鍵）：功德 +1，累計記在後端 tc_state.merit（沒裝 SQL 就先記在自己的瀏覽器）---------- */
+let tcPend = 0, tcKnockAt = 0, tcFlushing = false;
+const tcLocalMerit = () => { try { const [d, n] = String(localStorage.getItem('dw_merit') || '').split(':'); return +d === sellDayNow() ? Math.max(0, +n | 0) : 0; } catch (e) { return 0; } };   // 沒裝 SQL 時記在自己的瀏覽器，也是每天歸零（dw_merit = 日:數）
+tcS.merit = 0;
+const tcMeritTotal = () => Math.max(0, (tcMissing ? tcLocalMerit() : (tcS.merit | 0)) + tcPend);
+const tcMeritShown = () => Math.min(1000, tcMeritTotal());   // 1000 代表「999+」，也是送給別人的值
+const tcMeritKey = () => (pose && pose.kneel && pose.em === 3) ? tcMeritShown() : '';
+function tcKnockSnd(vol) { tcBeep(640, 0.13, 'triangle', vol || 0.2); tcBeep(1500, 0.025, 'square', (vol || 0.2) * 0.25); }
+function tcMuyuDraw(px, py, ey, t, ex) {
+  const k = ex.hit ? t - ex.hit : 9999, hit = k >= 0 && k < 140;
+  const fx = px + 16, fy = py + 6;   // 木魚（身旁右側）
+  r('#5a2a14', fx + 2, fy + 2, 10, 9); r('#5a2a14', fx + 1, fy + 4, 12, 5); r('#c9682a', fx + 3, fy + 3, 8, 7); r('#c9682a', fx + 2, fy + 5, 10, 3); r('#e58a3a', fx + 4, fy + 4, 5, 2); r('#8a3a1a', fx + 3, fy + 9, 8, 1); r('#2a1408', fx + 3, fy + 6, 8, 1);
+  if (hit) { r('#8a6a4a', fx - 4, fy + 5, 6, 1); r('#c9a66a', fx + 1, fy + 4, 3, 3); } else { r('#8a6a4a', fx - 3, fy - 1, 1, 5); r('#8a6a4a', fx - 2, fy - 2, 1, 1); r('#c9a66a', fx - 1, fy - 3, 3, 3); }   // 木槌
+  if (hit) {
+    ctx.strokeStyle = 'rgba(255,233,168,' + (0.8 - k / 200).toFixed(2) + ')'; ctx.lineWidth = 1;
+    for (const rr of [4 + k / 25, 8 + k / 20]) { ctx.beginPath(); ctx.ellipse(fx + 7, fy + 6, rr, rr * 0.8, 0, 0, 7); ctx.stroke(); }
+    ctx.globalAlpha = Math.max(0, 1 - k / 140); ctx.fillStyle = '#fff3b0'; ctx.font = 'bold 8px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('+1', px + 8, ey - 30 - k / 14); ctx.globalAlpha = 1;
+  }
+  const n = ex.mt | 0, s = n > 999 ? '999+' : String(n), bx = px - 9, by = ey - 27;
+  r('#ffd34d', bx, by, 34, 11); r('#12182c', bx + 1, by + 1, 32, 9);
+  ctx.fillStyle = '#ffd34d'; ctx.font = 'bold 7px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic'; ctx.fillText('功德 ' + s, bx + 17, by + 8);
+}
+/* 跪著按動作鍵：不是木魚表情就先換成木魚；已經是木魚就敲一下。回傳 true＝這次按鍵被用掉（不起身，要起身按方向鍵） */
+function tcKneelAct() {
+  if (!pose || !pose.kneel) return false;
+  if (pose.em !== 3) { pose.em = 3; lastPosKey = ''; posAcc = 999; try { trackSelf(); } catch (e) { /* 略過 */ } toast('敲木魚（按動作鍵敲，方向鍵起身）', 1800); return true; }
+  const n = performance.now(); if (n - tcKnockAt < 220) return true;
+  tcKnockAt = n; tcPend++; tcKnockSnd(0.2);
+  return true;
+}
+async function tcFlush() {
+  if (tcFlushing || tcPend < 1) return;
+  const n = Math.min(30, tcPend); tcFlushing = true;
+  try {
+    if (tcMissing) { tcS.merit = tcLocalMerit() + n; tcPend -= n; try { localStorage.setItem('dw_merit', sellDayNow() + ':' + tcS.merit); } catch (e) { /* 略過 */ } }
+    else { const r = await enqueue(() => rpc('tc_knock', { p_n: n })); tcPend -= n; if (r && typeof r.merit === 'number') tcS.merit = r.merit; }
+  } catch (e) { if (tcMiss(e)) tcMissing = true; }   // 失敗就保留在 tcPend，下一輪再送（沒裝 SQL 就改記在自己的瀏覽器）
+  tcFlushing = false;
+}
+setInterval(() => { try { tcFlush(); } catch (e) { /* 略過 */ } }, 4000);
 const templeAct = tcAct, churchAct = tcAct;
 
 /* ---------- 面板 ---------- */
@@ -281,13 +326,13 @@ function tcRender() {
       '<div class="row"><button type="button" class="go" data-a="burn"' + (tcBusy || tcMissing || coins < 10 ? ' disabled' : '') + '>' + (tcBusy ? '上香中…' : coins < 10 ? 'G 不夠' : '上香 10 G') + '</button></div>' +
       miss + (tcNote ? '<p class="sub">' + esc(tcNote) + '</p>' : '') + close;
   } else if (tcView === 'curse') {
-    h = '<h3>打小人</h3><p>寫下一個<b>想像中</b>的小人（例如：拖延症、壞心情、加班），拿拖鞋拍它。<br>一次 <b>100 G</b>，只是出氣。</p>' +
+    h = '<h3>打小人</h3><p>寫下一個<b>想像中</b>的小人（例如：拖延症、壞心情、加班），親手拿拖鞋打它：先狂點連打，再蓄力三下，最後丟進火盆燒掉。<br>一次 <b>10 G</b>、不限次數，打完可以領 30 分鐘表情。玩的時候別人會看到你頭上冒出紙人泡泡。</p>' +
       '<input type="text" id="tccu" maxlength="8" placeholder="想打誰？（最多 8 字）" value="' + esc(tcCurseTxt) + '">' +
-      '<div class="chips">' + ['拖延症', '壞心情', '加班', '失眠', '賴床'].map(t => '<span data-a="chip" data-t="' + t + '">' + t + '</span>').join('') + '</div>' +
+      '<div class="chips">' + ['小人', '壞運', '爛桃花', '討厭鬼', '爛老闆', '拖延症', '壞心情'].map(t => '<span data-a="chip" data-t="' + t + '">' + t + '</span>').join('') + '</div>' +
       '<p class="sub">請不要寫真人的名字。文字只會出現在你的畫面，不會傳給任何人。</p>' +
       '<canvas id="tccv" width="128" height="80"></canvas>' +
-      '<div class="row"><button type="button" class="go" data-a="curse"' + (tcBusy || tcMissing || coins < 100 ? ' disabled' : '') + '>' + (tcBusy ? '啪啪啪…' : coins < 100 ? 'G 不夠' : '開打（100 G）') + '</button></div>' +
-      '<p class="sub">今天已經打了 ' + tcS.curse_n + ' 次</p>' + miss + (tcNote ? '<p class="sub">' + esc(tcNote) + '</p>' : '') + close;
+      '<div class="row"><button type="button" class="go" data-a="cstart"' + (tcBusy || tcMissing || coins < 10 ? ' disabled' : '') + '>' + (coins < 10 ? 'G 不夠' : '開打（10 G）') + '</button></div>' +
+      (typeof cuEmo !== 'undefined' && cuEmo && cuEmo.until > Date.now() ? '<p class="sub">目前的表情：' + esc(CU_EMO.find(e => e.k === cuEmo.k).n) + '，還剩 ' + Math.ceil((cuEmo.until - Date.now()) / 60000) + ' 分鐘</p>' : '') + close;
   } else if (tcView === 'word') {
     const d = sellDayNow(), hsh = String(myUid || '').split('').reduce((a, c) => (a * 31 + c.charCodeAt(0)) | 0, 7), line = TC_BLESS[Math.abs(d * 7 + hsh) % TC_BLESS.length];
     h = '<h3>神父</h3><p class="sub">' + esc(TC_PRIEST[tcLine++ % TC_PRIEST.length]) + '</p><div class="word">' + esc(line) + '</div><p class="sub">今天的祝福語（每天換一句）</p>' + close;
@@ -348,6 +393,7 @@ tcEl.addEventListener('click', async e => {
   const a = b.dataset.a;
   if (a === 'close') { if (!tcBusy) tcClose(); return; }
   if (b.disabled || tcBusy) return;
+  if (a === 'cstart') { const i = $('tccu'); tcCurseTxt = clean(i ? i.value : tcCurseTxt, 8); tcBusy = true; tcRender(); cuPay().then(ok => { tcBusy = false; if (ok) cuStart(tcCurseTxt || '小人'); else tcRender(); }); return; }
   if (a === 'pick') { tcPick = b.dataset.k; tcRender(); return; }
   if (a === 'card') { tcCard = +b.dataset.i | 0; tcRender(); return; }
   if (a === 'to') { tcTo = b.dataset.u; tcRender(); return; }
@@ -414,7 +460,14 @@ function tcDrawIcons(now) {
     const bob = Math.round(Math.sin(now / 380 + px)), w = im.width, h = im.height;
     ctx.drawImage(im, Math.round(px - w + 3), Math.round(py + 9 - h + bob));
   };
+  const cuOne = (kinds, px, py) => {
+    const k = (kinds || []).find(x => x.indexOf('cu_') === 0); if (!k) return;
+    cuIcon(ctx, k.slice(3), px + 13, py - 6 + Math.round(Math.sin(now / 380 + px)), now);   // 打小人領的 30 分鐘表情：畫在頭的右邊
+  };
   if (!ready || !me) return;
+  const mx = Math.round((pl.sx + (pl.x - pl.sx) * pl.prog) * T), my = Math.round((pl.sy + (pl.y - pl.sy) * pl.prog) * T);
+  if (cuPlaying) cuBubble(mx, my, now);   // 正在打小人：頭上一個紙人泡泡
+  cuOne(myVisList(), mx, my);
   one(Object.keys(buffs).filter(k => k.indexOf('tp_') === 0 && buffOn(k)), Math.round((pl.sx + (pl.x - pl.sx) * pl.prog) * T), Math.round((pl.sy + (pl.y - pl.sy) * pl.prog) * T));
-  if (syncScene()) remotes.forEach(rp => { if (rp.bv && rp.bv.length && hereRp(rp)) one(rp.bv, Math.round(rp.x * T), Math.round(rp.y * T)); });
+  if (syncScene()) remotes.forEach(rp => { if (rp.bv && rp.bv.length && hereRp(rp)) { const qx = Math.round(rp.x * T), qy = Math.round(rp.y * T); one(rp.bv, qx, qy); cuOne(rp.bv, qx, qy); if (rp.cu) cuBubble(qx, qy, now); } });
 }

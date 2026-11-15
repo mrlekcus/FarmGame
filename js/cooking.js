@@ -360,12 +360,13 @@ let cookLog = {};
    自己和同一個地方的其他玩家都看得到：每個人的 buff 種類跟著位置訊息（pos／presence 的 v 欄位）一起送，不另外多送訊息。
    bfx 放飄動的 emoji／小光點；update() 每幀呼叫 buffFxTick，sky.js 在夜色濾鏡之後呼叫 drawBuffFx（才不會被壓暗） */
 const bfx = [], bfxAcc = {};
-const VIS_BUFFS = ['lamp', 'spark', 'heart', 'music', 'petal', 'moon', 'tp_a', 'tp_b', 'tp_c', 'tp_d', 'tp_f', 'tp_j'];   // tp_* 是神廟的香火表情（temple.js），圖示由 tcDrawIcons 畫
+const VIS_BUFFS = ['lamp', 'spark', 'heart', 'music', 'petal', 'moon', 'tp_a', 'tp_b', 'tp_c', 'tp_d', 'tp_f', 'tp_j', 'cu_a', 'cu_b', 'cu_c'];   // cu_* 是打小人領的 30 分鐘表情（curse.js，存在自己的瀏覽器）
+//    // tp_* 是神廟的香火表情（temple.js），圖示由 tcDrawIcons 畫
 let moonFast = false, moonChk = 1000, lastVis = '';
 const BF_FONT = '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
 const BF_SEA = { spring: '🌸', autumn: '🍂', winter: '❄️' };   // 夏天用螢火蟲光點
 const bfRnd = (a, b) => a + Math.random() * (b - a);
-const myVisList = () => VIS_BUFFS.filter(k => buffOn(k));
+const myVisList = () => VIS_BUFFS.filter(k => k.indexOf('cu_') === 0 ? (typeof cuOn === 'function' && cuOn(k)) : buffOn(k));
 const myVisBuffs = () => myVisList().join(',');   // 送給別人的 buff 種類，例如 "lamp,heart"
 const parseVis = v => typeof v === 'string' ? VIS_BUFFS.filter(k => v.split(',').includes(k)) : [];   // 收到的資料只認得清單裡的種類
 const bfIndoors = () => scene === 'house' || scene === 'barn' || scene === 'tarot' || scene === 'stylist' || scene === 'cave' || scene === 'cafe' || scene === 'arcade' || scene === 'temple' || scene === 'church';
