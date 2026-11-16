@@ -246,15 +246,19 @@ syCard.addEventListener('click', async e => {
   const kk = b.dataset.k || S.k, ii = b.dataset.i != null ? +b.dataset.i : i, cc = b.dataset.i != null ? +b.dataset.c : 0, ck_ = LOOK_COLKEY[kk];
   syBusy = true; renderSty();
   try {
+    let got = null;
     if (a === 'buy') {
       const r_ = await enqueue(() => rpc('buy_look', { p_kind: kk, p_idx: ii, p_col: cc }));
       if (r_.inv) Object.assign(inv, r_.inv);
       if (typeof r_.coins === 'number') me.coins = r_.coins;
+      got = r_.ach || null;
     }
     const look = {}; const cur = myChar(); for (const k in LIMIT) look[k] = cur[k];
     look[kk] = ii; look[ck_] = cc;
     await enqueue(() => rpc('set_look', { p_name: me.name, p_look: look }));
-    me.look = look; toast(a === 'buy' ? '買下並穿上了' : '換好了', 2200);
+    me.look = look;
+    const A = got && ACH.find(x => x.id === got);
+    toast(A ? '🎉 獲得成就：' + A.n : a === 'buy' ? '買下並穿上了' : '換好了', A ? 3800 : 2200);
   } catch (err) { toast(errText(err)); await resync(); }
   syBusy = false;
   if (syOpen) renderSty();

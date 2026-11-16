@@ -21,23 +21,31 @@ function renderRanch() {
     return '<div class="row"><div class="meta"><b>' + esc(s.name) + '</b><small>每餵一次乾草，約 ' + (+s.hours) + ' 小時後產 ' + esc(itemName(pk(s.product))) + '（' + miscPrice(pk(s.product)) + ' G）</small></div>' +
       '<button type="button" class="btn small" data-a="buy" data-c="' + esc(s.key) + '"' + (rcBusy || lock || full || coins < s.buy ? ' disabled' : '') + '>' + (lock ? '玩家 Lv.' + s.need + ' 解鎖' : s.buy + ' G') + '</button></div>';
   }).join('');
+  const sell = (d.species || []).filter(s => d.animals.some(a => a.sp === s.key)).map(s => {
+    const n = d.animals.filter(a => a.sp === s.key).length, pr = Math.floor(s.buy / 2);
+    return '<div class="row"><div class="meta"><b>' + esc(s.name) + ' ×' + n + '</b><small>賣掉 1 隻得 ' + pr + ' G（買價的一半），沒在生產的先賣</small></div>' +
+      '<button type="button" class="btn small" data-a="sell" data-c="' + esc(s.key) + '" data-p="' + pr + '"' + (rcBusy ? ' disabled' : '') + '>賣 1 隻 · ' + pr + ' G</button></div>';
+  }).join('');
   rcCard.innerHTML = '<div class="shop-h"><h2>牧場小屋 小茉</h2><span class="chip gold">' + coins + ' G</span></div>' +
     '<h3>買乾草</h3><div class="row"><div class="meta"><b>乾草</b><small>每把 ' + hayP + ' G，拿去穀倉餵動物 · 持有 ' + have('a:hay') + ' 把</small></div><button type="button" class="btn small" data-a="hay" data-n="1"' + (rcBusy || coins < hayP ? ' disabled' : '') + '>買 1 把</button><button type="button" class="btn small" data-a="hay" data-n="5"' + (rcBusy || coins < hayP * 5 ? ' disabled' : '') + '>買 5 把</button></div>' +
-    '<h3>買動物（' + d.animals.length + '/' + d.cap + '，玩家升級會變大）</h3>' + buy + '<button type="button" class="btn ghost wide" data-a="close">離開</button>';
+    '<h3>買動物（' + d.animals.length + '/' + d.cap + '，玩家升級會變大）</h3>' + buy + (sell ? '<h3>賣動物</h3>' + sell : '') + '<button type="button" class="btn ghost wide" data-a="close">離開</button>';
 }
+const nmOf = k => ((rcData && rcData.species || []).find(s => s.key === k) || { name: k }).name;
 rcCard.addEventListener('click', async e => {
   const b = e.target.closest('button[data-a]'); if (!b || b.disabled) return;
   const a = b.dataset.a;
   if (a === 'close') { closeRanch(); return; }
+  if (a === 'sell' && !window.confirm('要賣掉一隻' + nmOf(b.dataset.c) + '嗎？\n可以得到 ' + b.dataset.p + ' G，賣掉就不能復原。')) return;
   rcBusy = true; renderRanch();
   try {
-    let r = await enqueue(() => a === 'hay' ? rpc('buy_misc', { p_item: 'a:hay', p_qty: +b.dataset.n || 1 }) : a === 'feed' ? rpc('ranch_feed') : a === 'collect' ? rpc('ranch_collect') : rpc('ranch_buy', { p_species: b.dataset.c }));
+    let r = await enqueue(() => a === 'hay' ? rpc('buy_misc', { p_item: 'a:hay', p_qty: +b.dataset.n || 1 }) : a === 'feed' ? rpc('ranch_feed') : a === 'collect' ? rpc('ranch_collect') : a === 'sell' ? rpc('ranch_sell', { p_species: b.dataset.c }) : rpc('ranch_buy', { p_species: b.dataset.c }));
     if (r.inv) Object.assign(inv, r.inv);
     if (typeof r.coins === 'number') me.coins = r.coins;
     if (a === 'hay') { toast('買了乾草 ×' + (+b.dataset.n || 1)); rcData = await rpc('ranch_get'); }
     else { rcData = r; barnSync(); }
     if (a === 'feed') toast('餵了 ' + r.fed + ' 隻');
     if (a === 'collect') toast('收成：' + Object.keys(r.got).map(k => itemName(k) + ' ×' + r.got[k]).join('、'));
+    if (a === 'sell') toast('賣掉一隻' + nmOf(b.dataset.c) + '，得 ' + (r.earned | 0) + ' G' + (r.got && Object.keys(r.got).length ? '（順便收了' + Object.keys(r.got).map(k => itemName(k) + ' ×' + r.got[k]).join('、') + '）' : ''));
     if (a === 'buy') toast('買了一隻' + (((r.species || []).find(s => s.key === b.dataset.c) || {}).name || '動物'));
   } catch (err) { toast(errText(err)); try { rcData = await rpc('ranch_get'); } catch (_) {} }
   rcBusy = false; if (rcOpen) renderRanch(); refreshHud();

@@ -1323,3 +1323,10 @@ body.imm .camhint{display:block}
 .pb-nm{display:flex;gap:6px;align-items:center;margin:2px 0 6px}
 .pb-nm input{flex:1;min-width:0;padding:6px 8px;border:3px solid var(--edge);border-radius:10px;font:inherit}
 .pb-nm button{border:3px solid var(--edge);border-radius:10px;background:#fff;font:inherit;font-weight:800;padding:5px 8px;cursor:pointer}
+/* 造型成就圖示：大頭貼圓章（card.js 的 cdPaintAch 畫上去）。canvas 要壓過 .cdav canvas 那條 64×88 的頭像規則 */
+.achic{display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;box-sizing:border-box;border-radius:50%;background:#e7f6e3;border:2px solid #cfe6c8;overflow:hidden;vertical-align:middle;font-size:0;line-height:0}
+.achic canvas.achcv{display:block;flex:none;width:32px!important;height:34px!important;margin:0!important;background:none!important;border:0!important;border-radius:0!important;image-rendering:pixelated}
+.achic canvas.achcv.tall{height:40px!important}
+.cdx-t .achic{display:flex;margin:0 auto 2px}
+.cdx-t.off .achic,.achrow.off .achic{filter:grayscale(1);opacity:.5}
+.lkr>i .achic{width:32px;height:32px;border:0;background:none}

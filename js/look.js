@@ -27,6 +27,12 @@ const ownedCols = f => OUTFITS.map((_, c) => c).filter(c => f < FREE_N.fits || f
 const mkCell = (k, i, name, on) => '<button type="button" class="mk-cell" data-k="' + k + '" data-i="' + i + '" aria-pressed="' + on + '">' +
   (mkIsNone(k, i) ? '<div class="mk-none">✕</div>' : '<canvas width="16" height="22" data-k="' + k + '" data-i="' + i + '"></canvas>') +
   '<span>' + esc(name) + '</span></button>';
+/* 髮型／帽子／眼鏡的顏色收集進度（只有買來的款式有；和衣服一樣集滿給「收藏家」成就） */
+function mkLookProg(k) {
+  const i = draft[k] | 0; if (!lookAchOn(k, i)) return '';
+  const c = LOOK_COLPOOL[k].filter(col => lookHave(k, i, col)).length, mx = LOOK_COLPOOL[k].length, nm = LOOK_ACH[k].nm[i];
+  return '<div class="mk-prog"><i style="width:' + Math.round(c / mx * 100) + '%"></i></div><div class="mk-hint">' + nm + '的顏色　' + c + ' / ' + mx + '　' + (c >= mx ? '✅ 已集滿，獲得「' + esc(nm) + '收藏家」成就' : '集滿可得「' + esc(nm) + '收藏家」成就') + '</div>';
+}
 const mkSw = (k, cols, idxs, label) => idxs.map(i => '<button type="button" class="sw" data-k="' + k + '" data-i="' + i + '" style="--c:' + cols[i] + '" aria-pressed="' + (draft[k] === i) + '" aria-label="' + label + ' ' + (i + 1) + '"></button>').join('');
 function renderMakerPanel() {
   mkSplit.innerHTML = '<div class="mk-rail">' + MK_TABS.filter(t => t.id !== 'sets' || !firstTime).map(t => '<button type="button" class="mk-ri" data-tab="' + t.id + '" aria-pressed="' + (t.id === mkTab) + '"><b>' + t.ic + '</b>' + t.n + '</button>').join('') + '</div><div class="mk-main"></div>';
@@ -34,15 +40,15 @@ function renderMakerPanel() {
   let h = '';
   if (mkTab === 'style') {
     h = '<div class="mk-grid">' + ownedStyles().map(i => mkCell('style', i, STYLES[i], draft.style === i)).join('') + '</div>' +
-      '<div class="mk-sec"><span class="optlabel">髮色</span><div class="sws">' + mkSw('hair', HAIRS, lookCols('style', draft.style | 0), '髮色') + '</div></div>' +
+      '<div class="mk-sec"><span class="optlabel">髮色</span><div class="sws">' + mkSw('hair', HAIRS, lookCols('style', draft.style | 0), '髮色') + '</div>' + mkLookProg('style') + '</div>' +
       '<div class="mk-hint">更多髮型和顏色在小村的造型店，每天上架不同的</div>';
   } else if (mkTab === 'hat') {
     h = '<div class="mk-grid">' + ownedHats().map(i => mkCell('hat', i, HATS[i], draft.hat === i)).join('') + '</div>';
-    if (draft.hat !== 3) h += '<div class="mk-sec"><span class="optlabel">帽子顏色</span><div class="sws">' + mkSw('hatc', HATCOL, lookCols('hat', draft.hat | 0), '帽子顏色') + '</div></div>';
+    if (draft.hat !== 3) h += '<div class="mk-sec"><span class="optlabel">帽子顏色</span><div class="sws">' + mkSw('hatc', HATCOL, lookCols('hat', draft.hat | 0), '帽子顏色') + '</div>' + mkLookProg('hat') + '</div>';
     h += '<div class="mk-hint">更多帽子在小村的造型店，每天上架不同的</div>';
   } else if (mkTab === 'glass') {
     h = '<div class="mk-grid">' + ownedGlass().map(i => mkCell('glass', i, GLASSES[i], draft.glass === i)).join('') + '</div>' +
-      (draft.glass ? '<div class="mk-sec"><span class="optlabel">眼鏡顏色</span><div class="sws">' + mkSw('glassc', GLASSCOL, lookCols('glass', draft.glass | 0), '眼鏡顏色') + '</div></div>' : '') +
+      (draft.glass ? '<div class="mk-sec"><span class="optlabel">眼鏡顏色</span><div class="sws">' + mkSw('glassc', GLASSCOL, lookCols('glass', draft.glass | 0), '眼鏡顏色') + '</div>' + mkLookProg('glass') + '</div>' : '') +
       '<div class="mk-hint">眼鏡在小村的造型店買，每天上架不同的</div>';
   } else if (mkTab === 'fits') {
     const f = draft.fits | 0, cols = ownedCols(f), paid = f >= FREE_N.fits;

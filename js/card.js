@@ -23,7 +23,34 @@ const ACH = [
   { id: 'star_dish', ic: '💫', n: '五星廚師', d: '5 道料理的圖鑑品質達到 ★5' }, { id: 'star_all', ic: '👑', n: '星光圖鑑王', d: '魚、蟲、料理圖鑑全部達到 ★5' },
   { id: 'sweet_all', ic: '🧁', n: '烘焙名師', d: '所有甜點、烘焙類料理都煮過' }, { id: 'dish100', ic: '🍽️', n: '百份料理', d: '累計煮出 100 份料理' }
 ];
-FITS.forEach((nm, i) => { if (i >= FREE_N.fits && i < 20) ACH.push({ id: 'fit' + i, ic: FIT_IC[i] || '👗', n: nm + '收藏家', d: '集齊「' + nm + '」的 ' + OUTFITS.length + ' 種顏色' }); });
+FITS.forEach((nm, i) => { if (i >= FREE_N.fits && i < 20) ACH.push({ id: 'fit' + i, ic: '<span class="achic"><canvas class="achcv tall" data-ach="fit' + i + '" width="16" height="20"></canvas></span>', n: nm + '收藏家', d: '集齊「' + nm + '」的 ' + OUTFITS.length + ' 種顏色' }); });
+/* 髮型／帽子／眼鏡收藏家：集齊一款的所有顏色（成就 id：hs款式、ht款式、gl款式；盲盒獎品不算，和衣服一樣）。眼鏡的 0 號原色買不到，所以眼鏡是 7 色 */
+const LOOK_ACH = {
+  style: { p: 'hs', ic: '💇', max: 21, nm: STYLES, tot: HAIRS.length },
+  hat: { p: 'ht', ic: '🎩', max: 11, nm: HATS, tot: HATCOL.length },
+  glass: { p: 'gl', ic: '👓', max: 7, nm: GLASSES, tot: GLASSCOL.length - 1 }
+};
+const LOOK_ACH_K = { hs: 'style', ht: 'hat', gl: 'glass' };
+const lookAchOn = (k, i) => i >= FREE_N[k] && i <= LOOK_ACH[k].max && !(k === 'hat' && i === 3);
+Object.keys(LOOK_ACH).forEach(k => LOOK_ACH[k].nm.forEach((nm, i) => {
+  if (lookAchOn(k, i)) ACH.push({ id: LOOK_ACH[k].p + i, ic: '<span class="achic"><canvas class="achcv" data-ach="' + LOOK_ACH[k].p + i + '" width="16" height="17"></canvas></span>', n: nm + '收藏家', d: '集齊「' + nm + '」的 ' + LOOK_ACH[k].tot + ' 種顏色' });
+}));
+/* 造型和服裝成就的圖示：用角色繪圖程式畫「穿戴著這一款」的像素小人，放在淡綠圓章裡（髮型帽子眼鏡畫頭頂到肩膀，衣服畫到身體）；顏色用固定的代表色，每款不一樣 */
+function cdPaintAch(root) {
+  (root || document).querySelectorAll('canvas.achcv[data-ach]').forEach(cv => {
+    const m = /^(hs|ht|gl|fit)(\d+)$/.exec(cv.dataset.ach); if (!m) return;
+    const i = +m[2], fit = m[1] === 'fit', c2 = cv.getContext('2d'); c2.clearRect(0, 0, 16, 22); g = c2;   // 衣服要看到身體：畫第 2～21 列（16×20），髮型帽子眼鏡只畫到肩膀
+    try { drawPlayer(0, fit ? 4 : 6, 'down', false, 0, fit ? { ...DEF_CHAR, fits: i, outfit: (i * 5) % OUTFITS.length } : m[1] === 'hs' ? { ...DEF_CHAR, style: i, hair: i % HAIRS.length } : m[1] === 'ht' ? { ...DEF_CHAR, hat: i, hatc: i % HATCOL.length } : { ...DEF_CHAR, glass: i, glassc: i % GLASSCOL.length }); } catch (e) { /* 略過 */ }
+    g = ctx;
+  });
+}
+/* 一個顏色收集成就目前收到幾色（衣服、髮型、帽子、眼鏡共用）；算不出來就回 null */
+function achColProg(id) {
+  let m;
+  if ((m = /^fit(\d+)$/.exec(id))) { let c = 0; for (let k = 0; k < OUTFITS.length; k++) if (fcHave(+m[1], k)) c++; return { c, mx: OUTFITS.length }; }
+  if ((m = /^(hs|ht|gl)(\d+)$/.exec(id))) { const k = LOOK_ACH_K[m[1]], i = +m[2]; return { c: LOOK_COLPOOL[k].filter(col => lookHave(k, i, col)).length, mx: LOOK_COLPOOL[k].length }; }
+  return null;
+}
 /* 成就分類：成長、技能、收集、生活、服裝（服裝成就 id 都是 fit 開頭） */
 const ACH_CATS = [
   { k: 'g', ic: '🌱', n: '成長', ids: ['days7', 'days30', 'pl5', 'pl10'] },
@@ -31,7 +58,8 @@ const ACH_CATS = [
   { k: 'c', ic: '📚', n: '收集', ids: ['fish100', 'bug100', 'fish_half', 'fish_all', 'bug_half', 'bug_all', 'dish_half', 'dish_all', 'sweet_all', 'dish100', 'star_fish', 'star_bug', 'star_dish', 'star_all'] },
   { k: 'l', ic: '🏡', n: '生活', ids: ['plots10', 'home15', 'friend3', 'photo'] },
   { k: 'v', ic: '⛵', n: '出海', ids: ['voy1', 'voy10', 'voy50', 'sea_all', 'pier'] },
-  { k: 'f', ic: '👗', n: '服裝', ids: ACH.filter(x => /^fit\d+$/.test(x.id)).map(x => x.id) }
+  { k: 'f', ic: '👗', n: '服裝', ids: ACH.filter(x => /^fit\d+$/.test(x.id)).map(x => x.id) },
+  { k: 'h', ic: '💇', n: '造型', ids: ACH.filter(x => /^(hs|ht|gl)\d+$/.test(x.id)).map(x => x.id) }
 ];
 ACH_CATS.forEach(c => { c.a = c.ids.map(id => ACH.find(x => x.id === id)).filter(Boolean); });
 /* 商人專屬家具的中文名（伺服器家具目錄沒給時的備用，不然會顯示英文 key） */
@@ -146,8 +174,8 @@ function cdPicker(got, tot, pct) {
   if (cdPick === 'got') list = ACH_CATS.reduce((r, c) => r.concat(c.a.filter(a => got.has(a.id))), []);
   else list = (ACH_CATS.find(c => c.k === cdPick) || { a: [] }).a;
   h += '<div class="cdx-gr cdx-long">' + (list.length ? list.map(a => {
-    let st = ''; const fm = /^fit(\d+)$/.exec(a.id);
-    if (!got.has(a.id) && fm) { let c_ = 0; for (let c = 0; c < OUTFITS.length; c++) if (fcHave(+fm[1], c)) c_++; st = c_ + '/' + OUTFITS.length; }
+    let st = ''; const pg_ = !got.has(a.id) && achColProg(a.id);
+    if (pg_) st = pg_.c + '/' + pg_.mx;
     return cdTile(a, got, pins, st);
   }).join('') : '<p class="empty">這裡還沒有成就。</p>') + '</div>';
   return h;
@@ -176,7 +204,7 @@ function cdProg(a, got) {
     else if (id === 'star_fish') { c = starCount('fish', fishCat.map(x => x.key)).five; mx = 5; }
     else if (id === 'star_bug') { c = starCount('bug', bugCat.map(x => x.key)).five; mx = 5; }
     else if (id === 'star_dish') { c = starCount('dish', recipes.map(x => x.key)).five; mx = 5; }
-    else if ((m = /^fit(\d+)$/.exec(id))) { c = 0; for (let k = 0; k < OUTFITS.length; k++) if (fcHave(+m[1], k)) c++; mx = OUTFITS.length; }
+    else if (/^(fit\d+|(hs|ht|gl)\d+)$/.test(id)) { const pc = achColProg(id); if (pc) { c = pc.c; mx = pc.mx; } }
   } catch (e) { return null; }
   if (!(mx > 0) || c == null) return null;
   c = Math.min(c, mx);
@@ -224,9 +252,9 @@ function renderCard() {
       const n = cat.a.filter(a => got.has(a.id)).length;
       h += '<button type="button" class="achback" data-a="aback">◀ 回總覽</button><h3>' + cat.ic + ' ' + cat.n + '　' + n + '/' + cat.a.length + '</h3><div class="achl' + (cd.self ? ' cdself' : '') + '">' +
         cat.a.map(a => {
-          const ok = got.has(a.id), pin = ok && (cd.badges || []).includes(a.id), fm = /^fit(\d+)$/.exec(a.id);
+          const ok = got.has(a.id), pin = ok && (cd.badges || []).includes(a.id), fm = cd.self && !ok ? achColProg(a.id) : null;
           let st = ok ? (pin ? '📌' : '✓') : '';
-          if (!ok && fm && cd.self) { let c_ = 0; for (let c = 0; c < OUTFITS.length; c++) if (fcHave(+fm[1], c)) c_++; st = c_ + '/' + OUTFITS.length; }
+          if (fm) st = fm.c + '/' + fm.mx;
           return '<div class="achrow ach' + (ok ? '' : ' off') + (pin ? ' pin' : '') + '" data-a="' + (cd.self && ok ? 'pin' : '') + '" data-id="' + a.id + '"><i>' + a.ic + '</i><div class="m">' + esc(a.n) + '<small>' + esc(a.d) + '</small></div><span class="st">' + st + '</span></div>';
         }).join('') + '</div>' + (cd.self ? '<p class="empty">點已獲得的成就可以置頂（最多 3 個）</p>' : '');
     }
@@ -236,6 +264,7 @@ function renderCard() {
     (cdGift ? '<button type="button" class="btn ghost wide" data-a="back">回到名片</button>' : '') +
     (cd && cd.self && !cdGift ? (cdLocked ? '<button type="button" class="btn wide" data-a="lkback">回到名片</button><button type="button" class="btn ghost small" data-a="lv">等級與解鎖說明</button>' : '<button type="button" class="btn wide" data-a="lk">未解鎖成就條件</button>') : '') + '<button type="button" class="btn ghost wide" data-a="close">關閉</button>';
   if (keep !== null && $('cd-bio') && cdMsg === '') $('cd-bio').value = keep;
+  cdPaintAch(cdCard);
   const cv = $('cd-av');
   if (cv && cd) { const c2 = cv.getContext('2d'); c2.clearRect(0, 0, 16, 22); g = c2; try { drawPlayer(0, 6, 'down', false, 0, toChar(cd.name, cd.look)); } catch (e) { /* 略過 */ } g = ctx; }
 }
