@@ -21,8 +21,8 @@ function renderRanch() {
     return '<div class="row"><div class="meta"><b>' + esc(s.name) + '</b><small>每餵一次乾草，約 ' + (+s.hours) + ' 小時後產 ' + esc(itemName(pk(s.product))) + '（' + miscPrice(pk(s.product)) + ' G）</small></div>' +
       '<button type="button" class="btn small" data-a="buy" data-c="' + esc(s.key) + '"' + (rcBusy || lock || full || coins < s.buy ? ' disabled' : '') + '>' + (lock ? '玩家 Lv.' + s.need + ' 解鎖' : s.buy + ' G') + '</button></div>';
   }).join('');
-  const sell = (d.species || []).filter(s => d.animals.some(a => a.sp === s.key)).map(s => {
-    const n = d.animals.filter(a => a.sp === s.key).length, pr = Math.floor(s.buy / 2);
+  const sell = (d.species || []).filter(s => d.animals.some(a => a.species === s.key)).map(s => {
+    const n = d.animals.filter(a => a.species === s.key).length, pr = Math.floor(s.buy / 2);
     return '<div class="row"><div class="meta"><b>' + esc(s.name) + ' ×' + n + '</b><small>賣掉 1 隻得 ' + pr + ' G（買價的一半），沒在生產的先賣</small></div>' +
       '<button type="button" class="btn small" data-a="sell" data-c="' + esc(s.key) + '" data-p="' + pr + '"' + (rcBusy ? ' disabled' : '') + '>賣 1 隻 · ' + pr + ' G</button></div>';
   }).join('');
