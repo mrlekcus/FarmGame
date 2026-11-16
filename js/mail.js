@@ -2,7 +2,7 @@
 /* 明信片與寫信 —— 雷克斯農場。所有檔案共用同一個全域範圍，載入順序見 index.html。 */
 /* ---------- 明信片與寫信：寄給好友，花 1～10 金幣，收件匣最多留 50 封 ---------- */
 const mlEl = $('mlm'), mlCard = $('mlcard');
-let mlOpen = false, ml = { cards: [], inbox: [], unread: 0 }, mlTab = 'in', mlTo = '', mlPick = 'plain', mlMsg = '', mlView = 0, mlItem = '', mlBusy = false, mlErr = '', mlOk = '', mlLoaded = false, mlCoins = {};   // mlCoins：{信件id: {c: 金幣, k: 已領取}}，GM 全服補償信附的金幣
+let mlOpen = false, ml = { cards: [], inbox: [], unread: 0 }, mlTab = 'in', mlTo = '', mlPick = 'plain', mlMsg = '', mlView = 0, mlItem = '', mlBusy = false, mlConfirm = false, mlErr = '', mlOk = '', mlLoaded = false, mlCoins = {};   // mlCoins：{信件id: {c: 金幣, k: 已領取}}，GM 全服補償信附的金幣
 function disc(g, cx, cy, rad, col) { g.fillStyle = col; for (let y = -rad; y <= rad; y++) for (let x = -rad; x <= rad; x++) if (x * x + y * y <= rad * rad + rad * 0.5) g.fillRect(cx + x, cy + y, 1, 1); }
 function cardArt(cv, key) {
   const g = cv.getContext('2d'), W2 = 64, H2 = 40;
@@ -106,7 +106,7 @@ function openMail(to) {
   renderMail(); mlEl.hidden = false; mlCard.focus();
   mailLoad(true).then(() => { if (mlOpen && mlTab === 'in' && ml.unread) rpc('mail_read').then(() => { ml.unread = 0; ml.inbox.forEach(m => { m.read = true; }); mailBadge(); }).catch(() => {}); });
 }
-function closeMail() { mlOpen = false; mlOk = ''; mlEl.hidden = true; }
+function closeMail() { mlOpen = false; mlConfirm = false; mlOk = ''; mlEl.hidden = true; }
 function renderMail() {
   const cname = k => ((ml.cards.find(c => c.key === k) || {}).name || '明信片');
   let h = '<div class="shop-h"><h2>✉️ 信箱</h2><span class="chip gold">' + (me ? me.coins : 0) + ' G</span></div>' +
@@ -140,18 +140,26 @@ function renderMail() {
         '<label class="mllab">附上禮物（選填，每張明信片只能附 1 個；一天最多 3 份；稀有、傳說的魚和蟲蝶不能送）</label><select id="ml-item" class="nameinput"><option value="">不附禮物</option>' +
         Object.keys(inv).filter(k => giftOk(k) && have(k) > 0).map(k => '<option value="' + esc(k) + '"' + (k === mlItem ? ' selected' : '') + '>' + esc(itemName(k)) + '（寄 1 個，持有 ' + have(k) + '）</option>').join('') + '</select>' +
         '<label class="mllab">寫幾句話（最多 200 字）</label><textarea id="ml-msg" class="nameinput mltext" maxlength="200" rows="4" placeholder="今天農場的蘿蔔長得很好，改天一起釣魚吧！">' + esc(mlMsg) + '</textarea>' +
-        '<button type="button" class="btn wide" data-a="send"' + (mlBusy || !me || me.coins < pr ? ' disabled' : '') + '>寄出（' + pr + ' G' + (mlItem ? '，附 ' + itemName(mlItem) + ' ×1' : '') + '）</button>';
+        (mlConfirm
+          ? '<p class="mk-msg ml-confirm" role="alert">確定要寄給 <b>' + esc((fl.find(f => f.uid === mlTo) || {}).name || '好友') + '</b> 嗎？<br><small>' + pr + ' G' + (mlItem ? '，附 ' + esc(itemName(mlItem)) + ' ×1' : '') + '，寄出後無法收回</small></p>' +
+            '<div class="v-quick"><button type="button" class="btn" data-a="sendok"' + (mlBusy || !me || me.coins < pr ? ' disabled' : '') + '>確認寄出</button><button type="button" class="btn ghost" data-a="sendno">取消</button></div>'
+          : '<button type="button" class="btn wide" data-a="send"' + (mlBusy || !me || me.coins < pr ? ' disabled' : '') + '>寄出（' + pr + ' G' + (mlItem ? '，附 ' + itemName(mlItem) + ' ×1' : '') + '）</button>');
     }
   }
   h += '<button type="button" class="btn ghost wide" data-a="close">關閉</button>';
   mlCard.innerHTML = h;
   mlCard.querySelectorAll('canvas[data-card]').forEach(cv => cardArt(cv, cv.dataset.card));
 }
-mlCard.addEventListener('input', e => { if (e.target.id === 'ml-msg') mlMsg = e.target.value; });
-mlCard.addEventListener('change', e => { if (e.target.id === 'ml-to') mlTo = e.target.value; if (e.target.id === 'ml-item') mlItem = e.target.value; });
+mlCard.addEventListener('input', e => {
+  if (e.target.id !== 'ml-msg') return;
+  mlMsg = e.target.value;
+  if (mlConfirm) { mlConfirm = false; renderMail(); const t = $('ml-msg'); if (t) { t.focus(); t.setSelectionRange(t.value.length, t.value.length); } }   // 改了內容就要重新確認
+});
+mlCard.addEventListener('change', e => { if (e.target.id === 'ml-to') mlTo = e.target.value; if (e.target.id === 'ml-item') mlItem = e.target.value; if (mlConfirm) { mlConfirm = false; renderMail(); } });
 mlCard.addEventListener('click', async e => {
   const b = e.target.closest('[data-a]'); if (!b || b.disabled) return;
   const a = b.dataset.a; mlErr = ''; mlOk = '';
+  if (a !== 'send' && a !== 'sendok') mlConfirm = false;
   if (a === 'close') { closeMail(); return; }
   if (a === 'tab') { mlTab = b.dataset.t; mlView = 0; renderMail(); return; }
   if (a === 'open') { mlView = +b.dataset.id; renderMail(); return; }
@@ -173,7 +181,13 @@ mlCard.addEventListener('click', async e => {
     catch (err) { mlErr = errText(err); }
     renderMail(); return;
   }
-  if (a === 'send') {
+  if (a === 'sendno') { renderMail(); return; }
+  if (a === 'send') {   // 第一次按只跳出「確定寄給 誰」的再次確認，不會真的寄出
+    if (!mlMsg.trim()) { mlErr = '先寫幾句話再寄出吧'; renderMail(); return; }
+    mlConfirm = true; renderMail(); return;
+  }
+  if (a === 'sendok') {
+    mlConfirm = false;
     const msg = mlMsg.trim();
     if (!msg) { mlErr = '先寫幾句話再寄出吧'; renderMail(); return; }
     mlBusy = true; renderMail();

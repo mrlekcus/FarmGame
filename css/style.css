@@ -416,7 +416,8 @@ kbd{font:600 12px/1 var(--f-display);color:var(--ink);background:var(--panel);pa
 .mlgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px}
 .mlpick{display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px;border:2px solid #f0d0c8;border-radius:12px;background:#fff;cursor:pointer;font:inherit;color:inherit}
 .mlpick.on{border-color:var(--pink-deep);background:#fff0f4}.mlpick canvas,.mlrow canvas{width:100%;image-rendering:pixelated;border-radius:6px}
-.mlpick small{color:#b0764a;font-weight:800}.mltext{width:100%;resize:vertical;font:inherit}
+.mlpick small{color:#b0764a;font-weight:800}.mltext{width:100%;resize:vertical;font:inherit;min-height:96px;line-height:1.5}
+#mlcard>*{flex-shrink:0}   /* 卡片是直排 flex + 可捲動：內容多時不要把輸入框等元件壓扁 */
 .mlrow{display:flex;gap:10px;align-items:center;padding:8px;border-radius:12px;border:2px solid #f6e0d8;margin:6px 0;cursor:pointer;background:#fff}
 .mlrow.new{border-color:var(--pink-deep);background:#fff6f8}.mlrow canvas{width:80px;flex:none}.mlrow .meta{display:flex;flex-direction:column;min-width:0}
 .mlbig{border:2px solid #f0d0c8;border-radius:14px;padding:10px;background:#fffaf2;margin:8px 0}.mlbig canvas{width:100%;image-rendering:pixelated;border-radius:8px}
