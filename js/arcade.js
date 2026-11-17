@@ -1,15 +1,15 @@
 'use strict';
 /* 遊戲店面（紫色方塊屋）—— 雷克斯農場。所有檔案共用同一個全域範圍，載入順序見 index.html。
    廣場上咖啡廳左邊的空地蓋了一間遊戲店面（外觀見 art/gameshop.js 的 gsExt），走到門口按動作鍵進入店內（scene = 'arcade'，16×16 格，霓虹夜光街機廳）。
-   店內兩排街機、每排 4 台，每台旁邊一張高腳椅，共 8 張椅子（一區最多 8 人）。面向空椅子按動作鍵坐下，就會開啟「俄羅斯方塊大亂鬥」（tetris.html，嵌在 iframe 裡）。
+   店內兩排街機、每排 4 台，每台旁邊一張高腳椅，共 8 張椅子（一區最多 8 人）。面向空椅子按動作鍵坐下，就會先跳出「選遊戲」小視窗：俄羅斯方塊大亂鬥（tetris.html）或賽車（race.html），都嵌在 iframe 裡。
    店員：機器人「嗶嗶」站在櫃檯後面，面向櫃檯按動作鍵可以聊天。
    【規則】免費場 0G（沒有 token）、付費場 1000 G，兩種場都能連線真人（各自分房，沒坐滿的補 Bot）；付費場第一名得 1 token（每天最多 1 個，由後端 bb_tetris_award 發放）。開局（倒數結束）時才扣；沒坐滿的位置系統補滿。
    【結算】arcade_tetris_enter(p_paid)（付費扣 1000 G、回傳 { coins, log_id }）；函式不存在時維持「試營運」：不扣 G。
-   【多人】店內的玩家互相看得到（世界代號 'g'）。坐在椅子上的真人會一起對戰（事件 'gs'，由 tetris.html 的連線層處理）；沒坐滿的位置系統補滿；開局後才坐下的人只能觀戰。 */
+   【多人】店內的玩家互相看得到（世界代號 'g'）。坐在椅子上的真人會一起對戰（事件 'gs'，由 tetris.html／race.html 的連線層處理；賽車的訊息帶 g:'race'，這裡依目前玩的遊戲分流）；沒坐滿的位置系統補滿；開局後才坐下的人只能觀戰。 */
 const GSW = 16, GSH = 16;
 const GS_FEE = 1000;   // 付費場入場費（要跟後端 arcade_cfg 的 tetris_paid 一致；免費場 0G、只跟 Bot）
 const GS_SEATS = [[2, 4], [5, 4], [8, 4], [11, 4], [2, 9], [5, 9], [8, 9], [11, 9]];   // 8 張高腳椅（格子座標）
-const GS_LINES = ['歡迎光臨！要玩一場嗎？', '坐到椅子上就能開始。免費場跟 Bot 玩，付費場 1000 G 可以連線真人。', '嗶嗶～今天手感如何？', '付費場拿第一名有 token，每天最多一個喔！', '空位會有人補上，不用等。', '左下角的夾盲盒機，一個 token 夾一次！', '小心別被打成一排垃圾喔。'];
+const GS_LINES = ['歡迎光臨！要玩一場嗎？', '坐到椅子上，選「俄羅斯方塊」或「賽車」就能開始。免費場跟 Bot 玩，付費場 1000 G 可以連線真人。', '嗶嗶～今天手感如何？', '兩款付費場拿第一名都有 token，每天最多一個喔！', '空位會有人補上，不用等。', '左下角的夾盲盒機，一個 token 夾一次！', '小心別被打成一排垃圾喔。'];
 const gskind = Array.from({ length: GSH }, () => Array(GSW).fill(G));
 for (let y = 0; y < GSH; y++) for (let x = 0; x < GSW; x++) if (y < 2 || y === GSH - 1 || x === 0 || x === GSW - 1) gskind[y][x] = BWL;
 gskind[GSH - 1][7] = BX; gskind[GSH - 1][8] = BX;
@@ -48,13 +48,13 @@ function leaveArcade(silent) {
 function arcadeAct(x, y) {
   if (!gs) return;
   const rp = remoteAt(x, y); if (rp) { openFriendPop(rp); return; }
-  if (gs.sit) { openTetris(); return; }
+  if (gs.sit) { openPicker(); return; }
   const k = K[y][x];
   if (k === BX) { leaveArcade(); return; }
   if (k === GST) { gsSit(x, y); return; }
   if (k === GSM) { pop(x, y, '街機：坐旁邊的椅子就能玩', '#fff3b0'); return; }
   if (k === GSX) {
-    if (y >= 11 && y <= 12 && x >= 10 && x <= 13) { pop(x, y, '嗶嗶：' + GS_LINES[gsLine++ % GS_LINES.length], '#bff3ff'); return; }
+    if (y >= 11 && y <= 12 && x >= 10 && x <= 13) { gsClerk(); return; }
     if (x <= 4 && y >= 11 && y <= 12) { openBB(x <= 2 ? 1 : 2); return; }   // 左邊 1 號機（街機電玩）、右邊 2 號機（糖果甜點）
     pop(x, y, '', '#fff3b0');
   }
@@ -64,7 +64,7 @@ function gsSit(x, y) {
   pl.x = pl.sx = x; pl.y = pl.sy = y; pl.prog = 1; pl.face = 'up'; pressed.length = 0;
   gs.sit = { x, y, stand: st || [x, y + 1] };
   lastPosKey = ''; posAcc = 999;
-  openTetris();
+  openPicker();
 }
 function gsStand() {
   const s = gs && gs.sit; if (!s) return;
@@ -79,8 +79,8 @@ function arcadeTick() {
 
 /* 坐著玩的時候頭上一直有方塊泡泡（別人看得到）；起身、關掉遊戲或離開店內就消失 */
 setInterval(() => {
-  const on = ready && me && scene === 'arcade' && gs && gs.sit && gsOpen;
-  if (on) tetrisEmote(); else if (myEmo && myEmo.id === 'tetris') myEmo = null;
+  const on = ready && me && scene === 'arcade' && gs && gs.sit && gsOpen && gsFrame;
+  if (on) { if (gs.kind === 'race') raceEmote(); else tetrisEmote(); } else if (myEmo && (myEmo.id === 'tetris' || myEmo.id === 'race')) myEmo = null;
 }, 1500);
 
 /* ---------- 俄羅斯方塊大亂鬥（嵌入 tetris.html） ---------- */
@@ -89,12 +89,95 @@ const gsEl = document.createElement('div');
 gsEl.id = 'gsbox'; gsEl.hidden = true;
 gsEl.style.cssText = 'position:fixed;inset:0;z-index:40;background:#0e1222';
 document.body.appendChild(gsEl);
+function gsCars() {   // 賽車車庫：玩家在夾盲盒抽到／用券換到的車（inventory 的 car:<id>）；免費的 3 台由賽車頁自己給
+  const ids = []; try { Object.keys(inv || {}).forEach(k => { if (k.indexOf('car:') === 0 && (inv[k] | 0) > 0) ids.push(k.slice(4)); }); } catch (e) { /* 略過 */ }
+  return ids;
+}
+/* 跟嗶嗶說話：開對話窗。每天第一次按「確認」領 1 個免費 token（後端 bb_npc_daily，每天 GMT+8 零點重置） */
+let gsDailyTried = '', gsNpcEl = null;
+const gsDay = () => new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10);
+function gsClerkPaint(cv) {   // 全身嗶嗶＋開心瞇眼＋手拿 token
+  const c = cv.getContext('2d'); c.clearRect(0, 0, cv.width, cv.height);
+  const SK = '#5a6a80';
+  GS_ROBO.forEach(q => { const happy = q[1] >= 6 && q[1] <= 8 && q[3] !== SK && (q[3] === '#5ae0ff' || q[3] === '#c8f6ff' || q[3] === '#1d2a3a') && q[0] !== 7 && q[0] !== 8; c.fillStyle = happy ? SK : q[3]; c.fillRect(q[0] + 2, q[1], q[2], 1); });
+  c.fillStyle = '#5ae0ff'; [[4, 8], [5, 7], [6, 7], [7, 8], [9, 8], [10, 7], [11, 7], [12, 8]].forEach(p => c.fillRect(p[0] + 2, p[1], 1, 1));
+  c.fillStyle = '#ff9bb3'; c.fillRect(5, 9, 2, 1); c.fillRect(13, 9, 2, 1);
+  c.fillStyle = '#b8892a'; c.fillRect(17, 14, 6, 8); c.fillRect(16, 15, 8, 6); c.fillStyle = '#ffd34d'; c.fillRect(18, 15, 4, 6); c.fillRect(17, 16, 6, 4); c.fillStyle = '#fff3b0'; c.fillRect(18, 16, 2, 1);
+}
+function gsClerkClose() {
+  if (!gsNpcEl) return;
+  gsNpcEl.remove(); gsNpcEl = null; gsNpcOpen = false; pressed.length = 0; actHeld = false;
+  removeEventListener('keydown', gsClerkKey, true);
+}
+function gsClerkKey(e) { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); gsClerkClose(); } }
+function gsClerk() {
+  if (gsNpcOpen || !ready) return;
+  const canClaim = gsEco !== false && gsDailyTried !== gsDay();
+  gsNpcEl = document.createElement('div'); gsNpcEl.className = 'shop'; gsNpcEl.id = 'gsnpc';
+  gsNpcEl.innerHTML = '<div class="card" tabindex="-1" style="max-width:340px"><div class="shop-h"><h2>嗶嗶</h2><span class="chip">遊戲店店員</span></div>' +
+    '<div style="text-align:center;margin:8px 0 4px"><canvas width="26" height="24" style="width:156px;height:144px;image-rendering:pixelated;background:#e9f3ff;border-radius:10px"></canvas></div>' +
+    '<p id="gsnpc-t" style="line-height:1.6;margin:6px 0 10px;text-align:center"></p><div id="gsnpc-b" style="display:flex;gap:8px"></div></div>';
+  $('shop').parentNode.appendChild(gsNpcEl);
+  gsNpcOpen = true; pressed.length = 0; actHeld = false;
+  gsNpcEl.addEventListener('pointerdown', e => e.stopPropagation());
+  addEventListener('keydown', gsClerkKey, true);
+  gsClerkPaint(gsNpcEl.querySelector('canvas'));
+  const txt = gsNpcEl.querySelector('#gsnpc-t'), bx = gsNpcEl.querySelector('#gsnpc-b');
+  const btn = (label, cls, fn) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'btn ' + cls; b.style.flex = '1'; b.textContent = label; b.onclick = fn; bx.appendChild(b); return b; };
+  const done = (t, chat) => { txt.textContent = t; bx.innerHTML = ''; if (chat) btn('聊聊', 'ghost', () => done('嗶嗶：' + GS_LINES[gsLine++ % GS_LINES.length], true)); btn('離開', '', gsClerkClose).focus(); };
+  if (!canClaim) { done('嗶嗶：' + GS_LINES[gsLine++ % GS_LINES.length], true); return; }
+  txt.textContent = '嗶嗶：今天也來啦！要領今天的免費 token 嗎？';
+  const ok = btn('確認', '', async () => {
+    ok.disabled = true;
+    try {
+      const r = await rpc('bb_npc_daily'); gsDailyTried = gsDay(); bbSet(r); gsPostTok();
+      done('嗶嗶：送你 1 個 token，拿去夾盲盒吧～（現在有 ' + (bbS.tokens | 0) + ' 個）', true);
+    } catch (e) {
+      const m = String((e && (e.message || e.msg)) || e || '');
+      if (m.includes('token_full')) done('嗶嗶：token 已經滿 10 個啦，先用掉再來領今天的吧！', false);
+      else if (m.includes('already_claimed')) { gsDailyTried = gsDay(); done('嗶嗶：今天已經領過囉，明天再來！', true); }
+      else done('嗶嗶：機器好像在打瞌睡，等一下再試試。', false);
+    }
+  });
+  btn('離開', 'ghost', gsClerkClose); ok.focus();
+}
 function gsPost(m) { try { if (gsFrame && gsFrame.contentWindow) gsFrame.contentWindow.postMessage(m, '*'); } catch (e) { /* 略過 */ } }
-function openTetris() {
+/* 坐下後先選要玩哪一款：俄羅斯方塊大亂鬥／賽車（都是 8 人、沒坐滿的位置系統補上） */
+const GS_GAMES = [
+  { k: 'tetris', ic: '🧱', n: '俄羅斯方塊', d: '大亂鬥 · 8 人對戰' },
+  { k: 'race', ic: '🏎️', n: '賽車', d: '8 人同場 · 撿道具、漂移' }
+];
+function openPicker() {
+  if (!gs || !gs.sit) return;
+  if (gsOpen && gsFrame) return;
+  gsOpen = true; pressed.length = 0; actHeld = false; gsFrame = null;
+  gsEl.innerHTML = ''; gsEl.hidden = false;
+  const w = document.createElement('div');
+  w.style.cssText = 'position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:16px;font-family:inherit;color:#fff';
+  w.innerHTML = '<div style="font-size:22px;font-weight:800;letter-spacing:.08em">要玩哪一款？</div>' +
+    '<div style="display:flex;gap:14px;flex-wrap:wrap;justify-content:center">' + GS_GAMES.map((g, i) =>
+      '<button type="button" data-g="' + g.k + '" style="width:min(42vw,200px);min-width:140px;border:4px solid #8a6cff;background:#1a1f3a;color:#fff;border-radius:18px;padding:18px 10px;font:inherit;font-weight:800;cursor:pointer;box-shadow:0 5px 0 #4b3a9a">' +
+      '<div style="font-size:44px;line-height:1.2">' + g.ic + '</div><div style="font-size:19px;margin-top:6px">' + g.n + '</div><div style="font-size:12px;font-weight:700;color:#b9b4e6;margin-top:4px">' + g.d + '</div>' +
+      '<div style="font-size:11px;color:#8d89b8;margin-top:6px">按 ' + (i + 1) + '</div></button>').join('') + '</div>' +
+    '<button type="button" data-g="stand" style="border:3px solid #55597a;background:transparent;color:#cfd2ee;border-radius:999px;padding:8px 22px;font:inherit;font-weight:800;cursor:pointer">站起來</button>';
+  w.addEventListener('click', e => { const b = e.target.closest('button[data-g]'); if (!b) return; gsPickDone(b.dataset.g); });
+  gsEl.appendChild(w);
+}
+function gsPickDone(k) {
+  if (k === 'stand') { gsStand(); return; }
+  if (k === 'tetris' || k === 'race') { gsOpen = false; openGame(k); }
+}
+addEventListener('keydown', e => {
+  if (!gsOpen || gsFrame || !gs || !gs.sit) return;
+  if (e.key === '1') gsPickDone('tetris'); else if (e.key === '2') gsPickDone('race'); else if (e.key === 'Escape') gsStand(); else return;
+  e.preventDefault();
+});
+function openTetris() { openGame('tetris'); }
+function openGame(kind) {
   if (gsOpen || !gs) return;
-  gsOpen = true; pressed.length = 0; actHeld = false;
+  gsOpen = true; pressed.length = 0; actHeld = false; gs.kind = kind;
   gsFrame = document.createElement('iframe');
-  gsFrame.src = 'tetris.html?embed=1&v=tt2';
+  gsFrame.src = kind === 'race' ? 'race.html?embed=1&v=rc1' : 'tetris.html?embed=1&v=tt2';
   gsFrame.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;border:0;background:#0e1222';
   gsFrame.setAttribute('allow', 'fullscreen');
   gsEl.innerHTML = ''; gsEl.appendChild(gsFrame); gsEl.hidden = false;
@@ -146,12 +229,13 @@ function gsSend(m) {
 }
 function onGsMsg(p) {
   if (!p || typeof p !== 'object' || typeof p.i !== 'string' || !UID_RE.test(p.i) || p.i === myUid || scene !== 'arcade' || !gsFrame || !p.m || typeof p.m !== 'object') return;
+  if ((p.m.g === 'race') !== (gs && gs.kind === 'race')) return;   // 賽車和俄羅斯方塊各聽各的
   gsPost({ t: 'tt-in', from: p.i, m: p.m });
 }
 window.addEventListener('message', e => {
   if (!gsFrame || e.source !== gsFrame.contentWindow) return;
   const d = e.data; if (!d || typeof d !== 'object') return;
-  if (d.t === 'tt-ready') { gsTok(); gsPost({ t: 'tt-bal', v: gsCoins(), trial: gsEco === false, fee: GS_FEE }); gsPost({ t: 'tt-me', net: !!(net && net.ok), uid: myUid, name: me ? me.name : '', seat: Math.max(0, gsSeatIdx()) }); }
+  if (d.t === 'tt-ready') { gsTok(); gsPost({ t: 'tt-cars', ids: gsCars() }); gsPost({ t: 'tt-mus', on: !!musicOn, vol: +musicVol || 0 }); gsPost({ t: 'tt-bal', v: gsCoins(), trial: gsEco === false, fee: GS_FEE }); gsPost({ t: 'tt-me', net: !!(net && net.ok), uid: myUid, name: me ? me.name : '', seat: Math.max(0, gsSeatIdx()) }); }
   else if (d.t === 'tt-net') gsSend(d.m);
   else if (d.t === 'tt-fee') gsCharge(!!d.paid).then(r => gsPost({ t: 'tt-fee-res', ok: r.ok, v: r.v, trial: r.trial, msg: r.msg, logId: r.logId || 0 }));
   else if (d.t === 'tt-win') gsAward(+d.logId | 0);

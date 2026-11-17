@@ -1087,6 +1087,20 @@ body.imm .camhint{display:block}
 .an-t.new{background:#ffe3a8}.an-t.chg{background:#cfe8f7}.an-t.fix{background:#d7f0c8}
 .an-sec ul{margin:2px 0 0;padding-left:18px;font-size:13px;line-height:1.55}.an-sec li{margin:2px 0}
 .an-ver{font-size:13px;opacity:.75;margin:0 0 4px}
+.an-hero{margin:6px 0 4px}
+.an-hb{background:linear-gradient(135deg,#ff8fb1,#ffb46b);border:2px solid var(--edge);border-radius:14px;padding:8px 12px;color:#fff;text-align:center;text-shadow:0 2px 0 rgba(0,0,0,.2)}
+.an-hb small{display:block;font-size:11px;letter-spacing:2px}.an-hb b{display:block;font-size:24px;line-height:1.25}.an-hb span{font-size:12px}
+.an-views,.an-tracks{display:flex;gap:6px;margin-top:8px}
+.an-views figure,.an-tracks figure{flex:1;margin:0;text-align:center;min-width:0}
+.an-views img,.an-tracks img{width:100%;display:block;border:2px solid var(--edge);border-radius:10px;background:#2c3566}
+.an-tracks img{image-rendering:pixelated}
+.an-views figcaption,.an-tracks figcaption{font-size:11px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.an-views figcaption{font-size:12px;font-weight:700}
+.an-cars{display:flex;gap:4px;justify-content:center;align-items:flex-end;background:#2c3566;border-radius:10px;padding:6px;margin-top:8px}
+.an-cars img{height:30px;image-rendering:pixelated}
+.an-promo{margin:8px 0 0;text-align:center}.an-promo img{width:100%;display:block;border:2px solid var(--edge);border-radius:12px}.an-promo figcaption{font-size:12px;font-weight:700;margin-top:3px;color:#d0537a}
+.an-pts{margin:8px 0 0;padding-left:18px;font-size:13px;line-height:1.55}
+.an-more{margin-top:8px}.an-more summary{cursor:pointer;font-size:13px;font-weight:700;opacity:.8}
 
 /* 圖鑑：已解鎖的格子可以點開看出沒條件 */
 .dexc.yes{cursor:pointer}

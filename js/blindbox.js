@@ -14,7 +14,7 @@ function bbSet(r) {
   if (typeof r.today_claimed === 'boolean') bbS.today_claimed = r.today_claimed;
   if (r.pity && r.pity.m1 && r.pity.m2) bbS.pity = r.pity;
 }
-const BB_ERR = { no_token: '沒有 token 了：玩付費場拿第一名，或用兌換券換', no_coupon: '兌換券不夠', week_limit: '這個項目本週的額度用完了，下週一重新計算', token_full: 'token 已經滿 10 個了，先用掉再換', already_owned: '這個已經換過了（每人一個）', bad_machine: '沒有這台機器', pool_empty: '機器還沒補貨，請回報 GM' };
+const BB_ERR = { no_token: '沒有 token 了：玩付費場拿第一名，或用兌換券換', no_coupon: '兌換券不夠', week_limit: '這個項目本週的額度用完了，下週一重新計算', token_full: 'token 已經滿 10 個了，先用掉再換', already_owned: '這個已經換過了（每人一個）', bad_machine: '沒有這台機器', pool_empty: '機器還沒補貨，請回報 GM', already_claimed: '今天的免費 token 已經領過了' };
 const bbErr = e => { const m = String((e && (e.message || e.msg)) || e || ''); for (const k in BB_ERR) if (m.includes(k)) return BB_ERR[k]; return errText(e); };
 const BB_MACH = {
   1: { name: '1號機・街機電玩', cols: ['#8f7df0', '#ff9bb3', '#6ab0e0', '#ffb04d', '#7ad26a', '#c07ae8'], kinds: ['gift', 'star', 'neon', 'gift', 'star', 'neon'] },
@@ -22,16 +22,16 @@ const BB_MACH = {
 };
 const BB_RAR = { common: ['普通', '#9fb0d0', '#ffffff'], rare: ['稀有', '#5ae0ff', '#5ae0ff'], legend: ['傳說', '#ffd34d', '#ffd34d'] };
 const BB_RES = [['wood', '木頭', 8, 40], ['stone', '石頭', 4, 20], ['copper', '銅礦', 2, 10]];
-const BB_SPECIAL = [['f:bb_piggy', '投幣存錢筒', 60, '家具'], ['ht:18', '爪爪髮夾', 90, '帽子'], ['ht:19', '盲盒頭套', 100, '帽子'], ['f:bb_boxsofa', '盲盒沙發', 110, '家具'], ['f:bb_miniclaw', '迷你夾娃娃機', 120, '家具'], ['fc:26:4', '盲盒連身裝', 130, '服裝']];
+const BB_SPECIAL = [['f:bb_piggy', '投幣存錢筒', 60, '家具'], ['ht:18', '爪爪髮夾', 90, '帽子'], ['ht:19', '盲盒頭套', 100, '帽子'], ['f:bb_boxsofa', '盲盒沙發', 110, '家具'], ['f:bb_miniclaw', '迷你夾娃娃機', 120, '家具'], ['fc:26:4', '盲盒連身裝', 130, '服裝'], ['car:rock', '火箭車', 200, '賽車']];
 const BB_FDIM = { bb_minicab: [1, 2], bb_neonsign: [1, 1], bb_padrug: [2, 2], bb_robotdoll: [1, 1], bb_icelamp: [1, 1], bb_caketable: [2, 1], bb_marshchair: [1, 1], bb_candyrug: [2, 2], bb_piggy: [1, 1], bb_boxsofa: [2, 1], bb_miniclaw: [1, 2] };
 const BB_POOL_KEYS = {
-  1: ['f:bb_minicab', 'f:bb_neonsign', 'f:bb_padrug', 'f:bb_robotdoll', 'fc:20:8', 'fc:21:7', 'fc:22:10', 'hs:22', 'hs:23', 'ht:12', 'ht:13', 'ht:14'],
-  2: ['f:bb_icelamp', 'f:bb_caketable', 'f:bb_marshchair', 'f:bb_candyrug', 'fc:23:1', 'fc:24:5', 'fc:25:10', 'hs:24', 'hs:25', 'ht:15', 'ht:16', 'ht:17']
+  1: ['f:bb_minicab', 'f:bb_neonsign', 'f:bb_padrug', 'f:bb_robotdoll', 'fc:20:8', 'fc:21:7', 'fc:22:10', 'hs:22', 'hs:23', 'ht:12', 'ht:13', 'ht:14', 'car:pump', 'car:milk'],
+  2: ['f:bb_icelamp', 'f:bb_caketable', 'f:bb_marshchair', 'f:bb_candyrug', 'fc:23:1', 'fc:24:5', 'fc:25:10', 'hs:24', 'hs:25', 'ht:15', 'ht:16', 'ht:17', 'car:cake', 'car:boat']
 };
 
 const BB_POOL = {
-  1: [['f:bb_minicab', '迷你街機櫃', 'rare', '家具'], ['f:bb_neonsign', '霓虹招牌', 'common', '家具'], ['f:bb_padrug', '手把地毯', 'common', '家具'], ['f:bb_robotdoll', '機器人玩偶', 'legend', '家具'], ['fc:20:8', '街機夾克', 'rare', '服裝'], ['fc:21:7', '機器人裝', 'common', '服裝'], ['fc:22:10', '愛心T恤', 'common', '服裝'], ['hs:22', '方塊頭', 'rare', '髮型'], ['hs:23', '天線丸子', 'common', '髮型'], ['ht:12', '手把髮箍', 'common', '帽子'], ['ht:13', '機器人盔', 'rare', '帽子'], ['ht:14', '霓虹耳機帽', 'legend', '帽子']],
-  2: [['f:bb_icelamp', '冰淇淋燈', 'rare', '家具'], ['f:bb_caketable', '蛋糕桌', 'common', '家具'], ['f:bb_marshchair', '棉花糖椅', 'common', '家具'], ['f:bb_candyrug', '糖果地毯', 'legend', '家具'], ['fc:23:1', '馬卡龍裙', 'rare', '服裝'], ['fc:24:5', '草莓圍裙', 'common', '服裝'], ['fc:25:10', '糖霜帽T', 'common', '服裝'], ['hs:24', '棉花糖捲', 'rare', '髮型'], ['hs:25', '莓果雙馬', 'common', '髮型'], ['ht:15', '布丁帽', 'common', '帽子'], ['ht:16', '甜甜圈圈', 'rare', '帽子'], ['ht:17', '蛋糕皇冠', 'legend', '帽子']]
+  1: [['f:bb_minicab', '迷你街機櫃', 'rare', '家具'], ['f:bb_neonsign', '霓虹招牌', 'common', '家具'], ['f:bb_padrug', '手把地毯', 'common', '家具'], ['f:bb_robotdoll', '機器人玩偶', 'legend', '家具'], ['fc:20:8', '街機夾克', 'rare', '服裝'], ['fc:21:7', '機器人裝', 'common', '服裝'], ['fc:22:10', '愛心T恤', 'common', '服裝'], ['hs:22', '方塊頭', 'rare', '髮型'], ['hs:23', '天線丸子', 'common', '髮型'], ['ht:12', '手把髮箍', 'common', '帽子'], ['ht:13', '機器人盔', 'rare', '帽子'], ['ht:14', '霓虹耳機帽', 'legend', '帽子'], ['car:pump', '南瓜馬車', 'legend', '賽車'], ['car:milk', '牛奶桶車', 'rare', '賽車']],
+  2: [['f:bb_icelamp', '冰淇淋燈', 'rare', '家具'], ['f:bb_caketable', '蛋糕桌', 'common', '家具'], ['f:bb_marshchair', '棉花糖椅', 'common', '家具'], ['f:bb_candyrug', '糖果地毯', 'legend', '家具'], ['fc:23:1', '馬卡龍裙', 'rare', '服裝'], ['fc:24:5', '草莓圍裙', 'common', '服裝'], ['fc:25:10', '糖霜帽T', 'common', '服裝'], ['hs:24', '棉花糖捲', 'rare', '髮型'], ['hs:25', '莓果雙馬', 'common', '髮型'], ['ht:15', '布丁帽', 'common', '帽子'], ['ht:16', '甜甜圈圈', 'rare', '帽子'], ['ht:17', '蛋糕皇冠', 'legend', '帽子'], ['car:cake', '草莓蛋糕車', 'legend', '賽車'], ['car:boat', '水陸小船', 'rare', '賽車']]
 };
 const bbOwn = k => { if (typeof inv !== 'object') return false; if ((inv[k] | 0) > 0) return true; return Object.keys(inv).some(i => i.indexOf(k + ':') === 0 && (inv[i] | 0) > 0); };
 
@@ -59,7 +59,8 @@ const bbItemCache = {};
 function bbItemCanvas(key) {
   if (bbItemCache[key]) return bbItemCache[key];
   const p = key.split(':'); let c;
-  if (p[0] === 'f') { const d = BB_FDIM[p[1]] || [1, 1], fn = FURN[p[1]]; c = bbMk(d[0] * 16, d[1] * 16 + 4, () => { if (fn) fn(0, 2, 0); }); }
+  if (p[0] === 'car') c = bbCarSprite(p[1]);
+  else if (p[0] === 'f') { const d = BB_FDIM[p[1]] || [1, 1], fn = FURN[p[1]]; c = bbMk(d[0] * 16, d[1] * 16 + 4, () => { if (fn) fn(0, 2, 0); }); }
   else {
     const ch = Object.assign({}, DEF_CHAR, { hat: 3, hair: 0, style: 0, outfit: 0, fits: 0 });
     if (p[0] === 'ht') ch.hat = +p[1];
@@ -77,6 +78,18 @@ function bbCrop(c) {
     if (x1 < 0) return c;
     const o = document.createElement('canvas'); o.width = x1 - x0 + 1; o.height = y1 - y0 + 1; o.getContext('2d').drawImage(c, -x0, -y0); return o;
   } catch (e) { return c; }
+}
+
+/* 賽車獎品圖（側面小像素車，24×14；車的完整外觀在賽車遊戲的車庫裡看） */
+function bbCarSprite(id) {
+  const K = '#2a2430', wh = (x, y) => { ob(K, '#0a0812', x, y, 5, 5); r('#9a96a8', x + 2, y + 2, 1, 1); };
+  return bbMk(24, 15, () => {
+    if (id === 'pump') { ob('#EF9F27', '#8a5410', 2, 2, 19, 9); [7, 11, 15].forEach(x => r('#BA7517', x, 3, 1, 7)); r('#3B6D11', 11, 0, 3, 3); r('#639922', 14, 0, 2, 1); wh(3, 9); wh(16, 9); }
+    else if (id === 'milk') { ob('#F1EFE8', '#6a6a66', 3, 2, 17, 9); r('#378ADD', 3, 5, 17, 3); r('#B4B2A9', 8, 3, 3, 1); r('#444441', 12, 9, 2, 1); r('#444441', 6, 9, 2, 1); wh(3, 9); wh(16, 9); }
+    else if (id === 'boat') { ob('#378ADD', '#1d4f8a', 1, 7, 22, 5); ob('#F1EFE8', '#8a8a86', 7, 3, 9, 5); r('#85B7EB', 9, 4, 5, 2); r('#E24B4A', 15, 0, 3, 2); r('#FAEEDA', 14, 0, 1, 4); wh(4, 10); wh(16, 10); }
+    else if (id === 'cake') { ob('#F4C0D1', '#a85a74', 2, 6, 19, 5); ob('#FBEAF0', '#a85a74', 4, 3, 15, 4); r('#ED93B1', 6, 4, 11, 1); r('#A32D2D', 10, 0, 3, 3); wh(3, 9); wh(16, 9); }
+    else if (id === 'rock') { ob('#E6E8EE', '#6a6e7a', 3, 5, 17, 6); r('#E24B4A', 18, 5, 4, 6); r('#E24B4A', 22, 7, 1, 2); r('#E24B4A', 5, 1, 3, 5); r('#85B7EB', 10, 6, 4, 3); r('#EF9F27', 0, 7, 3, 2); r('#ffd34d', 1, 7, 1, 2); wh(4, 9); wh(15, 9); }
+  });
 }
 const bbItemURL = key => bbItemCanvas(key).toDataURL();
 const bbSilCache = {};
@@ -498,15 +511,16 @@ function bbRender() {
 }
 function bbDexHtml() {
   const L = BB_POOL[bbMach], own = L.filter(p => bbOwn(p[0])).length;
-  let h = '<div class="bbhud"><div style="color:#ffd34d">' + BB_MACH[bbMach].name + '</div><div class="cp">已收集 ' + own + '/12</div></div>';
-  [['legend', '2%'], ['rare', '28%'], ['common', '70%']].forEach(([rk, pc]) => {
-    const ra = BB_RAR[rk]; h += '<div style="color:' + ra[1] + ';font-weight:700;font-size:15px;margin-top:2px">' + ra[0] + '　' + pc + '</div>';
+  let h = '<div class="bbhud"><div style="color:#ffd34d">' + BB_MACH[bbMach].name + '</div><div class="cp">已收集 ' + own + '/' + L.length + '</div></div>';
+  [['legend', '2%', 12], ['rare', '28%', 6], ['common', '70%', 3]].forEach(([rk, pc, cg]) => {
+    const ra = BB_RAR[rk]; h += '<div style="color:' + ra[1] + ';font-weight:700;font-size:15px;margin-top:2px">' + ra[0] + '　' + pc + '　<span style="font-weight:400;font-size:12px;color:#9fb0d0">重複 → 券 +' + cg + '</span></div>';
     L.filter(p => p[2] === rk).forEach(p => {
       const c = bbItemCanvas(p[0]), s = Math.min(3, 46 / Math.max(c.width, c.height));
       const o = bbOwn(p[0]);
       h += '<div class="bbcard" style="border-color:' + ra[1] + ';padding:6px 10px"><div style="width:48px;height:44px;display:flex;align-items:center;justify-content:center"><img src="' + bbItemURL(p[0]) + '" alt="" style="width:' + Math.round(c.width * s) + 'px;height:' + Math.round(c.height * s) + 'px;image-rendering:pixelated"></div><div class="tx"><b>' + p[1] + '</b><small style="color:#9fb0d0">' + p[3] + '</small></div><span style="font-weight:700;color:' + (o ? '#8fe09a' : '#9fb0d0') + '">' + (o ? '已擁有' : '未擁有') + '</span></div>';
     });
   });
+  h += '<div style="text-align:center;font-size:12px;color:#9fb0d0;margin-top:6px;line-height:1.6">稀有保底 6 抽・傳說保底 30 抽</div>';
   return h;
 }
 function bbExHtml() {

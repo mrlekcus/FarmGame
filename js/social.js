@@ -10,6 +10,7 @@ const EMOTES = [
   { id: 'paint', ic: '🎨', n: '畫畫', hide: true },   // 在畫架上畫畫時自動顯示（art.js），不放進表情選單
   { id: 'deco', ic: '🏠', n: '佈置屋子', hide: true },   // 在自己家開著「布置模式」時自動顯示（見下面 decoEmote），不放進表情選單
   { id: 'cook', ic: '🍲', n: '煮東西', hide: true },   // 在外面（廣場、沼澤營地）煮菜時自動顯示（見 cooking.js 的計時器），不放進表情選單
+  { id: 'race', ic: '🏎️', n: '玩賽車', hide: true },   // 坐在遊戲店椅子上玩賽車時自動顯示（見 arcade.js 的計時器）
   { id: 'tetris', ic: '🧱', n: '玩俄羅斯方塊', hide: true }   // 坐在遊戲店椅子上玩「俄羅斯方塊大亂鬥」時自動顯示（見 arcade.js 的計時器），不放進表情選單。別的遊戲之後各做自己的泡泡
 ];
 const ANIMS = {
@@ -118,6 +119,15 @@ function emoteBubble(e, cx, cy, now) {
     ['#f72585', '#80ed99', '#4cc9f0', '#ffd34d', '#f72585'].forEach((col, i) => c(i, 4, col));
     ctx.globalAlpha = 1; return;
   }
+  if (em.id === 'race') {   // 玩賽車：紅色小跑車在格子旗賽道上跑，車輪一直轉（用像素畫，不靠 emoji 字型）
+    const ox = cx + 1, oy = y + 2, ph = Math.floor(now / 140) % 2;
+    for (let i = 0; i < 6; i++) r((i + ph) % 2 ? '#ffffff' : '#3a3f55', ox + i * 2, oy + 7, 2, 2);   // 格子旗
+    r('#e8483f', ox + 2, oy + 3, 8, 3); r('#ff8a7a', ox + 3, oy + 3, 4, 1); r('#e8483f', ox + 4, oy + 1, 4, 2); r('#bfe8ff', ox + 5, oy + 1, 2, 2);
+    r('#2a2430', ox + 3, oy + 6, 2, 2); r('#2a2430', ox + 8, oy + 6, 2, 2); r(ph ? '#cfd2ee' : '#8a90a8', ox + 3, oy + 7, 1, 1); r(ph ? '#8a90a8' : '#cfd2ee', ox + 9, oy + 7, 1, 1);
+    r('#ffe27a', ox + 10, oy + 4, 1, 1);
+    r('#ffffff', ox - 1, oy + 4, 2, 1); r('#ffffff', ox - 2 + ph, oy + 5, 2, 1);   // 速度線
+    ctx.globalAlpha = 1; return;
+  }
   if (em.id === 'deco') {   // 佈置屋子：紅屋頂小房子＋閃爍的小星星（用像素畫，不靠 emoji 字型）
     const ox = cx + 2, oy = y + 2, bl = Math.floor(now / 380) % 2;
     r('#e8604f', ox + 4, oy + 0, 2, 1); r('#e8604f', ox + 3, oy + 1, 4, 1); r('#e8604f', ox + 2, oy + 2, 6, 1); r('#e8604f', ox + 1, oy + 3, 8, 1);
@@ -176,6 +186,13 @@ function cookEmote() {
   if (!ready || !me) return;
   if (syncScene() && net && net.ok) {
     try { net.ch.send({ type: 'broadcast', event: 'emo', payload: { i: myUid, k: 'e', e: 'cook' } }); } catch (e) { /* 略過 */ }
+  }
+}
+function raceEmote() {
+  if (!ready || !me) return;
+  myEmo = { id: 'race', at: performance.now() };
+  if (syncScene() && net && net.ok) {
+    try { net.ch.send({ type: 'broadcast', event: 'emo', payload: { i: myUid, k: 'e', e: 'race' } }); } catch (e) { /* 略過 */ }
   }
 }
 function tetrisEmote() {

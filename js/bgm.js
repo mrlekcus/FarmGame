@@ -69,10 +69,11 @@ function bgmName() {
   if (scene === 'cafe' && cfSong && BGM_FILES[cfSong]) return cfSong;   // 在咖啡廳裡：點唱機的歌優先
   return SCENE_BGM[scene];
 }
+const bgmRaceOpen = () => { try { return !!(gsOpen && gsFrame && gs && gs.kind === 'race'); } catch (e) { return false; } };   // 賽車自己有音樂，農場的音樂先停
 function syncBgm() {
   if (!Music) return;
   const name = bgmName(), file = !!(Bgm && name && Bgm.has(name));
-  const go = musicOn && !pnOpen && performance.now() - pnHeard >= 3000 && (bgmGesture || authOpen);   // 彈鋼琴時 BGM 自動停，離開再接著放
+  const go = musicOn && !pnOpen && !bgmRaceOpen() && performance.now() - pnHeard >= 3000 && (bgmGesture || authOpen);   // 彈鋼琴時 BGM 自動停，離開再接著放
     // 登入畫面也放農場那首（瀏覽器擋自動播放時，第一次點擊會接著播）
   const sig = (go ? 1 : 0) + '|' + (file ? name : '') + '|' + musicVol;
   if (sig === bgmSig) return;                 // 沒變就不重複處理（這個函式每秒會被叫一次）

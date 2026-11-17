@@ -5,21 +5,36 @@
    同一天的多次更新：內容全部保留、新的接在後面，只換 v 的字尾（b → c → d…）；隔天才整份重寫。
    不想彈窗時：把 v 設成 ''。 */
 const ANNOUNCE = {
-  v: '2026-11-16d',
-  title: '牧場可以賣動物、造型收藏家成就、寄信再確認、出海新音樂',
+  v: '2026-11-17g',
+  title: '遊戲店新增「賽車」，賽車要用夾盲盒收集',
+  hero: {   // 大圖介紹：放在彈窗最上面；清單改收進「完整更新內容」
+    badge: 'NEW　遊戲店新玩法',
+    title: '街機賽車登場！',
+    sub: '8 人同場，沒坐滿的位置由系統車手補上',
+    views: [['img/race/view2d.jpg', '2D 俯視'], ['img/race/view3d.jpg', '3D 追尾']],
+    tracks: [['img/race/track0.png', '雷克斯草原盃'], ['img/race/track1.png', '霧語沼澤盃'], ['img/race/track2.png', '星空夜流星盃']],
+    cars: ['car:pump', 'car:milk', 'car:boat', 'car:cake', 'car:rock'],
+    promo: ['img/race/npc-token.png', '每天免費 token：找遊戲店的機器人嗶嗶說話，按「確認」領 1 個'],
+    points: ['坐上街機椅子，選「賽車」，按「準備！開賽」', '付費場第一名拿 token；每天找嗶嗶說話也能領 1 個', '新車用夾盲盒抽，火箭車用 200 張券兌換']
+  },
   add: [
-    '<b>牧場小屋可以賣動物了</b>：找小茉，視窗下面多了「賣動物」，列出你養的雞、牛、羊，每隻賣買價的一半，賣之前會跳出確認。沒在生產的先賣；如果那隻剛好可以收蛋、奶、毛，會先收進背包再賣，不會吃虧。',
-    '<b>髮型、帽子、眼鏡的「收藏家」成就</b>：和衣服一樣，集齊一款的所有顏色就拿到成就（髮型 11 色、帽子 6 色、眼鏡 7 色，共 26 個）。名片多了「造型」分類，沒拿到的會顯示收了幾色；衣櫥選到款式時，顏色下面也會顯示收集進度。以前整款買過的，直接算集滿。'
+    '<b>遊戲店多了賽車</b>：坐上街機椅子後，先選「俄羅斯方塊」或「賽車」。賽車最多 8 人同場，沒坐滿的位置由系統車手補上，有人按「準備！開賽」就開始 5 秒倒數。',
+    '<b>三條賽道隨機抽</b>：雷克斯草原盃、霧語沼澤盃、星空夜流星盃，每場開賽前用跑馬燈抽出，所有人跑同一條。',
+    '<b>免費場和付費場</b>：免費場不扣 G、只是好玩；付費場 1000 G，第一名可得 token（和俄羅斯方塊共用「每天最多 1 個」）。',
+    '<b>我的車庫</b>：大廳可以換車，也能切換 2D 俯視或 3D 追尾視角。',
+    '<b>新車款要用夾盲盒抽</b>：一開始只有 3 台車。南瓜馬車、牛奶桶車在 1 號夾盲盒機，草莓蛋糕車、水陸小船在 2 號機（南瓜、草莓是傳說，牛奶、小船是稀有）。',
+    '<b>火箭車</b>：只能用 200 張兌換券，在夾盲盒機的兌換券商店換。',
+    '<b>賽車有背景音樂了</b>：大廳一首，三條賽道各一首，最後一圈音樂會稍微加快。大廳或比賽中按 Esc 都能換歌、調音量，也可以關掉。進賽車時農場自己的音樂會先暫停。',
+    '<b>撿道具、漂移</b>：跑道上撿道具打對手，漂移加速；比賽途中離開或斷線，你的車會由系統接手跑完。開局後才坐下的人可以觀戰，下一場再加入。'
   ],
   chg: [
-    '<b>造型、服裝成就的圖示</b>：不再是一整排同一個表情符號，改成圓章裡的像素小人：髮型、帽子、眼鏡畫戴著那一款的大頭貼，衣服畫穿著那一件的小人，每款顏色都不一樣，沒拿到的是灰色。',
-    '<b>寄明信片多了再次確認</b>：按「寄出」後會先問「確定要寄給 某某 嗎？」，顯示要花的金幣和附的禮物，按「確認寄出」才會真的寄；改了收件人、禮物或內容，要重新確認。',
-    '<b>出海的背景音樂換新了</b>：上船之後換成海浪聲的新曲子，音檔也壓小了，載入更快。'
-  ],
-  fix: [
-    '<b>寄明信片的輸入框被壓扁</b>：信箱內容較多時，「寫幾句話」的輸入框會縮到只剩一行，現在固定有足夠的高度，可以正常打字。'
+    '<b>坐下後先選遊戲</b>：遊戲店椅子坐下會先跳出選遊戲的小視窗（也可以按 1、2 選，或選「站起來」）。',
+    '<b>玩賽車時頭上有小賽車泡泡</b>：同店的人看得到你在玩賽車。',
+    '<b>每天免費 token</b>：每天第一次到遊戲店找機器人嗶嗶說話，在對話窗按「確認」可以領 1 個 token（每天 GMT+8 零點重置，持有滿 10 個時先用掉再領）。',
+    '<b>重複獎品換到的券變多</b>：普通 3、稀有 6、傳說 12 張。'
   ]
 };
+
 
 const ANN_KEY = 'dw_annc_seen';
 let anEl = null;
@@ -29,12 +44,22 @@ function anClose() {
   anOpen = false;
   try { localStorage.setItem(ANN_KEY, ANNOUNCE.v); } catch (e) { /* 略過：下次登入會再看到一次 */ }
 }
+function anHero(h) {
+  if (!h) return '';
+  const cars = (h.cars || []).map(k => { try { return '<img src="' + bbItemURL(k) + '" alt="" class="an-car">'; } catch (e) { return ''; } }).join('');
+  return '<div class="an-hero"><div class="an-hb"><small>' + esc(h.badge || '') + '</small><b>' + esc(h.title || '') + '</b><span>' + esc(h.sub || '') + '</span></div>' +
+    '<div class="an-views">' + (h.views || []).map(v => '<figure><img src="' + esc(v[0]) + '" alt=""><figcaption>' + esc(v[1]) + '</figcaption></figure>').join('') + '</div>' +
+    '<div class="an-tracks">' + (h.tracks || []).map(v => '<figure><img src="' + esc(v[0]) + '" alt=""><figcaption>' + esc(v[1]) + '</figcaption></figure>').join('') + '</div>' +
+    (cars ? '<div class="an-cars">' + cars + '</div>' : '') +
+    (h.promo ? '<figure class="an-promo"><img src="' + esc(h.promo[0]) + '" alt=""><figcaption>' + esc(h.promo[1]) + '</figcaption></figure>' : '') +
+    '<ul class="an-pts">' + (h.points || []).map(t => '<li>' + esc(t) + '</li>').join('') + '</ul></div>';
+}
 function anShow() {
   const sec = (cls, name, arr) => arr && arr.length ? '<div class="an-sec"><b class="an-t ' + cls + '">' + name + '</b><ul>' + arr.map(t => '<li>' + t + '</li>').join('') + '</ul></div>' : '';
+  const list = sec('new', '✨ 新增', ANNOUNCE.add) + sec('chg', '🔧 調整', ANNOUNCE.chg) + sec('fix', '🐛 修正', ANNOUNCE.fix);
   anEl = document.createElement('div'); anEl.className = 'shop'; anEl.id = 'annc';
   anEl.innerHTML = '<div class="card an-card" tabindex="-1"><div class="shop-h"><h2>📢 更新通告</h2><span class="chip">' + esc(ANNOUNCE.v) + '</span></div>' +
-    (ANNOUNCE.title ? '<p class="an-ver">' + esc(ANNOUNCE.title) + '</p>' : '') +
-    sec('new', '✨ 新增', ANNOUNCE.add) + sec('chg', '🔧 調整', ANNOUNCE.chg) + sec('fix', '🐛 修正', ANNOUNCE.fix) +
+    (ANNOUNCE.hero ? anHero(ANNOUNCE.hero) + '<details class="an-more"><summary>完整更新內容</summary>' + list + '</details>' : (ANNOUNCE.title ? '<p class="an-ver">' + esc(ANNOUNCE.title) + '</p>' : '') + list) +
     '<button type="button" class="btn wide" data-a="ok" style="margin-top:8px">知道了</button></div>';
   $('shop').parentNode.appendChild(anEl);
   anOpen = true; pressed.length = 0;
