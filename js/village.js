@@ -454,12 +454,25 @@ setInterval(() => { if (myTyping) setTyping(stillTyping()); }, 1000);   // 每�
   const sync = () => setTyping(el.value.trim().length > 0 && document.activeElement === el);
   el.addEventListener('input', sync); el.addEventListener('focus', sync); el.addEventListener('blur', () => setTyping(false));
 });
-$('v-form').addEventListener('submit', e => {
-  e.preventDefault();
-  const inp = $('v-input'), v = inp.value;
-  inp.value = '';
-  sendChat(v);
-});
+/* 聊天室送出（手機一下就送）：跟 chat.js 的輸入列同一套——輸入法選字還沒確認時，等確認完直接送；觸控時「送出」一按下去就送，不用等放開，也不用按第二次 */
+{
+  const vf = $('v-form'), vi = $('v-input'), vb = vf.querySelector('button[type="submit"]');
+  const coarse = () => !!(window.matchMedia && matchMedia('(pointer:coarse)').matches);
+  const go = () => { const v = vi.value; if (!v.trim()) return; vi.value = ''; sendChat(v); };
+  let pend = false, compEnd = 0, tapAt = 0;
+  vi.addEventListener('compositionend', () => { compEnd = performance.now(); if (pend) { pend = false; setTimeout(go, 0); } });
+  vi.addEventListener('keydown', e => {
+    if (e.key !== 'Enter' || e.shiftKey || !coarse()) return;
+    if (e.isComposing || (e.keyCode === 229 && performance.now() - compEnd > 150)) { pend = true; setTimeout(() => { pend = false; }, 800); }
+    else if (e.keyCode === 229) { e.preventDefault(); setTimeout(go, 0); }
+  });
+  vf.addEventListener('submit', e => { e.preventDefault(); go(); });
+  vf.addEventListener('pointerdown', e => { if (e.target.closest('button')) e.preventDefault(); });
+  if (vb) {
+    vb.addEventListener('pointerdown', e => { if (e.pointerType === 'mouse') return; e.preventDefault(); tapAt = performance.now(); go(); });
+    vb.addEventListener('click', e => { if (performance.now() - tapAt < 800) { e.preventDefault(); e.stopPropagation(); } });
+  }
+}
 ['你好！', '一起來玩', '好可愛', '哈哈', '謝謝', '再見'].forEach(t => {
   const b = document.createElement('button');
   b.type = 'button'; b.className = 'qbtn'; b.textContent = t;

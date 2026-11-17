@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>雷克斯盃｜街機賽車</title>
-<script>window.__ARC_EMBED=/[?&]embed=1/.test(location.search)||/arcade=1/.test(location.search)</script>
+<script>window.__ARC_EMBED=/[?&]embed=1/.test(location.search)||/arcade=1/.test(location.search);if(window.__ARC_EMBED)document.documentElement.classList.add('arcembed')</script><style>html.arcembed #menu:not(.cargo){display:none!important}</style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <style>
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none}
@@ -100,6 +100,18 @@ td.num{width:36px;text-align:center;font-weight:800;color:#e26b88}
 #arcMsg{min-height:22px}
 #arc button:disabled,#arcRes button:disabled{opacity:.5;cursor:default}
 #arcTracks .trk.on{transform:scale(1.04)}
+.arcs{position:relative}.arcs.on{min-height:62px}
+.arcrd{display:inline-block;margin-top:3px;font-size:11px;border-radius:99px;padding:1px 8px;font-weight:900;background:#eadcc8;color:#8a7260}
+.arcrd.y{background:#bff0c8;color:#1f7a38}.arcrd.bot{background:#e6e0f5;color:#6a58a8}
+.arcbub{position:absolute;left:50%;top:-16px;transform:translateX(-50%);background:#fff;border:2px solid #f2c9a8;border-radius:12px;padding:0 8px;font-size:15px;line-height:1.5;white-space:nowrap;box-shadow:0 3px 0 #f2c9a8;z-index:3;color:#6b4848;animation:arcpop .25s ease-out}
+#arcGo.rdy{background:#5cc47a!important;box-shadow:0 5px 0 #3f9b5a!important}
+.arcbub.t{font-size:12px;font-weight:800}
+@keyframes arcpop{from{transform:translateX(-50%) scale(.4);opacity:0}to{transform:translateX(-50%) scale(1);opacity:1}}
+.arcemo{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin:6px 0 4px}
+.arcemo button{width:40px;height:40px;border-radius:12px;background:#fff;border:3px solid #f2c9a8;font-size:22px;line-height:1;padding:0;box-shadow:0 3px 0 #ecd2b8;cursor:pointer}
+.arcemo.q button{width:auto;height:auto;border-radius:99px;font-size:13px;font-weight:800;padding:5px 12px;color:#6b4848;font-family:inherit}
+.arcemo button:active{transform:translateY(2px);box-shadow:0 1px 0 #ecd2b8}
+@media (max-height:760px){.arcemo button{width:34px;height:34px;font-size:18px}.arcemo.q button{width:auto;height:auto;font-size:12px;padding:3px 10px}.arcemo{margin:3px 0}.arcs.on{min-height:50px}}
 @media (max-height:760px){#arc .card{padding:12px 16px}#arc .card h1{font-size:24px}#arc .keys{display:none}#arcTracks .trk small{display:none}#arcTracks{margin:4px 0}.arcs{min-height:34px;padding:3px}.arcseats{margin:6px 0}#arcCd{min-height:26px;font-size:22px}#arc .sec{margin:6px 0 0}#arcMsg{min-height:0}#arc .row{margin-top:6px}}
 @media (max-width:600px){#arcTracks{gap:6px}#arcTracks .trk{font-size:12px;padding:4px 2px 5px}}
 #arcResExtra{white-space:pre-line;text-align:center;font-weight:800;color:#6b4848;line-height:1.7;margin:4px 0 8px;min-height:22px}
@@ -173,9 +185,11 @@ td.num{width:36px;text-align:center;font-weight:800;color:#e26b88}
     <p class="sec">賽道：每場由系統隨機抽</p>
     <div class="tracks" id="arcTracks"></div>
     <div id="arcCd"></div>
+    <div class="arcemo" id="arcEmo"></div>
+    <div class="arcemo q" id="arcQk"></div>
     <p id="arcMsg"></p>
     <div class="row"><button class="btn pink" id="arcGo" type="button">準備！開賽</button><button class="btn" id="arcSpec" type="button" style="display:none">觀戰</button></div>
-    <div class="row"><button class="btn sm" id="arcCar" type="button">🚗 我的車庫</button><button class="btn sm" id="arcView" type="button">視角</button><button class="btn sm" id="arcExit" type="button">離開</button></div>
+    <div class="row"><button class="btn sm" id="arcCar" type="button">🚗 我的車庫</button><button class="btn sm" id="arcView" type="button">視角</button><button class="btn sm" id="arcAssist" type="button">轉向輔助</button><button class="btn sm" id="arcExit" type="button">離開</button></div>
     <div class="arcmus"><span>♪ 音樂</span><select id="arcBgm"></select><input id="arcBgmV" type="range" min="0" max="100" step="5" title="音量"></div>
     <div class="keys"><b>←</b><b>→</b> 或 <b>A</b><b>D</b> 轉向　<b>空白</b> 漂移　<b>Shift</b> / <b>E</b> 用道具　<b>↓</b> 煞車<br>手機：左下 ◀ ▶ 轉向，右下「漂移」「道具」；油門自動</div>
   </div></div>
@@ -2428,17 +2442,20 @@ window.ARC = (function () {
     return null;
   }
   const myCos = () => window.COS ? COS.str(window.CG ? CG.cur : 'red') : '';
+  const EMO = ['😆', '😎', '🥰', '😭', '😡', '👍', '👋', '🔥'], QUICK = ['衝啊！', '等我一下', '我準備好了', '今天一定第一', '好緊張', 'GG'];
+  A.rd = new Set(); A.bub = new Map(); let emAt = 0;
+  const assistOn = () => ls.get('rexcup_assist') !== '0';
   function hiNow() {
     const mt = (A.phase === 'race' && A.hostU === A.me.uid && A.go) ? { mid: A.go.mid, seed: A.go.seed, track: A.go.track, parts: A.go.parts, gone: [...A.gone] } : undefined;
     const ph = A.phase === 'race' ? 'race' : A.phase === 'cd' ? 'cd' : 'lobby';
-    send({ t: 'hi', s: A.me.seat, n: A.me.name, c: window.CG ? CG.cur : 'red', x: myCos(), ph, m: mt });
+    send({ t: 'hi', s: A.me.seat, n: A.me.name, c: window.CG ? CG.cur : 'red', x: myCos(), rd: A.rd.has(A.me.uid) ? 1 : 0, ph, m: mt });
   }
   setInterval(() => { if (A.phase !== 'init') hiNow(); const t = now(); for (const [u, r] of A.roster) if (t - r.seen > 5000) A.roster.delete(u); if (A.phase === 'lobby') renderLobby(); }, HI_MS);
 
   function seatsView() {
     const seats = new Array(8).fill(null);
-    seats[A.me.seat & 7] = { n: A.me.name, me: true };
-    for (const [u, r] of A.roster) if (u !== A.me.uid && r.p === (A.paid ? 1 : 0)) { const s = r.s & 7; if (!seats[s]) seats[s] = { n: r.n, ph: r.ph }; }
+    seats[A.me.seat & 7] = { n: A.me.name, me: true, u: A.me.uid, rd: A.rd.has(A.me.uid) };
+    for (const [u, r] of A.roster) if (u !== A.me.uid && r.p === (A.paid ? 1 : 0)) { const s = r.s & 7; if (!seats[s]) seats[s] = { n: r.n, ph: r.ph, u, rd: A.rd.has(u) || (A.phase === 'cd' && !!r.rd) }; }
     return seats;
   }
   function humansNow() { const a = [{ u: A.me.uid, s: A.me.seat, n: A.me.name, c: window.CG ? CG.cur : 'red', x: myCos() }]; for (const [u, r] of A.roster) if (u !== A.me.uid && r.p === (A.paid ? 1 : 0) && r.ph !== 'race' && now() - r.seen < 4500) a.push({ u, s: r.s, n: r.n, c: r.c, x: r.x }); return a.slice(0, 8); }
@@ -2451,26 +2468,38 @@ window.ARC = (function () {
     $$('arcPaid').textContent = '付費場 ' + A.fee + ' G';
     $$('arcSub').textContent = A.paid ? '付費場：連線真人，空位由系統補滿。第一名可得 token' : '免費場：不扣 G，沒有 token，純粹好玩。空位由系統補滿';
     const seats = seatsView();
-    $$('arcSeats').innerHTML = seats.map((s, i) => '<div class="arcs' + (s ? ' on' : '') + (s && s.me ? ' me' : '') + '"><b>' + (i + 1) + '</b>' + (s ? esc(s.n) : '空位') + '</div>').join('');
+    const tNow = now();
+    $$('arcSeats').innerHTML = seats.map((s, i) => {
+      const bb = s && A.bub.get(s.u), bub = bb && tNow - bb.at < 3500 ? '<div class="arcbub' + (bb.t ? ' t' : '') + '">' + esc(bb.txt) + '</div>' : '';
+      const badge = !s ? '<span class="arcrd bot">🤖 系統補上</span>' : s.rd ? '<span class="arcrd y">✔ 準備好了</span>' : '<span class="arcrd">💤 還沒準備</span>';
+      return '<div class="arcs' + (s ? ' on' : '') + (s && s.me ? ' me' : '') + '"><b>' + (i + 1) + '</b>' + (s ? esc(s.n) : '空位') + badge + bub + '</div>';
+    }).join('');
+    if ([...A.bub.values()].some(v => tNow - v.at < 3500)) { clearTimeout(A.bubT); A.bubT = setTimeout(renderLobby, 3600); }
     const lm = A.phase === 'lobby' ? liveMatch() : null;
     $$('arcSpec').style.display = lm ? '' : 'none';
     const go = $$('arcGo'); go.disabled = A.phase !== 'lobby' || !!lm || (A.paid && !A.trial && A.bal < A.fee);
-    go.textContent = A.phase === 'cd' ? '即將開賽…' : lm ? '比賽進行中' : '準備！開賽';
+    const joined = A.phase === 'cd' && !A.spectator, iRd = A.rd.has(A.me.uid);
+    if (joined) go.disabled = iRd;
+    go.textContent = A.phase === 'cd' ? (!joined ? '即將開賽…' : iRd ? '✔ 已準備' : '我也準備好了！') : lm ? '比賽進行中' : '準備！';
+    go.classList.toggle('rdy', A.phase === 'cd' && iRd);
     let msg = A.msg;
     if (!msg) {
       if (lm) msg = '有人正在比賽，可以先觀戰，下一場再加入';
       else if (A.paid && !A.trial && A.bal < A.fee) msg = 'G 不夠（餘額 ' + A.bal + '），先玩免費場吧';
       else if (A.paid && A.tok) msg = A.tok.claimed ? '今天的 token 已經領過了（持有 ' + A.tok.tokens + '）' : '今天還拿得到 token！（持有 ' + A.tok.tokens + '）';
-      else if (A.phase === 'lobby') msg = '按下準備後 5 秒開賽，沒坐滿的位置由系統補上';
+      else if (A.phase === 'lobby') msg = '有人按下準備就會倒數 5 秒開賽，沒準備的人也會一起上場，沒坐滿的位置由系統補上';
     }
     $$('arcMsg').textContent = msg;
+    $$('arcAssist').textContent = '轉向輔助：' + (assistOn() ? '開' : '關');
     $$('arcView').textContent = '視角：' + (view2D ? '2D 俯視' : '3D 追尾');
   }
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
   /* ---------- 準備 → 倒數 → 賽道跑馬燈 ---------- */
   function pressGo() {
-    if (A.phase !== 'lobby') return; unlockAudio();
+    unlockAudio();
+    if (A.phase === 'cd') { if (!A.spectator && !A.rd.has(A.me.uid)) { A.rd.add(A.me.uid); hiNow(); renderLobby(); } return; }
+    if (A.phase !== 'lobby') return;
     const go = { t: 'go', mid: A.me.uid + ':' + Date.now(), seed: (Math.random() * 1e9) | 0, track: (Math.random() * TRACKS.length) | 0, parts: humansNow(), in: CD_SEC };
     send(go); onGo(A.me.uid, go);
   }
@@ -2479,6 +2508,7 @@ window.ARC = (function () {
     if (!m || !Array.isArray(m.parts) || !m.parts.length || !(m.track >= 0 && m.track < TRACKS.length)) return;
     if (A.phase === 'race') return;
     if (A.phase === 'cd' && A.go && String(m.mid) >= String(A.go.mid)) return;
+    A.rd = new Set([from]); A.bub.clear(); A.starter = (m.parts.find(p => p.u === from) || {}).n || '有人';
     A.go = m; A.phase = 'cd'; A.cdEnd = now() + (m.in || CD_SEC) * 1000; A.msg = ''; A.logId = 0; A.xpSent = false; A.xpRes = null; A.awardDone = false; A.awardMsg = ''; A.gone.clear(); A.feeFail = false;
     A.spectator = !m.parts.some(p => p.u === A.me.uid);
     roulette(m.track);
@@ -2547,7 +2577,7 @@ window.ARC = (function () {
   setInterval(() => {
     if (A.phase !== 'cd') return;
     const left = A.cdEnd - now();
-    $$('arcCd').textContent = left > 0 ? (left > (CD_SEC * 1000 - ROUL_MS) ? '抽賽道中…' : TRACKS[A.go.track].name + '　' + Math.ceil(left / 1000)) : '';
+    $$('arcCd').textContent = left > 0 ? '⏱ ' + (A.starter || '有人') + ' 已準備　' + (left > (CD_SEC * 1000 - ROUL_MS) ? '抽賽道中…' : TRACKS[A.go.track].name + '　' + Math.ceil(left / 1000) + ' 秒後開賽') : '';
     if (left <= 0) startRaceNet(A.go, A.spectator);
   }, 100);
 
@@ -2601,7 +2631,7 @@ window.ARC = (function () {
   }
   function startRaceNet(go, spectate) {
     A.phase = 'race'; A.resOpen = false;
-    if (window.CG) CG.apply(); unlockAudio(); ASSIST = true; FX = []; shakeT = 0;
+    if (window.CG) CG.apply(); unlockAudio(); ASSIST = assistOn(); FX = []; shakeT = 0;
     if (window.GH) { GH.on = false; GH.mode = 'race'; }
     buildNetRace(go, spectate);
     replay = null; resultsShown = false; finTimer = 0; lastShownRank = 0; follow = R.player ? R.player.id : 0; topZoom = 1.15;
@@ -2637,8 +2667,9 @@ window.ARC = (function () {
     if (m.g !== 'race' || m.p !== (A.paid ? 1 : 0)) return;
     const t = now(); A.seen.set(from, t);
     switch (m.t) {
-      case 'hi': A.roster.set(from, { s: m.s | 0, n: String(m.n || '').slice(0, 8), c: m.c, x: typeof m.x === 'string' ? m.x.slice(0, 40) : '', ph: m.ph, p: m.p, seen: t, mt: m.m || null }); if (A.phase === 'lobby') renderLobby(); break;
+      case 'hi': A.roster.set(from, { s: m.s | 0, n: String(m.n || '').slice(0, 8), c: m.c, rd: m.rd ? 1 : 0, x: typeof m.x === 'string' ? m.x.slice(0, 40) : '', ph: m.ph, p: m.p, seen: t, mt: m.m || null }); if (A.phase === 'lobby') renderLobby(); break;
       case 'go': onGo(from, m); break;
+      case 'em': { const txt = m.k === 'e' ? EMO[m.i | 0] : m.k === 'q' ? QUICK[m.i | 0] : null; if (txt) { A.bub.set(from, { txt, t: m.k === 'q', at: t }); if (A.phase === 'lobby' || A.phase === 'cd') renderLobby(); } break; }
       case 's': case 'b': if (A.phase === 'race' && R && Array.isArray(m.a)) for (const a of m.a) if (Array.isArray(a) && a.length >= 25) applySnap(a); break;
       case 'hz': if (A.phase === 'race' && R && R[m.kind] && m.o && typeof m.o === 'object') { R[m.kind].push(m.o); if (m.kind === 'meteors') R.ev.push({ t: 'meteor', k: m.o.tgt }); } break;
       case 'hzrm': if (R && R[m.kind]) { const i = R[m.kind].findIndex(o => o.id === m.id); if (i >= 0) R[m.kind].splice(i, 1); } break;
@@ -2705,7 +2736,7 @@ window.ARC = (function () {
   function toLobby() {
     if (A.phase === 'race' && A.live) send({ t: 'bye' });
     A.live = false; A.resOpen = false; A.go = null; A.gone.clear(); A.me.k = null; A.spectator = false; A.msg = '';
-    R = null; replay = null; mode = 'lobby'; A.phase = 'lobby';
+    R = null; replay = null; mode = 'lobby'; A.phase = 'lobby'; A.rd = new Set(); A.bub.clear();
     $$('arcRes').style.display = 'none'; $$('arcQuit').style.display = 'none'; $$('rbar').style.display = 'none'; $$('menuBtn').style.display = 'none'; $$('follow').style.display = 'none'; $$('touch').classList.remove('on'); $$('toast').style.display = 'none';
     show3D(0); roulT.forEach(clearTimeout); $$('arcCd').textContent = ''; for (const c of $$('arcTracks').children) c.classList.remove('on');
     renderLobby(); hiNow(); post({ t: 'tt-ready' });
@@ -2718,8 +2749,8 @@ window.ARC = (function () {
     if ($$('arcQuit').style.display === 'flex') { $$('arcQuit').style.display = 'none'; return; }
     leave();
   }
-  function openGarage() { $$('menu').style.display = 'flex'; showPage('car'); $$('carGo').textContent = '選好了'; $$('carBack').textContent = '← 回大廳'; }
-  function closeGarage() { $$('menu').style.display = 'none'; hiNow(); renderLobby(); }
+  function openGarage() { $$('menu').classList.add('cargo'); $$('menu').style.display = 'flex'; showPage('car'); $$('carGo').textContent = '選好了'; $$('carBack').textContent = '← 回大廳'; }
+  function closeGarage() { $$('menu').classList.remove('cargo'); $$('menu').style.display = 'none'; hiNow(); renderLobby(); }
 
   /* ---------- 組裝畫面 ---------- */
   function init() {
@@ -2727,8 +2758,18 @@ window.ARC = (function () {
     $$('arcFree').onclick = () => { A.paid = false; A.msg = ''; renderLobby(); hiNow(); };
     $$('arcPaid').onclick = () => { A.paid = true; A.msg = ''; renderLobby(); hiNow(); };
     $$('arcGo').onclick = pressGo;
+    const sendEm = (k, i) => {
+      const t = now(); if (t - emAt < 700) return; emAt = t;
+      const txt = k === 'e' ? EMO[i] : QUICK[i]; A.bub.set(A.me.uid, { txt, t: k === 'q', at: t });
+      send({ t: 'em', k, i }); renderLobby();
+    };
+    $$('arcEmo').innerHTML = EMO.map((e, i) => '<button type="button" data-i="' + i + '">' + e + '</button>').join('');
+    $$('arcQk').innerHTML = QUICK.map((q, i) => '<button type="button" data-i="' + i + '">' + q + '</button>').join('');
+    $$('arcEmo').onclick = e => { const b = e.target.closest('button'); if (b) sendEm('e', +b.dataset.i); };
+    $$('arcQk').onclick = e => { const b = e.target.closest('button'); if (b) sendEm('q', +b.dataset.i); };
     $$('arcSpec').onclick = () => startSpectate(liveMatch());
     $$('arcCar').onclick = openGarage;
+    $$('arcAssist').onclick = () => { ls.set('rexcup_assist', assistOn() ? '0' : '1'); renderLobby(); };
     $$('arcView').onclick = () => { view2D = !view2D; ls.set('rexcup_view', view2D ? '2d' : '3d'); renderLobby(); };
     $$('arcExit').onclick = leave;
     $$('arcResBack').onclick = toLobby; $$('arcResExit').onclick = leave;
@@ -2744,7 +2785,7 @@ window.ARC = (function () {
     });
     if (ls.get('rexcup_view') == null) view2D = true;
     $$('menu').style.display = 'none';
-    mode = 'lobby'; A.phase = 'lobby';
+    mode = 'lobby'; A.phase = 'lobby'; A.rd = new Set(); A.bub.clear();
     if (!EMBED) { A.bal = 99999; A.trial = true; }
     renderLobby(); hiNow();
     post({ t: 'tt-ready' });
