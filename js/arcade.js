@@ -211,6 +211,23 @@ async function gsCharge(paid) {
 /* 把「今天還能不能拿 token」告訴 iframe 的大廳（先向後端問最新的一次） */
 const gsPostTok = () => gsPost({ t: 'tt-tok', claimed: !!bbS.today_claimed, tokens: bbS.tokens | 0 });
 async function gsTok() { try { bbSet(await rpc('bb_state')); gsPostTok(); } catch (e) { /* 後端沒裝就不顯示 */ } }
+/* 賽車熟練度／塗裝：資料存後端 race_car（沒裝 SQL 就整個功能靜默關閉，不影響比賽） */
+let gsCosOk = true;
+async function gsGarage() {
+  if (!gsCosOk) return;
+  try { const r = await rpc('race_garage'); gsPost({ t: 'tt-garage', cars: (r && r.cars) || {} }); }
+  catch (e) { if (gsMissing(e)) gsCosOk = false; }
+}
+async function gsXp(logId, car) {   // 付費場跑完 +1 經驗（後端用 log 驗證，同一場只算一次）
+  if (!gsCosOk || !logId || gsEco !== true) return;
+  try { const r = await rpc('race_xp_add', { p_log_id: logId, p_car: car }); gsPost({ t: 'tt-xp-res', ok: true, car: r.car, xp: r.xp, lv: r.lv, up: !!r.up, cars: r.cars }); }
+  catch (e) { if (gsMissing(e)) gsCosOk = false; gsPost({ t: 'tt-xp-res', ok: false }); }
+}
+async function gsCosSave(d) {
+  if (!gsCosOk) return;
+  try { const r = await rpc('race_car_set', { p_car: String(d.car), p_color: String(d.c), p_sticker: String(d.k), p_flame: String(d.f), p_spark: String(d.s) }); gsPost({ t: 'tt-garage', cars: r.cars, saved: true }); }
+  catch (e) { if (gsMissing(e)) gsCosOk = false; gsPost({ t: 'tt-garage', cars: null, err: String((e && e.message) || '').slice(0, 40) }); }
+}
 /* 付費場拿第一名 → 請後端發 token（後端每天最多發 1 個、持有滿 10 不發） */
 async function gsAward(logId) {
   if (!logId || gsEco !== true) return;
@@ -235,10 +252,12 @@ function onGsMsg(p) {
 window.addEventListener('message', e => {
   if (!gsFrame || e.source !== gsFrame.contentWindow) return;
   const d = e.data; if (!d || typeof d !== 'object') return;
-  if (d.t === 'tt-ready') { gsTok(); gsPost({ t: 'tt-cars', ids: gsCars() }); gsPost({ t: 'tt-mus', on: !!musicOn, vol: +musicVol || 0 }); gsPost({ t: 'tt-bal', v: gsCoins(), trial: gsEco === false, fee: GS_FEE }); gsPost({ t: 'tt-me', net: !!(net && net.ok), uid: myUid, name: me ? me.name : '', seat: Math.max(0, gsSeatIdx()) }); }
+  if (d.t === 'tt-ready') { gsTok(); gsPost({ t: 'tt-cars', ids: gsCars() }); gsGarage(); gsPost({ t: 'tt-mus', on: !!musicOn, vol: +musicVol || 0 }); gsPost({ t: 'tt-bal', v: gsCoins(), trial: gsEco === false, fee: GS_FEE }); gsPost({ t: 'tt-me', net: !!(net && net.ok), uid: myUid, name: me ? me.name : '', seat: Math.max(0, gsSeatIdx()) }); }
   else if (d.t === 'tt-net') gsSend(d.m);
   else if (d.t === 'tt-fee') gsCharge(!!d.paid).then(r => gsPost({ t: 'tt-fee-res', ok: r.ok, v: r.v, trial: r.trial, msg: r.msg, logId: r.logId || 0 }));
   else if (d.t === 'tt-win') gsAward(+d.logId | 0);
+  else if (d.t === 'tt-xp') gsXp(+d.logId | 0, String(d.car || ''));
+  else if (d.t === 'tt-cos') gsCosSave(d);
   else if (d.t === 'tt-exit') closeTetris();
 });
 

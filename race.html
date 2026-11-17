@@ -102,7 +102,7 @@ td.num{width:36px;text-align:center;font-weight:800;color:#e26b88}
 #arcTracks .trk.on{transform:scale(1.04)}
 @media (max-height:760px){#arc .card{padding:12px 16px}#arc .card h1{font-size:24px}#arc .keys{display:none}#arcTracks .trk small{display:none}#arcTracks{margin:4px 0}.arcs{min-height:34px;padding:3px}.arcseats{margin:6px 0}#arcCd{min-height:26px;font-size:22px}#arc .sec{margin:6px 0 0}#arcMsg{min-height:0}#arc .row{margin-top:6px}}
 @media (max-width:600px){#arcTracks{gap:6px}#arcTracks .trk{font-size:12px;padding:4px 2px 5px}}
-#arcResExtra{text-align:center;font-weight:800;color:#6b4848;line-height:1.7;margin:4px 0 8px;min-height:22px}
+#arcResExtra{white-space:pre-line;text-align:center;font-weight:800;color:#6b4848;line-height:1.7;margin:4px 0 8px;min-height:22px}
 </style>
 </head>
 <body>
@@ -693,7 +693,7 @@ function render3D(me, dt) {
   for (const e of R.eggs) add(e.x, e.y, IMG.icons.egg, 8, 8);
   for (const c of R.coins) if (c.cd <= 0) add(c.x, c.y, IMG.icons.coin, 5, 5); for (const o of R.poos) add(o.x, o.y, IMG.icons.poo, 8, 8);
   for (const b of R.bones) add(b.x, b.y, IMG.icons.bone, 8, 8);
-  for (const o of R.karts) if (o !== me) add(o.x, o.y, o.boostT > 0 ? IMG.rearF[o.skin] : IMG.rear[o.skin], 12, 11.1, o);
+  for (const o of R.karts) if (o !== me) add(o.x, o.y, window.COS ? COS.rear(o) : (o.boostT > 0 ? IMG.rearF[o.skin] : IMG.rear[o.skin]), 12, 11.1, o);
   objs.sort((a, b) => b.dep - a.dep);
   for (const ob of objs) {
     const ppu = ppuF(ob.dep), w = Math.max(1, Math.round(ob.w * ppu)), h = Math.max(1, Math.round(ob.h * ppu));
@@ -709,14 +709,14 @@ function render3D(me, dt) {
   // 自己的車（固定在畫面底部，左右依實際位置偏移）
   const rxm = me.x - cx, rym = me.y - cy, dep = rxm * fx + rym * fy, lat = rxm * rx + rym * ry;
   let psx = Wp / 2 + clamp(lat * ppuF(Math.max(8, dep)), -Wp * .28, Wp * .28);
-  const img = me.boostT > 0 ? IMG.rearF[me.skin] : IMG.rear[me.skin], pw = 26 * 1.9, ph = 24 * 1.9, py = Hp - 3;
+  const img = window.COS ? COS.rear(me) : (me.boostT > 0 ? IMG.rearF[me.skin] : IMG.rear[me.skin]), pw = 26 * 1.9, ph = 24 * 1.9, py = Hp - 3;
   lc.save(); lc.translate(Math.round(psx), py - ph / 2);
   if (me.stunT > 0) lc.rotate(me.spin * .7); else if (me.drift) lc.rotate(me.drift * .16); else lc.rotate(me.steer * .05);
   if (me.stunT > 0 && Math.floor(performance.now() / 90) % 2) lc.globalAlpha = .6;
   lc.drawImage(img, -pw / 2, -ph / 2, pw, ph); lc.restore(); lc.globalAlpha = 1;
   if (me.shield > 0) { lc.strokeStyle = '#ffb02e'; lc.lineWidth = 1.2; lc.beginPath(); lc.ellipse(psx, py - ph / 2, pw * .62, ph * .66, 0, 0, 7); lc.stroke(); }
   if (me.drift && me.charge > .3) {   // 漂移火花
-    const lv = me.charge > 2.4 ? '#ff6b6b' : me.charge > 1.5 ? '#ffd24a' : me.charge > .75 ? '#5fd0ff' : '#ffffff';
+    const lv = (me.cs && me.cs.spc) ? me.cs.spc[me.charge > 2.4 ? 3 : me.charge > 1.5 ? 2 : me.charge > .75 ? 1 : 0] : me.charge > 2.4 ? '#ff6b6b' : me.charge > 1.5 ? '#ffd24a' : me.charge > .75 ? '#5fd0ff' : '#ffffff';
     lc.fillStyle = lv; for (let i = 0; i < 5; i++) { lc.fillRect(psx + (me.drift > 0 ? -pw * .5 : pw * .5) + (Math.random() - .5) * 8, py - 2 - Math.random() * 6, 2, 2); }
   }
 }
@@ -1084,7 +1084,7 @@ window.FXV = (function () {
   const FS = 'varying vec4 vc;varying float vs;void main(){vec2 p=gl_PointCoord-.5;float d=length(p)*2.;float a;' +
     'if(vs<.5){a=1.-smoothstep(0.,1.,d);a*=a;a=min(1.,a+(1.-smoothstep(0.,.3,d))*.55);}' +
     'else if(vs<1.5){float an=atan(p.y,p.x);float r=.40+.60*abs(cos(2.5*an));a=1.-smoothstep(r-.16,r,d);}' +
-    'else{a=1.-smoothstep(.7,1.,max(abs(p.x),abs(p.y))*2.);}' +
+    'else if(vs>2.5){float x=p.x*2.7,y=-p.y*2.7+.3;float f=pow(x*x+y*y-1.,3.)-x*x*y*y*y;a=f<0.?1.:0.;}else{a=1.-smoothstep(.7,1.,max(abs(p.x),abs(p.y))*2.);}' +
     'if(a<.01)discard;gl_FragColor=vec4(vc.rgb,vc.a*a);}';
 
   function PS(max, add, ro) {
@@ -1268,7 +1268,7 @@ window.FXV = (function () {
           // ---- 漂移 ----
           const dr = live ? K.drift : ((f & 8) ? 1 : 0);
           if (dr) {
-            const lv = live ? lvOf(K.charge) : 1, spd = live ? K.speed : 60, pr = SPK[lv];
+            const lv = live ? lvOf(K.charge) : 1, spd = live ? K.speed : 60, pr = (K && K.cs && K.cs.sp) ? K.cs.sp[lv] : SPK[lv];
             const lw = this.lw[i];
             if (!live || K.speed > 25) {
               if (lw && Math.abs(lw[0] - lx) + Math.abs(lw[1] - lz) < 8) { if ((lw[0] - lx) * (lw[0] - lx) + (lw[1] - lz) * (lw[1] - lz) > 1.2) { SK.add(lw[0], lw[1], lx, lz, this.clock); SK.add(lw[2], lw[3], rx, rz, this.clock); this.lw[i] = [lx, lz, rx, rz]; } }
@@ -1285,7 +1285,8 @@ window.FXV = (function () {
           } else this.lw[i] = null;
           // ---- 加速：尾焰 ----
           if (f & 4) {
-            const pr = FLM[this.bk[i] || 'w'], ex = a[0] - 8.2 * c, ez = a[1] - 8.2 * s; q.f += 85 * dts;
+            const bkk = this.bk[i] || 'w', pr = (bkk === 'w' && K && K.cs && K.cs.fl) || FLM[bkk], ex = a[0] - 8.2 * c, ez = a[1] - 8.2 * s; q.f += 85 * dts;
+            if (bkk === 'w' && K && K.cs && K.cs.heart && Math.random() < 6 * dts) PA.spawn(ex - c * 2, rn(3, 4.5), ez - s * 2, -c * rn(18, 30) + rn(-5, 5), rn(6, 14), -s * rn(18, 30) + rn(-5, 5), rn(.5, .8), 2.7, 1.5, 0xff7fb4, 0xffd0e4, 1, 0, 1, 3);
             while (q.f >= 1) { q.f--; const sp = rn(35, 70); PA.spawn(ex + rn(-.6, .6), rn(2.4, 4), ez + rn(-.6, .6), -c * sp + rn(-4, 4), rn(-2, 5), -s * sp + rn(-4, 4), rn(.16, .3), rn(2.2, 3.2), .4, pr[0], pr[1], .95, 0, 1, 0); }
             PA.spawn(ex, 3.2, ez, 0, 0, 0, .09, 6.5, 5, pr[1], pr[1], .4, 0, 0, 0);
             const v = kv[i]; if (v && v.fl) { v.fl.material.color.setHex(pr[1]); v.fl.scale.y = rn(.8, 1.35); }
@@ -2044,7 +2045,7 @@ const TOPS = {};
   TOPS.cake = mk(({ ell, rect, wheels }) => { wheels([3, 10]); ell(5.5, 8, 3.9, 5.8, '#F4C0D1'); ell(5.5, 8, 3.1, 4.8, '#FBEAF0'); ell(5.5, 8, 2.2, 3.4, '#ED93B1'); rect(5, 7, 2, 2, '#A32D2D'); });
   TOPS.rock = mk(({ set, ell, rect }) => { rect(2, 4, 2, 3, K); rect(7, 4, 2, 3, K); rect(2, 10, 2, 3, K); rect(7, 10, 2, 3, K); ell(5.5, 8, 2.4, 6.6, '#E6E8EE'); ell(5.5, 3, 2.4, 3.4, '#E24B4A', (x, y) => y <= 3); rect(3, 12, 1, 2, '#E24B4A'); rect(7, 12, 1, 2, '#E24B4A'); ell(5.5, 7, 1.3, 1.5, '#85B7EB'); set(5, 14, '#EF9F27'); set(6, 14, '#EF9F27'); });
 })();
-function topOf(k) { return (k.model && TOPS[k.model]) || IMG.top[k.skin]; }
+function topOf(k) { const b = (k.model && TOPS[k.model]) || IMG.top[k.skin]; return (window.COS && k.cos) ? COS.top(k, b) : b; }
 
 /* 3D：新車型用自己的模型；舊三款照舊（每台各自的車型） */
 const _mk0 = mkKart;
@@ -2075,7 +2076,7 @@ window.CG = (function () {
   let S2 = null, C2 = null, cache = {}, lw = 0, lh = 0;
   function ensure() { if (S2) return; S2 = new THREE.Scene(); S2.add(new THREE.HemisphereLight(0xffffff, 0x9ccf88, 1)); const d = new THREE.DirectionalLight(0xffffff, .6); d.position.set(-.5, 1, .6); S2.add(d); C2 = new THREE.PerspectiveCamera(34, 1, 1, 300); }
   function draw(id, cv, yaw, z) {
-    ensure(); const v = cache[id] || (cache[id] = mkKart(kartLook(id))), w = cv.width, h = cv.height;
+    ensure(); const ck = id + '|' + (window.COS ? COS.key(id) : ''); if (!cache[ck] && Object.keys(cache).length > 40) cache = {}; const v = cache[ck] || (cache[ck] = mkKart(Object.assign(kartLook(id), { cos: window.COS ? COS.cur(id) : null }))), w = cv.width, h = cv.height;
     ren.setPixelRatio(1); if (lw !== w || lh !== h) { ren.setSize(w, h, false); lw = w; lh = h; } ren.setClearColor(0xe8f7ff, 1);
     C2.aspect = w / h; C2.updateProjectionMatrix(); const f = z || 1; C2.position.set(-30 * f, 17 * f, 27 * f); C2.lookAt(0, 6, 0);
     v.g.rotation.y = yaw; S2.add(v.g); ren.render(S2, C2); cv.getContext('2d').drawImage(GLC, 0, 0); S2.remove(v.g); GLC._w = 0; ren.setClearColor(0, 1);
@@ -2090,6 +2091,7 @@ window.CG = (function () {
     const st = $('gstat'), isCur = G.cur === c.id; st.textContent = isCur ? (o ? '使用中' : '試駕中') : (o ? '已擁有' : '未擁有'); st.className = 'gbadge' + (o ? '' : ' lk');
     document.querySelectorAll('#gstrip .gt').forEach(b => { const id = b.dataset.id, ow = own.has(id); b.classList.toggle('on', id === G.view); b.classList.toggle('lk', !ow); b.querySelector('.tag').textContent = G.cur === id ? '使用中' : (ow ? '' : '🔒'); b.querySelector('.tag').style.display = (G.cur === id || !ow) ? '' : 'none'; });
     $('gmsg').textContent = G.msg;
+    try { if (window.COS) COS.panel(G.view, own.has(G.view)); } catch (e) { console.error(e); }
     const bx = $('gbtns'); bx.innerHTML = '';
     const add = (t, cls, fn) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'btn sm ' + cls; b.textContent = t; b.onclick = fn; bx.appendChild(b); };
     const pick = msg => { G.cur = G.view; G.msg = msg; if (own.has(G.cur)) ls.set('rexcup_car', G.cur); G.apply(); refresh(); try { buildModes(); } catch (e) { } };
@@ -2102,7 +2104,7 @@ window.CG = (function () {
   }
   function build() {
     const box = $('garage'); if (!box) return;
-    box.innerHTML = '<div class="gbig"><canvas id="gcv" width="360" height="220"></canvas><div class="ginfo"><h2 id="gname"></h2><p id="gsub"></p><span id="gstat" class="gbadge"></span></div></div><div class="gstrip" id="gstrip"></div><p id="gmsg"></p><div class="row" id="gbtns"></div><div style="margin-top:8px"><button class="btn sm" id="gdev" type="button"></button></div>';
+    box.innerHTML = '<div class="gbig"><canvas id="gcv" width="360" height="220"></canvas><div class="ginfo"><h2 id="gname"></h2><p id="gsub"></p><span id="gstat" class="gbadge"></span></div></div><div class="gstrip" id="gstrip"></div><p id="gmsg"></p><div class="row" id="gbtns"></div><div id="gcos" style="display:none"></div><div style="margin-top:8px"><button class="btn sm" id="gdev" type="button"></button></div>';
     CARS.forEach(c => {
       const b = document.createElement('button'); b.type = 'button'; b.className = 'gt'; b.dataset.id = c.id;
       const cv = document.createElement('canvas'); cv.width = 120; cv.height = 76; b.appendChild(cv); b.appendChild(document.createTextNode(c.n));
@@ -2138,6 +2140,7 @@ window.CG = (function () {
     const key = 't' + id + w; if (snaps[key]) return snaps[key];
     const cv = document.createElement('canvas'); cv.width = w; cv.height = h; draw(id, cv, Math.PI * .08, .62); return snaps[key] = cv;
   };
+  G.rethumb = () => { cache = {}; renderThumbs(); };
   let running = false;
   const visible = () => $('pgCar').classList.contains('on') && $('menu').style.display !== 'none';
   function loop() { if (!visible() || !window.__ready || !$('gcv')) { running = false; return; } draw(G.view, $('gcv'), performance.now() / 1500, .72); requestAnimationFrame(loop); }
@@ -2148,6 +2151,235 @@ window.CG = (function () {
 })();
 </script>
 
+<script>
+/* =====================================================================
+   賽車：車輛熟練度 + 塗裝（車身顏色／貼紙／尾焰／漂移火花）
+   全域 COS：資料由外層 arcade.js 透過 tt-garage / tt-xp-res 傳進來，存檔用 tt-cos 送出
+   ===================================================================== */
+window.COS = (function () {
+  'use strict';
+  const LV_AT = [0, 0, 3, 10, 25, 50];                       // 各等級所需場數（index = 等級）
+  const COLS = { orig: { n: '原色', lv: 1, hex: '#e8494f' }, sky: { n: '天空藍', lv: 2, hex: '#4aa8ff', h: 205, s: .8 }, mint: { n: '薄荷綠', lv: 4, hex: '#3fcf9a', h: 155, s: .6 }, peach: { n: '蜜桃粉', lv: 5, hex: '#ff9fb0', h: 345, s: .85, dl: .1 } };
+  const STKS = { none: { n: '無', lv: 1 }, star: { n: '星星', lv: 3 }, bolt: { n: '閃電', lv: 4 }, heart: { n: '愛心', lv: 5 } };
+  const FLS = { f0: { n: '普通火焰', lv: 1, cols: ['#ff5a3c', '#ffa23c', '#ffe27a'] }, f1: { n: '藍色火焰', lv: 3, cols: ['#2f6bff', '#5ac8ff', '#d8f6ff'] }, f2: { n: '粉紅愛心', lv: 5, cols: ['#ff6fa8', '#ffb3d0', '#fff0f6'], heart: 1 } };
+  const SPS = { s0: { n: '標準火花', lv: 1, cols: ['#ffe27a', '#ffffff'] }, s1: { n: '藍色火花', lv: 2, cols: ['#5ac8ff', '#d8f6ff'] }, s2: { n: '紫色火花', lv: 4, cols: ['#b07aff', '#e6d4ff'] } };
+  const DEF = { c: 'orig', k: 'none', f: 'f0', s: 's0' };
+  const UNLOCK = { 2: '天空藍車身・藍色火花', 3: '星星貼紙・藍色火焰', 4: '薄荷綠車身・閃電貼紙・紫色火花', 5: '蜜桃粉車身・愛心貼紙・粉紅愛心火焰' };
+  // 3D 漂移火花調色盤（依蓄力等級 0~3）與 2D 俯視用的 CSS 色
+  const SP3 = {
+    s1: [[0xdff4ff, 0x9fdcff], [0x8fdcff, 0x2b6bff], [0x6fe0ff, 0x1a8cff], [0xffffff, 0x3aa0ff]],
+    s2: [[0xf0e0ff, 0xc9a3ff], [0xe2c0ff, 0x8a3cff], [0xd48cff, 0x6a1fe0], [0xffc2f5, 0x8a3cff]]
+  };
+  const SP2 = { s1: ['#ffffff', '#7fd4ff', '#3aa0ff', '#bfe6ff'], s2: ['#f0e0ff', '#c9a3ff', '#a060ff', '#ffc2f5'] };
+  const MODEL_HEX = { pump: ['#EF9F27'], milk: ['#378ADD'], boat: ['#378ADD'], cake: ['#F4C0D1', '#ED93B1'], rock: ['#E24B4A'] };
+
+  const C = { data: null, ready: false, draft: {}, msg: '', send: null, last: null };
+
+  /* ---------- 字串（跟別人同步用）：顏色.貼紙.尾焰.火花 ---------- */
+  const norm = o => ({ c: COLS[o && o.c] ? o.c : DEF.c, k: STKS[o && o.k] ? o.k : DEF.k, f: FLS[o && o.f] ? o.f : DEF.f, s: SPS[o && o.s] ? o.s : DEF.s });
+  C.parse = str => { const a = String(str || '').split('.'); return norm({ c: a[0], k: a[1], f: a[2], s: a[3] }); };
+  const toStr = o => o.c + '.' + o.k + '.' + o.f + '.' + o.s;
+  const saved = id => { const d = C.data && C.data[id]; return d ? norm(d) : Object.assign({}, DEF); };
+  C.str = id => toStr(saved(id));
+  C.cur = id => C.draft[id] || saved(id);                      // 預覽用：編輯中就給草稿
+  C.key = id => toStr(C.cur(id));
+  C.xp = id => (C.data && C.data[id] && C.data[id].xp) | 0;
+  C.lv = id => { const x = C.xp(id); return x >= 50 ? 5 : x >= 25 ? 4 : x >= 10 ? 3 : x >= 3 ? 2 : 1; };
+  C.unlock = lv => UNLOCK[lv] || '';
+  C.compile = cos => !cos ? null : ({ fl: cos.f === 'f1' ? [0xd8f0ff, 0x2b7bff] : cos.f === 'f2' ? [0xffe6f0, 0xff5fa0] : null, heart: cos.f === 'f2', sp: SP3[cos.s] || null, spc: SP2[cos.s] || null });
+
+  /* ---------- 色彩工具 ---------- */
+  const hexHue = hx => { const c = new THREE.Color(hx), o = {}; c.getHSL(o); return o.h; };
+  const hdist = (a, b) => { const d = Math.abs(a - b); return Math.min(d, 1 - d); };
+  function skinHues(skin) { try { return [hexHue(ASSETS.body[skin] || '#e26b88')]; } catch (e) { return []; } }
+  function modelHues(k) { return (k.model && MODEL_HEX[k.model]) ? MODEL_HEX[k.model].map(hexHue) : skinHues(k.skin); }
+  const near = (h, hs) => hs.some(x => hdist(h, x) < .085);
+  function target(h, s, l, t) { return [t.h / 360, Math.max(s, t.s || .6), Math.min(.92, Math.max(.2, l + (t.dl || 0)))]; }
+
+  /* ---------- 像素貼紙（5×5） ---------- */
+  const BM = {
+    star: ['..Y..', '.YYY.', 'YYYYY', '.YYY.', '.Y.Y.'],
+    bolt: ['..YY.', '.YY..', 'YYYY.', '..YY.', '.YY..'],
+    heart: ['.R.R.', 'RRRRR', 'RRRRR', '.RRR.', '..R..']
+  };
+  const BC = { Y: '#ffe14a', R: '#ff3d78' };
+  function drawBM(ctx, kind, x0, y0, outline) {
+    const m = BM[kind]; if (!m) return;
+    if (outline) { ctx.fillStyle = '#ffffff'; for (let y = 0; y < 5; y++) for (let x = 0; x < 5; x++) if (m[y][x] !== '.') for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1], [-1, -1], [1, 1], [-1, 1], [1, -1]]) ctx.fillRect(x0 + x + dx, y0 + y + dy, 1, 1); }
+    for (let y = 0; y < 5; y++) for (let x = 0; x < 5; x++) { const ch = m[y][x]; if (ch !== '.') { ctx.fillStyle = BC[ch]; ctx.fillRect(x0 + x, y0 + y, 1, 1); } }
+  }
+  const stkTex = {};
+  function stickerTexture(kind) {
+    if (stkTex[kind]) return stkTex[kind];
+    const cv = document.createElement('canvas'); cv.width = cv.height = 7; drawBM(cv.getContext('2d'), kind, 1, 1, true);
+    const t = new THREE.Texture(cv); t.magFilter = t.minFilter = THREE.NearestFilter; t.generateMipmaps = false; t.needsUpdate = true; return (stkTex[kind] = t);
+  }
+
+  /* ---------- 圖片換色（2D 後視、俯視） ---------- */
+  const tcache = new Map();
+  function tintImg(img, hues, cc, stk, key, top) {
+    const ck = key + '|' + cc + '|' + stk; if (tcache.has(ck)) return tcache.get(ck);
+    const w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+    const cv = document.createElement('canvas'); cv.width = w; cv.height = h; const x = cv.getContext('2d'); x.imageSmoothingEnabled = false; x.drawImage(img, 0, 0);
+    const t = COLS[cc];
+    if (t && t.h != null) {
+      let d; try { d = x.getImageData(0, 0, w, h); } catch (e) { d = null; }
+      if (d) {
+        const a = d.data, tmp = new THREE.Color(), o = {};
+        for (let i = 0; i < a.length; i += 4) {
+          if (a[i + 3] < 40) continue;
+          tmp.setRGB(a[i] / 255, a[i + 1] / 255, a[i + 2] / 255); tmp.getHSL(o);
+          if (o.s < .28 || o.l < .14 || o.l > .92 || !near(o.h, hues)) continue;
+          const n = target(o.h, o.s, o.l, t); tmp.setHSL(n[0], n[1], n[2]); a[i] = Math.round(tmp.r * 255); a[i + 1] = Math.round(tmp.g * 255); a[i + 2] = Math.round(tmp.b * 255);
+        }
+        x.putImageData(d, 0, 0);
+      }
+    }
+    if (top && stk && stk !== 'none') drawBM(x, stk, 3, 5, false);
+    tcache.set(ck, cv); return cv;
+  }
+  const colored = k => k.cos && k.cos.c !== 'orig';
+  C.rear = k => {
+    const base = k.boostT > 0 ? IMG.rearF[k.skin] : IMG.rear[k.skin];
+    return colored(k) ? tintImg(base, skinHues(k.skin), k.cos.c, 'none', (k.boostT > 0 ? 'F' : 'R') + k.skin) : base;
+  };
+  C.top = (k, base) => {
+    const c = k.cos; if (!c || (c.c === 'orig' && c.k === 'none')) return base;
+    const hues = (k.model && MODEL_HEX[k.model]) ? MODEL_HEX[k.model].map(hexHue) : skinHues(k.skin);
+    return tintImg(base, hues, c.c, c.k, 'T' + (k.model || k.skin), true);
+  };
+
+  /* ---------- 3D：換色 + 貼紙（在 mkKart 做完之後） ---------- */
+  C.dress = (r, k) => {
+    const cos = k && k.cos; if (!cos || !r || !r.g) return r;
+    const g = r.g, hues = modelHues(k), t = COLS[cos.c];
+    if (t && t.h != null) {
+      const o = {};
+      g.traverse(m => {
+        if (!m.isMesh || m === r.sd || m === r.fl || !m.material || Array.isArray(m.material) || !m.material.color) return;
+        if (m.geometry && m.geometry.type === 'CircleGeometry') return;
+        m.material.color.getHSL(o); if (o.s < .28 || o.l < .14 || o.l > .92 || !near(o.h, hues)) return;
+        const n = target(o.h, o.s, o.l, t); m.material = m.material.clone(); m.material.color.setHSL(n[0], n[1], n[2]);
+      });
+      try {   // 後視貼圖（新車型才會顯示）
+        const ta = tintImg(IMG.rear[k.skin], skinHues(k.skin), cos.c, 'none', 'R' + k.skin), tb = tintImg(IMG.rearF[k.skin], skinHues(k.skin), cos.c, 'none', 'F' + k.skin);
+        r.ta = tx(ta, 1); r.tb = tx(tb, 1); r.sp.material.map = r.ta; r.sp.material.needsUpdate = true;
+      } catch (e) { /* 略過 */ }
+    }
+    if (cos.k && cos.k !== 'none') {
+      try {
+        const ms = []; g.updateMatrixWorld(true);
+        g.traverse(m => { if (m.isMesh && m !== r.sd && m !== r.fl && !(m.geometry && m.geometry.type === 'CircleGeometry')) ms.push(m); });
+        const box = new THREE.Box3(); ms.forEach(m => box.expandByObject(m));
+        const cx = (box.min.x + box.max.x) / 2, cz = (box.min.z + box.max.z) / 2;
+        const rc = new THREE.Raycaster(new THREE.Vector3(cx, box.max.y + 20, cz), new THREE.Vector3(0, -1, 0), 0, 80);
+        const hit = rc.intersectObjects(ms, false)[0], y = (hit ? hit.point.y : box.max.y) + .25;
+        const sz = Math.max(3.2, Math.min(5.2, (box.max.z - box.min.z) * .42));
+        const pl = new THREE.Mesh(new THREE.PlaneGeometry(sz, sz), new THREE.MeshBasicMaterial({ map: stickerTexture(cos.k), transparent: true, alphaTest: .4, side: THREE.DoubleSide }));
+        pl.rotation.set(-Math.PI / 2, 0, -Math.PI / 2); pl.position.set(cx, y, cz); g.add(pl);
+      } catch (e) { /* 略過 */ }
+    }
+    return r;
+  };
+  { const _m = mkKart; mkKart = function (k) { return C.dress(_m(k), k); }; }
+
+  /* ---------- 資料進來 ---------- */
+  C.setData = (cars, info) => {
+    if (cars && typeof cars === 'object') { C.data = cars; C.ready = true; }
+    if (info && info.saved) C.msg = '已套用！';
+    else if (info && info.err) C.msg = info.err === 'locked' ? '這個外觀還沒解鎖' : '儲存失敗：' + info.err;
+    if (C.last) C.draft[C.last] = null;
+    if (info && info.saved) C.draft = {};
+    if (window.CG && CG.rethumb) CG.rethumb();
+    if (C.last) C.panel(C.last, C.lastOwn);
+  };
+
+  /* ---------- 試衣間 UI（版面 C：預覽 + 四排選項） ---------- */
+  const shade = (h, f) => { const n = parseInt(h.slice(1), 16); let r = n >> 16, g = (n >> 8) & 255, b = n & 255; const k = f < 0 ? 0 : 255, p = Math.abs(f); r = Math.round((k - r) * p) + r; g = Math.round((k - g) * p) + g; b = Math.round((k - b) * p) + b; return '#' + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1); };
+  const px = (c, col, x, y, w, h) => { c.fillStyle = col; c.fillRect(x, y, w, h); };
+  function pcar(c, x, y, body, stk) {
+    const d = shade(body, -.45), l = shade(body, .35);
+    px(c, d, x + 2, y + 5, 26, 8); px(c, body, x + 3, y + 6, 24, 6); px(c, l, x + 4, y + 6, 22, 1);
+    px(c, d, x + 9, y + 1, 13, 5); px(c, body, x + 10, y + 2, 11, 4); px(c, '#9fd8ff', x + 11, y + 3, 9, 3); px(c, '#fff', x + 12, y + 3, 2, 1);
+    px(c, d, x + 2, y + 3, 5, 2); px(c, body, x + 3, y + 3, 3, 1); px(c, '#ffe27a', x + 27, y + 8, 2, 2); px(c, '#ff5a5a', x + 1, y + 8, 1, 2);
+    [[5, 10], [20, 10]].forEach(([a, b]) => { px(c, '#0a0812', x + a, y + b, 6, 6); px(c, '#2a2430', x + a + 1, y + b + 1, 4, 4); px(c, '#9a96a8', x + a + 2, y + b + 2, 2, 2); });
+    if (stk && stk !== 'none') drawBM(c, stk, x + 14, y + 7, false);
+  }
+  function pflame(c, f, x0, y0) {
+    const cols = f.cols;
+    if (f.heart) { for (let i = 0; i < 3; i++) { const x = x0 - 5 - i * 7, y = y0 + (i % 2 ? -2 : 2), k = cols[i % 3]; px(c, k, x, y, 1, 1); px(c, k, x + 2, y, 1, 1); px(c, k, x - 1, y + 1, 5, 1); px(c, k, x, y + 2, 3, 1); px(c, k, x + 1, y + 3, 1, 1); } return; }
+    const L = 12; for (let i = 0; i < L; i++) { const h = Math.max(1, Math.round(3 * (1 - i / L)) + (i < 2 ? 1 : 0)); const ci = i < L * .35 ? 2 : (i < L * .7 ? 1 : 0); px(c, cols[ci], x0 - 1 - i, y0 - h + 1, 1, h * 2 - 1); }
+  }
+  function pspark(c, s, x0, y0) { [[0, 0], [-3, -3], [-6, -1], [-4, 3], [-8, 2], [-2, -6], [-9, -4], [-6, 5], [-11, 0]].forEach((p, i) => px(c, s.cols[i % 2], x0 + p[0], y0 + p[1], 2, 2)); }
+  const mkc = (w, h, fn) => { const cv = document.createElement('canvas'); cv.width = w; cv.height = h; fn(cv.getContext('2d')); return cv; };
+
+  function css() {
+    if (document.getElementById('cosCss')) return;
+    const s = document.createElement('style'); s.id = 'cosCss';
+    s.textContent = '#gcos canvas{position:static!important;left:auto!important;top:auto!important;right:auto!important;bottom:auto!important;transform:none!important}#gcos{margin-top:10px;background:#fff8ee;border:3px solid #f2c9a8;border-radius:16px;padding:10px 12px;color:#6b4848;text-align:left}' +
+      '#gcos .ch{display:flex;align-items:center;gap:8px;flex-wrap:wrap}#gcos h3{margin:0;font-size:16px;color:#d0537a}' +
+      '#gcos .lvb{background:#ff8fb1;color:#fff;border-radius:99px;padding:0 10px;font-weight:900;font-size:14px}#gcos small{font-size:11px;opacity:.85}' +
+      '#gcos .bar{height:10px;background:#eadcc8;border-radius:99px;overflow:hidden;border:2px solid #f2c9a8;margin:6px 0}#gcos .bar i{display:block;height:100%;background:linear-gradient(90deg,#ff8fb1,#ffb46b)}' +
+      '#gcos .stg{width:100%;height:84px;border:3px solid #f2c9a8;border-radius:12px;display:block;image-rendering:pixelated;background:#7a8a99}' +
+      '#gcos .rw{display:flex;align-items:center;gap:8px;border-top:2px dashed #f2c9a8;padding:3px 0;flex-wrap:wrap}#gcos .rw>b{width:64px;color:#d0537a;font-size:13px}' +
+      '#gcos .sw{display:inline-block;width:32px;height:32px;border-radius:9px;border:3px solid #f2c9a8;position:relative;cursor:pointer;vertical-align:top}#gcos .sw.cur{border-color:#ff5c8a;box-shadow:0 0 0 2px #ffd0de}' +
+      '#gcos .sw.lock,#gcos .tl.lock canvas{filter:grayscale(1) brightness(.65)}#gcos .lk{position:absolute;right:-4px;top:-7px;font-size:11px}' +
+      '#gcos .it>span:not(.lk):not(.rq){display:block}#gcos .it{display:inline-block;text-align:center;font-size:10px;margin:1px 3px;position:relative;cursor:pointer;vertical-align:top}#gcos .rq{display:block;color:#d0537a;font-weight:700;min-height:12px}' +
+      '#gcos .tl canvas{width:60px;height:38px;image-rendering:pixelated;background:#2c3566;border-radius:8px;border:3px solid #f2c9a8;display:block}#gcos .it.cur canvas{border-color:#ff5c8a}' +
+      '#gcos .bt{display:flex;gap:10px;justify-content:center;margin-top:8px;align-items:center;flex-wrap:wrap}#gcos .bb{background:#ff8fb1;color:#fff;font-weight:700;border:0;border-radius:12px;padding:7px 20px;box-shadow:0 4px 0 #e0678d;cursor:pointer;font-family:inherit;font-size:14px}' +
+      '#gcos .bb.g{background:#eadcc8;color:#6b4848;box-shadow:0 4px 0 #cdb89c}#gcos .bb[disabled]{opacity:.5}#gcos .ms{text-align:center;font-size:12px;min-height:16px;color:#d0537a;font-weight:700;margin-top:4px}';
+    document.head.appendChild(s);
+  }
+
+  C.panel = function (id, owned) {
+    C.last = id; C.lastOwn = !!owned;
+    const host = document.getElementById('gcos'); if (!host) return;
+    if (!C.ready || !owned) { host.style.display = 'none'; host.innerHTML = ''; return; }
+    css(); host.style.display = '';
+    const sv = saved(id), dr = C.draft[id] || sv, lv = C.lv(id), xp = C.xp(id), nm = (carOf(id) || {}).n || '';
+    const nxt = lv >= 5 ? null : LV_AT[lv + 1], dirty = toStr(dr) !== toStr(sv);
+    const pct = lv >= 5 ? 100 : Math.round((xp - LV_AT[lv]) / (nxt - LV_AT[lv]) * 100);
+    host.innerHTML = '<div class="ch"><h3>' + nm + '　塗裝</h3><span class="lvb">Lv.' + lv + '</span><small>已累積 ' + xp + ' 場付費賽（1000 G 場才算經驗）' + (nxt ? '・再 ' + (nxt - xp) + ' 場升 Lv.' + (lv + 1) : '・滿級') + '</small></div>' +
+      '<div class="bar"><i style="width:' + pct + '%"></i></div><canvas class="stg" id="cosStg"></canvas><div id="cosRows"></div>' +
+      '<div class="bt"><button type="button" class="bb" id="cosOk"' + (dirty ? '' : ' disabled') + '>套用</button><button type="button" class="bb g" id="cosRst">還原預設</button></div><div class="ms" id="cosMs">' + (C.msg || (dirty ? '還沒套用：按「套用」才會存起來' : '')) + '</div>';
+    C.msg = '';
+    // 預覽（像素風：車 + 尾焰 + 漂移火花）
+    const stg = host.querySelector('#cosStg'), CH = 36, CW = Math.max(60, Math.round(CH * (stg.clientWidth || 340) / 84)); stg.width = CW; stg.height = CH;
+    { const x = stg.getContext('2d'); px(x, '#bfe6fa', 0, 0, CW, 21); px(x, '#7a8a99', 0, 21, CW, 15); for (let i = 2; i < CW; i += 12) px(x, '#fff', i, 30, 6, 1); for (let i = 0; i < CW; i += 8) px(x, '#d44', i, 21, 4, 2);
+      const cx = Math.round(CW / 2 - 15); pcar(x, cx, 8, COLS[dr.c].hex, dr.k); pflame(x, FLS[dr.f], cx + 1, 17); pspark(x, SPS[dr.s], cx + 5, 24); }
+    const rows = host.querySelector('#cosRows');
+    const pick = (field, val, need) => { if (need > lv) { C.msg = 'Lv.' + need + ' 解鎖（再跑付費賽累積經驗）'; C.panel(id, true); return; } C.draft[id] = Object.assign({}, dr, { [field]: val }); C.panel(id, true); };
+    const addRow = (name, items, field, tile) => {
+      const r = document.createElement('div'); r.className = 'rw'; r.innerHTML = '<b>' + name + '</b>'; const w = document.createElement('span');
+      for (const key of Object.keys(items)) {
+        const it = items[key], lock = it.lv > lv, el = document.createElement('div'); el.className = 'it' + (dr[field] === key ? ' cur' : '') + (lock ? ' lock' : '');
+        el.innerHTML = tile(it, key, lock) + '<span class="rq">' + (lock ? 'Lv.' + it.lv : '') + '</span>';
+        if (lock) el.insertAdjacentHTML('afterbegin', '<span class="lk">🔒</span>');
+        el.onclick = () => pick(field, key, it.lv); w.appendChild(el);
+      }
+      r.appendChild(w); rows.appendChild(r);
+    };
+    // 色票
+    addRow('車身顏色', COLS, 'c', (it, key, lock) => '<span class="sw' + (lock ? ' lock' : '') + (dr.c === key ? ' cur' : '') + '" style="background:' + it.hex + '"></span><span>' + it.n + '</span>');
+    // 其他三排用 canvas：先塞 placeholder，建好後把畫好的 canvas 換進去
+    const later = [];
+    const tileRow = (name, items, field, draw) => addRow(name, items, field, (it, key, lock) => { later.push([key, draw, it]); return '<div class="tl' + (lock ? ' lock' : '') + '"><canvas data-k="' + field + ':' + key + '" width="44" height="28"></canvas></div><span>' + it.n + '</span>'; });
+    tileRow('貼紙', STKS, 'k', (c, it, key) => { px(c, '#2c3566', 0, 0, 44, 28); pcar(c, 6, 6, COLS[dr.c].hex, key); });
+    tileRow('尾焰', FLS, 'f', (c, it) => { px(c, '#2c3566', 0, 0, 44, 28); pcar(c, 6, 6, COLS[dr.c].hex, 'none'); pflame(c, it, 7, 15); });
+    tileRow('漂移火花', SPS, 's', (c, it) => { px(c, '#2c3566', 0, 0, 44, 28); pcar(c, 6, 6, COLS[dr.c].hex, 'none'); pspark(c, it, 11, 22); });
+    rows.querySelectorAll('canvas[data-k]').forEach(cv => { const [field, key] = cv.dataset.k.split(':'); const ent = later.find(l => l[0] === key && l[2] && ((field === 'k' && STKS[key] === l[2]) || (field === 'f' && FLS[key] === l[2]) || (field === 's' && SPS[key] === l[2]))); if (ent) ent[1](cv.getContext('2d'), ent[2], key); });
+    host.querySelector('#cosOk').onclick = () => {
+      if (!C.send) return; const d = C.draft[id] || sv;
+      C.send({ t: 'tt-cos', car: id, c: d.c, k: d.k, f: d.f, s: d.s });
+      C.data[id] = Object.assign({}, C.data[id] || { xp: 0 }, d); C.msg = '儲存中…'; C.panel(id, true); if (window.CG && CG.rethumb) CG.rethumb();
+    };
+    host.querySelector('#cosRst').onclick = () => { C.draft[id] = Object.assign({}, DEF); C.panel(id, true); };
+  };
+
+  return C;
+})();
+
+</script>
 <script>
 'use strict';
 /* ===== 街機版：大廳／準備／倒數／賽道跑馬燈／連線／結算 =====
@@ -2184,6 +2416,8 @@ window.ARC = (function () {
     else if (d.t === 'tt-bal') { A.bal = +d.v || 0; A.trial = !!d.trial; A.fee = +d.fee || FEE; renderLobby(); }
     else if (d.t === 'tt-tok') { A.tok = { claimed: !!d.claimed, tokens: d.tokens | 0 }; renderLobby(); }
     else if (d.t === 'tt-fee-res') { if (A.feeWait) { const f = A.feeWait; A.feeWait = null; f(d); } }
+    else if (d.t === 'tt-garage') { if (window.COS) { COS.send = post; COS.setData(d.cars, d); } }
+    else if (d.t === 'tt-xp-res') { A.xpRes = d.ok ? d : null; if (d.ok && window.COS) { COS.send = post; COS.setData(d.cars, null); } if (A.resOpen) renderRes(); }
     else if (d.t === 'tt-award') { A.awardMsg = d.msg || ''; if (A.resOpen) renderRes(); }
     else if (d.t === 'tt-in' && d.m && typeof d.m === 'object') onNet(String(d.from), d.m);
   });
@@ -2193,10 +2427,11 @@ window.ARC = (function () {
     for (const [u, r] of A.roster) if (r.ph === 'race' && r.mt && u !== A.me.uid && now() - r.seen < 6000) return r.mt;
     return null;
   }
+  const myCos = () => window.COS ? COS.str(window.CG ? CG.cur : 'red') : '';
   function hiNow() {
     const mt = (A.phase === 'race' && A.hostU === A.me.uid && A.go) ? { mid: A.go.mid, seed: A.go.seed, track: A.go.track, parts: A.go.parts, gone: [...A.gone] } : undefined;
     const ph = A.phase === 'race' ? 'race' : A.phase === 'cd' ? 'cd' : 'lobby';
-    send({ t: 'hi', s: A.me.seat, n: A.me.name, c: window.CG ? CG.cur : 'red', ph, m: mt });
+    send({ t: 'hi', s: A.me.seat, n: A.me.name, c: window.CG ? CG.cur : 'red', x: myCos(), ph, m: mt });
   }
   setInterval(() => { if (A.phase !== 'init') hiNow(); const t = now(); for (const [u, r] of A.roster) if (t - r.seen > 5000) A.roster.delete(u); if (A.phase === 'lobby') renderLobby(); }, HI_MS);
 
@@ -2206,7 +2441,7 @@ window.ARC = (function () {
     for (const [u, r] of A.roster) if (u !== A.me.uid && r.p === (A.paid ? 1 : 0)) { const s = r.s & 7; if (!seats[s]) seats[s] = { n: r.n, ph: r.ph }; }
     return seats;
   }
-  function humansNow() { const a = [{ u: A.me.uid, s: A.me.seat, n: A.me.name, c: window.CG ? CG.cur : 'red' }]; for (const [u, r] of A.roster) if (u !== A.me.uid && r.p === (A.paid ? 1 : 0) && r.ph !== 'race' && now() - r.seen < 4500) a.push({ u, s: r.s, n: r.n, c: r.c }); return a.slice(0, 8); }
+  function humansNow() { const a = [{ u: A.me.uid, s: A.me.seat, n: A.me.name, c: window.CG ? CG.cur : 'red', x: myCos() }]; for (const [u, r] of A.roster) if (u !== A.me.uid && r.p === (A.paid ? 1 : 0) && r.ph !== 'race' && now() - r.seen < 4500) a.push({ u, s: r.s, n: r.n, c: r.c, x: r.x }); return a.slice(0, 8); }
   function renderLobby() {
     const el = $$('arc'); if (!el) return;
     const show = A.phase === 'lobby' || A.phase === 'cd';
@@ -2244,7 +2479,7 @@ window.ARC = (function () {
     if (!m || !Array.isArray(m.parts) || !m.parts.length || !(m.track >= 0 && m.track < TRACKS.length)) return;
     if (A.phase === 'race') return;
     if (A.phase === 'cd' && A.go && String(m.mid) >= String(A.go.mid)) return;
-    A.go = m; A.phase = 'cd'; A.cdEnd = now() + (m.in || CD_SEC) * 1000; A.msg = ''; A.logId = 0; A.awardDone = false; A.awardMsg = ''; A.gone.clear(); A.feeFail = false;
+    A.go = m; A.phase = 'cd'; A.cdEnd = now() + (m.in || CD_SEC) * 1000; A.msg = ''; A.logId = 0; A.xpSent = false; A.xpRes = null; A.awardDone = false; A.awardMsg = ''; A.gone.clear(); A.feeFail = false;
     A.spectator = !m.parts.some(p => p.u === A.me.uid);
     roulette(m.track);
     if (!A.spectator && A.paid) {
@@ -2333,6 +2568,7 @@ window.ARC = (function () {
       if (p) {
         const lk = kartLook(carOk(p.c)); k.name = String(p.n).slice(0, 8); k.u = p.u; k.skill = 1; k.auto = false;
         k.skin = lk.skin; k.car = lk.car; k.model = lk.model; k.shape = lk.shape;
+        if (window.COS) { k.cos = COS.parse(p.x); k.cs = COS.compile(k.cos); }
         if (p.u === A.me.uid && !spectate) { k.player = true; A.me.k = k; R.player = k; }
       } else {
         const lk = kartLook(CARS[(bi * 3 + (go.seed >>> 4)) % CARS.length].id);
@@ -2401,7 +2637,7 @@ window.ARC = (function () {
     if (m.g !== 'race' || m.p !== (A.paid ? 1 : 0)) return;
     const t = now(); A.seen.set(from, t);
     switch (m.t) {
-      case 'hi': A.roster.set(from, { s: m.s | 0, n: String(m.n || '').slice(0, 8), c: m.c, ph: m.ph, p: m.p, seen: t, mt: m.m || null }); if (A.phase === 'lobby') renderLobby(); break;
+      case 'hi': A.roster.set(from, { s: m.s | 0, n: String(m.n || '').slice(0, 8), c: m.c, x: typeof m.x === 'string' ? m.x.slice(0, 40) : '', ph: m.ph, p: m.p, seen: t, mt: m.m || null }); if (A.phase === 'lobby') renderLobby(); break;
       case 'go': onGo(from, m); break;
       case 's': case 'b': if (A.phase === 'race' && R && Array.isArray(m.a)) for (const a of m.a) if (Array.isArray(a) && a.length >= 25) applySnap(a); break;
       case 'hz': if (A.phase === 'race' && R && R[m.kind] && m.o && typeof m.o === 'object') { R[m.kind].push(m.o); if (m.kind === 'meteors') R.ev.push({ t: 'meteor', k: m.o.tgt }); } break;
@@ -2444,6 +2680,7 @@ window.ARC = (function () {
       const first = !R.karts.some(k => k !== me && k.fin && k.finT < me.finT);
       A.first = first;
       if (first && A.paid && A.logId) post({ t: 'tt-win', logId: A.logId });
+      if (A.paid && A.logId && !A.xpSent) { A.xpSent = true; post({ t: 'tt-xp', logId: A.logId, car: window.CG ? CG.cur : 'red' }); }
       if (A.resOpen) renderRes();
     }
     if (R.over && !A.resOpen) finished();
@@ -2457,6 +2694,7 @@ window.ARC = (function () {
     $$('arcResTitle').textContent = !me ? '比賽結束' : (!me.fin ? '時間到' : n === 1 ? '第 1 名！🏆' : '第 ' + n + ' 名');
     let ex = '';
     if (me && A.paid && me.fin && A.awardDone) ex = A.first ? (A.awardMsg ? A.awardMsg : (A.logId ? '第一名！token 結算中…' : '第一名！（試營運：沒有 token）')) : '付費場只有第一名有 token';
+    if (A.paid && me && me.fin && A.xpRes && window.COS) { const r = A.xpRes, nm = (carOf(r.car) || {}).n || ''; ex += (ex ? '\n' : '') + nm + ' 熟練度 +1（Lv.' + r.lv + '）' + (r.up ? '　升級！' + (COS.unlock(r.lv) ? '解鎖 ' + COS.unlock(r.lv) : '') : ''); }
     $$('arcResExtra').textContent = ex;
   }
   function finished() {
