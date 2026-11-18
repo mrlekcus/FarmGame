@@ -131,19 +131,30 @@ function petRender() {
   h += '<div class="ps-sec">商店</div>' +
     '<div class="ps-food"><div class="ps-sack"><b></b></div><div class="meta"><b>寵物飼料</b><small>耐飽 ' + c.hours + ' 小時；飯碗最多存 3 份，餓了會自己吃</small></div>' + buyBtn(1, c.food) + buyBtn(10, c.food * 10) + '</div>' +
     '<div class="ps-sec">寵物家具<small>擺在家裡：飯碗可倒飼料，玩具牠會自己去玩</small></div>' +
-    '<div class="ps-grid">' + PET_GOODS.slice().sort((x, y) => petOwns(x[1]) - petOwns(y[1])).map(([k, key, nm, dim]) => {   // 還沒買的排前面
-      const own = petOwns(key), price = c[k], poor = !own && me.coins < price;
+    '<div class="ps-grid">' + PET_GOODS.map(([k, key, nm, dim]) => {   // 玩具和飯碗都可以重複買（想擺幾個都行）
+      const n = petOwnN(key), own = false, price = c[k], poor = me.coins < price;
       return '<button type="button" class="ps-g' + (own ? ' own' : '') + (poor ? ' poor' : '') + '" data-pa="buy" data-k="' + k + '" data-n="1"' + (own || poor ? ' disabled' : '') + '>' +
-        (own ? '<span class="ps-own">✓ 已擁有</span>' : '') + '<span class="ps-ico"><img src="' + petIcon(key, dim) + '" alt=""></span><b>' + nm + '</b><small>' + dim[0] + '×' + dim[1] + '</small>' + (own ? '' : '<span class="ps-price">' + price + ' G</span>') + '</button>';
+        (own ? '<span class="ps-own">✓ 已擁有</span>' : n > 0 ? '<span class="ps-own">已有 ×' + n + '</span>' : '') + '<span class="ps-ico"><img src="' + petIcon(key, dim) + '" alt=""></span><b>' + nm + '</b><small>' + dim[0] + '×' + dim[1] + '</small>' + (own ? '' : '<span class="ps-price">' + price + ' G</span>') + '</button>';
     }).join('') + '</div>' +
     '<button type="button" class="ps-link" data-pa="rename">✎ 幫牠改名字</button>' +
     '<button type="button" class="ps-link" data-pa="replay">回顧劇情</button>' +
     '<button type="button" class="ps-link" data-pa="return">送回領養處</button>' + close;
   petCard.innerHTML = h; paintClerk(); petPaint(petCard);
 }
-const PET_GOODS = [['bowl', 'petbowl', '木托盤雙碗', [2, 1]], ['toy_a', 'pettoya', '玩具籃', [1, 1]], ['toy_b', 'pettoyb', '貓跳台', [1, 2]], ['toy_c', 'pettoyc', '拔河繩與毛線球', [1, 1]], ['toy_d', 'pettoyd', '條紋隧道', [2, 1]]];
+const PET_GOODS = [['bowl', 'petbowl', '木托盤雙碗', [2, 1]], ['toy_a', 'pettoya', '玩具籃', [1, 1]], ['toy_b', 'pettoyb', '貓跳台', [1, 2]], ['toy_c', 'pettoyc', '拔河繩與毛線球', [1, 1]], ['toy_d', 'pettoyd', '條紋隧道', [2, 1]],
+  ['toy_e', 'pettoye', '啾啾小鴨', [1, 1]], ['toy_f', 'pettoyf', '藍色飛盤', [1, 1]], ['toy_g', 'pettoyg', '肉球磨爪板', [1, 1]], ['toy_h', 'pettoyh', '泡泡機', [1, 1]]];
 const petOwns = key => !!(petData && petData.owned && petData.owned.includes('f:' + key));
-const petOwnsToy = () => PET_GOODS.some(g => g[0] !== 'bowl' && petOwns(g[1]));
+/* 擁有幾個：背包裡的 ＋ 已經擺在自己家裡的（玩具可重複買，所以要算數量，不能只看有沒有） */
+const petOwnN = key => have('f:' + key) + ((house && house.items) ? house.items.filter(i => i.k === key).length : 0);   // 現在真的有幾個：背包＋擺在家裡（賣掉就歸零）
+const petOwnsToy = () => PET_GOODS.some(g => g[0] !== 'bowl' && petOwnN(g[1]) > 0);
+/* 4 款新玩具的美術：寫在這裡，確保商店圖示和家裡擺放一定畫得出來（和 art/pet-furn.js 裡的 toyE～H 同一份圖） */
+(function () {
+  const SH_ = 'rgba(90,60,40,.18)';
+  FURN.pettoye = (px, py) => { r(SH_, px + 2, py + 14, 12, 1); ob('#ffd34d', '#b8861e', px + 3, py + 8, 9, 6); ob('#ffd34d', '#b8861e', px + 8, py + 3, 6, 6); r('#ff9a3c', px + 14, py + 5, 2, 2); r('#3a2030', px + 11, py + 5, 1, 1); r('#f0b82a', px + 4, py + 10, 4, 2); r('#fff7c8', px + 4, py + 9, 2, 1); };
+  FURN.pettoyf = (px, py) => { r(SH_, px + 1, py + 14, 14, 1); ob('#6ec6f0', '#2f7fb0', px + 2, py + 8, 12, 5); r('#9fdcf8', px + 3, py + 9, 10, 1); r('#fff', px + 5, py + 10, 6, 1); r('#2f7fb0', px + 6, py + 13, 4, 1); };
+  FURN.pettoyg = (px, py) => { r(SH_, px + 2, py + 14, 12, 1); r('#7a5532', px + 2, py + 13, 12, 2); ob('#e8d4a8', '#8a6a3c', px + 3, py + 2, 10, 12); for (let i = 0; i < 5; i++) r('#c9a868', px + 4, py + 4 + i * 2, 8, 1); r('#ffb3c6', px + 7, py + 8, 2, 2); r('#ffb3c6', px + 6, py + 6, 1, 1); r('#ffb3c6', px + 9, py + 6, 1, 1); r('#ffb3c6', px + 7, py + 5, 2, 1); };
+  FURN.pettoyh = (px, py) => { r(SH_, px + 2, py + 14, 12, 1); ob('#ffe3ec', '#d9667f', px + 2, py + 7, 12, 7); rr('#ff9db8', px + 4, py + 9, 8, 3); r('#fff', px + 6, py + 10, 1, 1); r('#fff', px + 9, py + 10, 1, 1); r('#d9667f', px + 7, py + 6, 2, 2); ob('#eaf7ff', '#7fb7e8', px + 3, py + 2, 3, 3); ob('#eaf7ff', '#7fb7e8', px + 8, py + 0, 2, 2); ob('#eaf7ff', '#7fb7e8', px + 11, py + 3, 2, 2); };
+})();
 const petIconCache = {};
 function petIcon(key, dim) {   // 把家具像素圖畫成小圖（商店和寵物列共用）
   if (petIconCache[key]) return petIconCache[key];
@@ -896,9 +907,13 @@ function petKf(a, u, step) {   // 關鍵格之間做平滑插值，回傳每個�
   return a[i0].map((v, j) => v + (a[i1][j] - v) * k);
 }
 const petSpk = (x, y) => { r('#ffe680', x, y - 1, 1, 3); r('#ffe680', x - 1, y, 3, 1); };
-const PET_DUR = { pettoya: [0, 4700, 4700, 4500], pettoyb: [0, 5400, 4700, 5400], pettoyc: [0, 4300, 4500, 4500], pettoyd: [0, 4600, 5400, 4100], petbowl: [0, 2800, 2800, 2800] };
+const PET_DUR = { pettoya: [0, 4700, 4700, 4500], pettoyb: [0, 5400, 4700, 5400], pettoyc: [0, 4300, 4500, 4500], pettoyd: [0, 4600, 5400, 4100], petbowl: [0, 2800, 2800, 2800], pettoye: [0, 4600, 4200, 4400], pettoyf: [0, 4400, 4000, 4200], pettoyg: [0, 4200, 4200, 4200], pettoyh: [0, 4400, 4200, 4400] };
 const PET_BALL = (x, y) => { r('rgba(90,60,40,.18)', x, y + 5, 5, 1); ob('#ff7a6c', '#b8403a', x, y, 5, 5); r('#ffd34d', x, y + 2, 5, 1); };
 const PET_YARN = (x, y, sq) => { ob('#8f7fe0', '#6a5cc0', x, y + sq, 6, 6); r('#b9acf2', x + 1, y + 1 + sq, 2, 1); };
+const PET_DUCK = (x, y) => { ob('#ffd34d', '#b8861e', x, y + 2, 6, 4); ob('#ffd34d', '#b8861e', x + 3, y, 4, 4); r('#ff9a3c', x + 7, y + 2, 2, 1); r('#3a2030', x + 5, y + 1, 1, 1); };
+const PET_DISC = (x, y) => { ob('#6ec6f0', '#2f7fb0', x, y, 9, 3); r('#fff', x + 2, y + 1, 5, 1); };
+const PET_BUB = (x, y, z) => { r('#7fb7e8', x, y, z, z); r('#eaf7ff', x + 1, y + 1, z - 2, z - 2); };
+const PET_HEART = (x, y) => { r('#ff7a8a', x, y, 1, 1); r('#ff7a8a', x + 2, y, 1, 1); r('#ff7a8a', x, y + 1, 3, 1); r('#ff7a8a', x + 1, y + 2, 1, 1); };
 /* 玩耍動作：寵物以「站的那一格」(ax, ay) 為中心，幅度最多約 ±4 像素；道具畫在玩具上或寵物身邊。
    s＝面向玩具的方向（玩具在右邊＝1，在左邊＝-1）；貓跳台的「爬上去／跳上跳下」只在跳台自己那一欄上下動。 */
 function petPlayFrame(f, gl, t) {
@@ -1001,6 +1016,63 @@ function petPlayFrame(f, gl, t) {
       if (u > 700 && u < 2300) { mk(wx, ay + 4, 3); mk(wx + 1, ay + 7, 4); mk(wx, ay + 10, 3); }
       if (u > 3000) petSpk(ax + 4, ay - 3);
     }, -s);
+  }
+  /* ===== 啾啾小鴨（1×1）：叼起來甩／啃咬／踩到啾啾叫 ===== */
+  if (gl.k === 'pettoye') {
+    if (v === 1) {
+      const sh = u < 1000 ? 0 : [1, -1, 1, -1][Math.floor(u / 220) % 4], px = ax + sh, mx = s > 0 ? px + 12 : px - 7, my = ay + 6;
+      const k = Math.max(0, Math.min(1, (u - 300) / 600)), bx = Math.round(u < 300 ? ox + 4 : petLerp(ox + 4, mx, k)), by = Math.round(u < 300 ? base + 8 : petLerp(base + 8, my, k));
+      return at(px, ay, s, () => { PET_DUCK(bx, by); if (u > 1000 && sh > 0) petSpk(s > 0 ? px - 4 : px + 18, ay - 2); });
+    }
+    if (v === 2) {
+      const k = Math.floor(u / 300) % 2;
+      return at(ax, ay + k, s, () => { if (k) { petSpk(ox + 4, base + 2); petSpk(ox + 12, base + 4); } });
+    }
+    const tt = u / 700, px = Math.round(ax + (ox - ax) * (0.5 - 0.5 * Math.cos(tt))), py = ay - Math.round(Math.abs(Math.sin(tt * 2)) * 3), near = Math.abs(px - ox) < 4;
+    return at(px, py, Math.sin(tt) >= 0 ? s : -s, () => { if (near && py >= ay - 1) { petSpk(ox + 1, base + 4); petSpk(ox + 15, base + 4); r('#ffe680', ox + 8, base - 2, 1, 2); } });
+  }
+  /* ===== 藍色飛盤（1×1）：叼著小跑／頂在頭上／繞著打轉 ===== */
+  if (gl.k === 'pettoyf') {
+    if (v === 1) {
+      const ph = u / 700, px = ax + Math.round(4 * Math.sin(ph)), dir = Math.cos(ph) >= 0 ? 1 : -1, py = ay - (Math.floor(u / 160) % 2);
+      return at(px, py, dir, () => PET_DISC(dir > 0 ? px + 10 : px - 6, py + 7));
+    }
+    if (v === 2) {
+      const wob = Math.round(Math.sin(u / 200));
+      return put(ax, ay, (L, now) => { petXf(L, ax, ay, { pose: 'front', happy: true, now }); PET_DISC(ax + 3 + wob, ay - 2); if (Math.floor(u / 800) % 2) petSpk(ax + 15, ay - 2); }, f.face);
+    }
+    const th = u / 600, px = ax + Math.round(4 * Math.cos(th)), py = ay + Math.round(2 * Math.sin(th)), dir = -Math.sin(th) >= 0 ? 1 : -1;
+    return at(px, py, dir, () => { if (Math.floor(u / 300) % 2) petSpk(px + (dir > 0 ? -3 : 17), py + 8); });
+  }
+  /* ===== 肉球磨爪板（1×1）：站起來磨爪／躺著抓／蹭臉 ===== */
+  if (gl.k === 'pettoyg') {
+    if (v === 1) {
+      const k = Math.floor(u / 250) % 4;
+      return put(ax, ay, (L, now) => { petXf(L, ax, ay, { pose: 'side', dir: s, sy: 1.12, now }); r('#fff3d6', s > 0 ? ax + 14 : ax - 1, ay + 2 + (k % 2) * 3, 2, 2); if (k % 2) r('#e8d4a8', ox + (s > 0 ? 2 : 12), base + 8 + k, 1, 1); }, s);
+    }
+    if (v === 2) {
+      const k = Math.floor(u / 260) % 2;
+      return put(ax, ay + 2, (L, now) => { petXf(L, ax, ay + 2, { pose: 'side', dir: s, sy: 0.8, now }); r('#fff3d6', s > 0 ? ax + 13 + k * 2 : ax + 1 - k * 2, ay + 5 + k, 3, 2); if (k) r('#e8d4a8', ox + (s > 0 ? 2 : 12), base + 8, 1, 1); }, s);
+    }
+    const px = ax + s * Math.round(1.5 + 1.5 * Math.sin(u / 260));
+    return at(px, ay, s, () => { if (Math.floor(u / 700) % 2) PET_HEART(px + 6, ay - 4); });
+  }
+  /* ===== 泡泡機（1×1）：追泡泡／咬泡泡／被泡泡嚇一跳 ===== */
+  if (gl.k === 'pettoyh') {
+    if (v === 1) {
+      const j = Math.round(Math.abs(Math.sin(u / 450)) * 4);
+      return at(ax, ay - j, s, () => { for (let i = 0; i < 4; i++) { const ph = ((u / 2000) + i / 4) % 1; PET_BUB(Math.round(ox + 6 - s * ph * 12 + 2 * Math.sin(ph * 7 + i)), Math.round(base + 3 - ph * 10), 3); } });
+    }
+    if (v === 2) {
+      const ph = (u % 1800) / 1800, pop = ph > 0.72, bx = s > 0 ? ax + 15 : ax - 5, by = ay + 4 + Math.round(2 * Math.sin(u / 300));
+      return at(ax + (pop ? s * 2 : 0), ay, s, () => { if (!pop) PET_BUB(bx, by, 4); else { const k = (ph - 0.72) / 0.28, d = 1 + Math.round(k * 3); r('#ffe680', bx + 2 - d, by + 2, 1, 1); r('#ffe680', bx + 2 + d, by + 2, 1, 1); r('#ffe680', bx + 2, by + 2 - d, 1, 1); r('#ffe680', bx + 2, by + 2 + d, 1, 1); } });
+    }
+    const ph = (u % 2200) / 2200, pop = ph > 0.55, hit = pop && ph < 0.8;
+    return put(ax, ay, (L, now) => {
+      petXf(L, ax, ay, { pose: 'side', dir: s, sy: hit ? 0.88 : 1, sx: hit ? 1.08 : 1, now });
+      if (!pop) PET_BUB(Math.round(s > 0 ? ox + 4 - ph * 10 : ox + 8 + ph * 10), ay + 6, 3 + Math.round(ph * 2));
+      else if (hit) { petSpk(ax + (s > 0 ? 17 : -2), ay + 6); r('#e24b4a', ax + 7, ay - 7, 1, 3); r('#e24b4a', ax + 7, ay - 3, 1, 1); }
+    }, s);
   }
   return { done: true };
 }
