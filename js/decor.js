@@ -1,6 +1,7 @@
 'use strict';
 /* 布置與魚缸、標本架 —— 雷克斯農場。所有檔案共用同一個全域範圍，載入順序見 index.html。 */
 /* ---------- 布置 ---------- */
+const petNoSell = k => typeof PET_GOODS !== 'undefined' && PET_GOODS.some(g => g[1] === k);   // 寵物玩具／飯碗：買了就是解鎖，不能賣
 const sellPrice = k => Math.floor(((defOf(k) || {}).price || 0) / 2);
 /* ---------- 魚缸／標本架：換展示品 ---------- */
 const dsEl = $('dsm'), dsCard = $('dscard');
@@ -230,12 +231,14 @@ function doFlip(it) {
   enqueue(async () => { await rpc('house_flip', { p_id: it.id }); }).catch(e => { toast(errText(e)); reloadHouse(); });
 }
 function doSell(it) {
+  if (petNoSell(it.k)) { toast('寵物玩具買了就是解鎖，不能賣回去喔', 1800); return; }
   house.items = house.items.filter(i => i !== it);
   if (me) me.coins += sellPrice(it.k);
   enqueue(async () => { const r_ = await rpc('house_sell', { p_id: it.id }); if (me) me.coins = +r_.coins; refreshHud(); }).catch(e => { toast(errText(e)); reloadHouse(); });
   toast('賣出 ' + ((defOf(it.k) || {}).name || '') + ' +' + sellPrice(it.k) + 'G', 1500);
 }
 function doSellBag(k) {
+  if (petNoSell(k)) { toast('寵物玩具買了就是解鎖，不能賣回去喔', 1800); return; }
   inv['f:' + k] = have('f:' + k) - 1;
   if (me) me.coins += sellPrice(k);
   enqueue(async () => { const r_ = await rpc('house_sell_bag', { p_item: k }); if (me) me.coins = +r_.coins; Object.assign(inv, r_.inv); refreshHud(); }).catch(e => { toast(errText(e)); reloadHouse(); });
@@ -461,7 +464,7 @@ function houseBarSync() {
     hbarKey = key;
     const btn = (b, ic, t, cls) => '<button type="button" data-b="' + b + '"' + (cls ? ' class="' + cls + '"' : '') + ' aria-label="' + t + '"><i aria-hidden="true">' + ic + '</i><span>' + t + '</span></button>';
     hbarEl.innerHTML = btn('rot', '↻', '旋轉') + btn('flip', '⇋', '翻轉') + (DISP[selIt.k] ? btn('disp', '✨', '展示品') : '') +
-      '<b class="sep"></b>' + btn('pick', '🎒', '收回') + btn('sell', '💰', armed ? '再按一次 +' + sellPrice(selIt.k) : '賣出', armed ? 'danger armed' : 'danger');
+      '<b class="sep"></b>' + btn('pick', '🎒', '收回') + (petNoSell(selIt.k) ? '' : btn('sell', '💰', armed ? '再按一次 +' + sellPrice(selIt.k) : '賣出', armed ? 'danger armed' : 'danger'));
   }
   hbarEl.hidden = false;
   const rc = cv.getBoundingClientRect(), st = stageEl.getBoundingClientRect();

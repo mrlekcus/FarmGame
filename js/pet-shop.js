@@ -2,11 +2,22 @@
    阿喵姊姊（領養店店員）按動作鍵就會打開這個面板。 */
 Object.assign(ERR, {
   pet_locked: '寵物店還在蓋，等你把材料湊齊、付完工錢就能領養囉', pet_built: '寵物店已經蓋好了', pet_item_full: '這種材料已經夠了，換別種吧', pet_daily_full: '今天這種材料捐滿了，明天再來', pet_mat_missing: '材料還沒湊齊',
-  pet_not_met: '先走進店裡，和阿喵姊姊聊聊吧', pet_has: '你已經有一隻寵物了，要換的話先送回領養處', pet_none: '你還沒有寵物', pet_owned: '你已經有這個了',
+  pet_not_met: '先走進店裡，和阿喵姊姊聊聊吧', already_owned: '這件已經買過了，直接穿上就好', pet_has: '你已經有兩隻寵物了，要換的話先送回領養處一隻', pet_lv_low: '玩家要 Lv.10 才能領養第二隻', pet_none: '你還沒有寵物', pet_owned: '你已經有這個了',
   pet_full: '牠現在吃得很飽，等一下再餵吧', pet_tired: '牠今天玩累了，明天再來吧', pet_no_bowl: '要先買飯碗才能放飼料',
   pet_no_toy: '要先買玩具才能玩', pet_name_bad: '名字要 1～8 個字，不能有特殊符號', pet_name_same: '這已經是牠的名字囉', not_gm: '只有 GM 可以這樣做'
 });
 let petMine = null, petData = null, petBusy = false, petPick = null, petMsg = '';
+/* 兩隻寵物：伺服器用 slot（1／2）分。petMine＝第一隻（跟班、玩耍用），petData.pets＝全部；資料卡／寵物列用 petSelSlot 選要看哪一隻 */
+let petSelSlot = 0, petAdopt2 = false, petSec = 'care';   // petSec：商店摺疊分組現在展開哪一組
+const petList = () => (petData && petData.pets) || (petData && petData.pet ? [petData.pet] : []);
+const petSelPet = () => { const a = petList(); return a.find(x => (x.slot || 1) === petSelSlot) || a[0] || null; };
+function petPut(np) {   // 把伺服器回傳的某一隻寵物更新進本機
+  if (!np) return; const sl = np.slot || 1; np.slot = sl;
+  const a = petList().slice(); const i = a.findIndex(x => (x.slot || 1) === sl); if (i >= 0) a[i] = np; else a.push(np);
+  a.sort((x, y) => (x.slot || 1) - (y.slot || 1));
+  if (petData) { petData.pets = a; petData.pet = a[0]; }
+  petMine = a[0];
+}
 const PET_NEED_N = { 'm:wood': '木頭', 'm:stone': '石頭', 'm:copper': '銅礦' };
 const petEl = document.createElement('div');
 petEl.className = 'maker'; petEl.hidden = true; petEl.style.zIndex = 31;
@@ -21,14 +32,15 @@ function petNameEnt(ents, nm, fy, bx, by) {   // 寵物腳下的名字牌（自�
   ents.push({ y: fy + 5.5, draw: () => nameTag(nm, bx + 8, by + T + 4, '#ffd6e2') });
 }
 let petNameEdit = false;   // 改名輸入框開著（寵物列、照顧面板共用）
-async function petRename(nm) {
+async function petRename(nm, slot) {
   nm = String(nm || '').trim().replace(/\s+/g, ' ');
   if (!nm || [...nm].length > 8 || /[<>&"'`\\]/.test(nm)) { toast('名字要 1～8 個字，不能有特殊符號'); return false; }
-  if (petMine && nm === petMine.name) { toast('這已經是牠的名字囉'); return false; }
+  const tg = petList().find(x => (x.slot || 1) === (slot || 1)) || petMine;
+  if (tg && nm === tg.name) { toast('這已經是牠的名字囉'); return false; }
   try {
-    const r = await enqueue(() => rpc('pet_rename', { p_name: nm }));
+    const r = await enqueue(() => rpc('pet_rename', { p_name: nm, p_slot: slot || 1 }));
     const n2 = (r && (r.name || (r.pet && r.pet.name))) || nm;
-    if (petMine) petMine.name = n2; if (petData && petData.pet) petData.pet.name = n2;
+    if (tg) tg.name = n2; if (petMine && (petMine.slot || 1) === (slot || 1)) petMine.name = n2; if (petData && petData.pet && (petData.pet.slot || 1) === (slot || 1)) petData.pet.name = n2;
     petPubAt = 0; petBcast('pren', { i: myUid });   // 叫旁邊的人馬上重讀，不用等 30 秒
     toast('牠現在叫「' + n2 + '」了'); return true;
   } catch (er) { const msg = String(er && er.message); toast(/does not exist|PGRST202|42883/.test(msg) ? '改名功能還沒開放' : errText(er)); return false; }
@@ -38,17 +50,19 @@ function petPaint(root) {   // 把 data-pk 的 canvas 畫上寵物
   root.querySelectorAll('canvas[data-pk]').forEach(cv => {
     const L = petLookOf(cv.dataset.pk), c = cv.getContext('2d'); if (!L) return;
     c.clearRect(0, 0, cv.width, cv.height); g = c;
+    petWearNow = (cv.dataset.hat || cv.dataset.outfit) ? { hat: cv.dataset.hat || null, outfit: cv.dataset.outfit || null } : null;
     try { petB(L, 4, 5, { pose: 'front', now: 0 }); } catch (e) { /* 略過 */ }
+    petWearNow = null;
     g = ctx;
   });
 }
-const petCv = k => '<canvas width="24" height="24" data-pk="' + k + '" style="width:72px;height:72px;image-rendering:pixelated;flex:none"></canvas>';
+const petCv = (k, p) => '<canvas width="24" height="24" data-pk="' + k + '"' + (p && p.hat ? ' data-hat="' + p.hat + '"' : '') + (p && p.outfit ? ' data-outfit="' + p.outfit + '"' : '') + ' style="width:72px;height:72px;image-rendering:pixelated;flex:none"></canvas>';
 
 let petCare = false;
 async function openPetShop(care) {
   if (care === true) { petBarToggle(); return; }
   if (!ready || !me || paused() || petOpen) return;
-  petStoryAt = 0; petCgReset(); petReplay = false; petCare = care === true; petOpen = true; pressed.length = 0; petMsg = ''; petPick = null; petData = null;
+  petStoryAt = 0; petCgReset(); petReplay = false; petReplay2 = false; petReplay3 = false; petCare = care === true; petOpen = true; pressed.length = 0; petMsg = ''; petPick = null; petData = null;
   petEl.hidden = false; petCard.innerHTML = '<div class="shop-h"><h2>阿喵姊姊的領養店</h2></div><p>讀取中…</p>';
   await petLoad();
 }
@@ -56,7 +70,7 @@ function closePetShop() { if (petBusy) return; petOpen = false; petEl.hidden = t
 async function petLoad() {
   try { petData = await enqueue(() => rpc('pet_get')); }
   catch (e) { toast(errText(e)); closePetShop(); return; }
-  petUnlocked = !!petData.unlocked; petMine = petData.pet || null; petRender();
+  petUnlocked = !!petData.unlocked; if (!petData.pets) petData.pets = petData.pet ? [petData.pet] : []; petMine = petData.pet || null; petRender();
 }
 const PET_STORY = [
   ['nar', '（早上，阿喵姊姊正在擦窗）'],
@@ -67,6 +81,35 @@ const PET_STORY = [
   ['nar', '（門縫下，一隻小爪子悄悄伸了進來）'],
   ['npc', '呵呵，有一隻好像已經等不及了。請進，挑你喜歡的。']
 ];
+const PET_STORY2 = [   // Lv.10 再進店：擴建＋請玩家再領養一隻
+  ['nar', '（店裡擠滿了毛孩，阿喵姊姊一邊擦汗一邊嘆氣）'],
+  ['npc', '你來啦！最近流浪的毛孩越來越多，店裡都快住不下了。'],
+  ['npc', '我想把店擴建，藍圖都畫好了。只是需要 100 木頭和 100 石頭……'],
+  ['me', '木頭和石頭，我來想辦法！'],
+  ['npc', '太好了！等擴建好，能不能請你再領養一隻？多一個家，就少一隻流浪的小可憐。'],
+  ['npc', '兩隻一起疼，牠們會很開心的。']
+];
+let petReplay2 = false, petReplay3 = false;   // 回顧擴建／衣帽間劇情（只在本機重演）
+const PET_STORY3 = [   // 寵物店解鎖服飾（衣帽間）
+  ['nar', '（阿喵姊姊拿著一件迷你披風，在小狗身上比來比去）'],
+  ['npc', '你看你看！我最近在學做寵物的小衣服，這件披風剛剛好呢。'],
+  ['npc', '我想開一間衣帽間，讓大家的毛孩都能打扮得漂漂亮亮。'],
+  ['npc', '設計圖畫好了，只是需要 100 木頭來做衣架和鏡子。'],
+  ['me', '木頭交給我！'],
+  ['nar', '（阿喵姊姊望著遠方，想像毛孩們穿上新衣、站在鏡子前轉圈的樣子）'],
+  ['npc', '太好了～衣帽間蓋好以後，想幫牠們換新衣服，隨時來找我喔！']
+];
+function petStoryK() {   // 現在要演哪一段劇情：0＝不演，1＝初次相遇，2＝Lv.10 擴建，3＝衣帽間
+  const d = petData; if (!d) return 0;
+  if (petReplay) return 1; if (petReplay2) return 2; if (petReplay3) return 3;
+  if (petCare) return 0;
+  if (!d.pet && !d.met) return 1;
+  if (d.pet && d.lv10 && !(d.exp && d.exp.seen)) return 2;
+  if (d.pet && d.wear && !d.wear.seen) return 3;
+  return 0;
+}
+const PET_STORIES = () => [null, PET_STORY, PET_STORY2, PET_STORY3];
+const PET_BEATS = () => [null, PET_CG_BEATS, PET_CG_BEATS2, PET_CG_BEATS3];
 let petStoryAt = 0, petReplay = false;   // petReplay：有寵物的玩家按「回顧劇情」，只在本機重演，不寫伺服器
 function petRender() {
   const d = petData; if (!d) return;
@@ -94,52 +137,149 @@ function petRender() {
     h += close; petCard.innerHTML = h; paintClerk(); return;
   }
   const c = d.cfg;
-  if (petReplay || (!d.pet && !d.met && !care)) {   // 第一次進來：先演小劇情（窗外的腳印），演完才開放領養
-    const ln = PET_STORY[Math.min(petStoryAt, PET_STORY.length - 1)], last = petStoryAt >= PET_STORY.length - 1, tx = ln[1].replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+  const SK = petStoryK(), S2 = SK === 2;
+  if (SK) {   // 第一次進來：先演小劇情（窗外的腳印），演完才開放領養
+    const STY = PET_STORIES()[SK], BTS = PET_BEATS()[SK], rep_ = petReplay || petReplay2 || petReplay3, ln = STY[Math.min(petStoryAt, STY.length - 1)], last = petStoryAt >= STY.length - 1, tx = ln[1].replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
     h += '<canvas id="petcg" width="192" height="108" style="display:block;width:100%;aspect-ratio:16/9;image-rendering:pixelated;border:3px solid var(--edge);border-radius:12px;background:#000"></canvas>';
-    h += '<div style="display:flex;gap:4px;justify-content:center">' + PET_STORY.map((_, i) => '<i style="width:7px;height:7px;border-radius:50%;background:' + (i <= petStoryAt ? 'var(--pink)' : '#efe6d6') + '"></i>').join('') + '</div>';
+    h += '<div style="display:flex;gap:4px;justify-content:center">' + STY.map((_, i) => '<i style="width:7px;height:7px;border-radius:50%;background:' + (i <= petStoryAt ? 'var(--pink)' : '#efe6d6') + '"></i>').join('') + '</div>';
     if (ln[0] === 'npc') h += say(tx).replace('<small style="', '<small id="petcg-txt" data-full="' + tx + '" style="min-height:3em;').replace('>' + tx + '</small>', '></small>');
     else if (ln[0] === 'me') h += '<div class="row" style="justify-content:flex-end"><div class="meta" style="text-align:right"><b>你</b><small id="petcg-txt" data-full="' + tx + '" style="display:block;margin-top:4px;line-height:1.5;min-height:3em"></small></div></div>';
     else h += '<p id="petcg-txt" data-full="' + tx + '" style="margin:10px 0;text-align:center;font-style:italic;opacity:.8;min-height:3em"></p>';
-    h += '<button type="button" class="btn wide" data-pa="story">' + (last ? (petReplay ? '看完了' : '好，去看看牠們') : '繼續 ▶') + '</button>';
+    h += '<button type="button" class="btn wide" data-pa="story">' + (last ? (rep_ ? '看完了' : SK === 2 ? '好，我來幫忙' : SK === 3 ? '好，我來找木頭' : '好，去看看牠們') : '繼續 ▶') + '</button>';
     if (!last) h += '<button type="button" class="btn ghost wide" data-pa="storyskip">略過劇情</button>';
-    petCard.innerHTML = h; paintClerk(); petCgStart(document.getElementById('petcg'), PET_CG_BEATS[Math.min(petStoryAt, PET_CG_BEATS.length - 1)]); petCgType(document.getElementById('petcg-txt')); return;
+    petCard.innerHTML = h; paintClerk(); petCgStart(document.getElementById('petcg'), BTS[Math.min(petStoryAt, BTS.length - 1)]); petCgType(document.getElementById('petcg-txt')); return;
   }
-  if (!d.pet) {   // 領養
+  if (!d.pet || petAdopt2) {   // 領養（第一隻，或 Lv.10 的第二隻）
     const sel = petPick, L = sel && petLookOf(sel);
-    h += say(petMsg || '歡迎～挑一隻喜歡的帶回家吧！領養費 ' + c.adopt + ' G。');
+    h += say(petMsg || (petAdopt2 ? '第二隻也要好好疼牠喔～狗或貓都可以，領養費 ' + c.adopt + ' G。' : '歡迎～挑一隻喜歡的帶回家吧！領養費 ' + c.adopt + ' G。'));
     h += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px">' + d.breeds.map(b => {
       const on = sel === b.id;
       return '<button type="button" class="btn ' + (on ? '' : 'ghost') + '" data-pa="pick" data-k="' + b.id + '" style="display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px">' + petCv(b.id) + '<small>' + b.name + '</small></button>';
     }).join('') + '</div>';
     if (sel) h += '<label style="display:flex;gap:8px;align-items:center;font-weight:800">取名字<input id="petname" maxlength="8" placeholder="1～8 字" style="flex:1;min-width:0;padding:8px;border:3px solid var(--edge);border-radius:12px;font:inherit"></label>' +
       '<button type="button" class="btn wide" data-pa="adopt"' + (me.coins < c.adopt ? ' disabled' : '') + '>領養（' + c.adopt + ' G）</button>';
-    h += close; petCard.innerHTML = h; paintClerk(); petPaint(petCard); return;
+    h += (petAdopt2 ? '<button type="button" class="btn ghost wide" data-pa="cancel2">先不領養</button>' : '') + close; petCard.innerHTML = h; paintClerk(); petPaint(petCard); return;
   }
-  const p = d.pet, L = petLookOf(p.breed);
+  const p = petSelPet(), L = petLookOf(p.breed), plist = petList();
   if (!care) h += say(petMsg || (p.fed ? '牠吃得飽飽的～' : '牠肚子餓了，餵點東西吧！'));
   else if (petMsg) h += '<p style="margin:0;text-align:center;font-weight:800">' + petMsg + '</p>';
   const left = Math.max(0, p.fedUntil - srvNow()), fedPct = p.fed ? Math.max(5, Math.min(100, Math.round(left / (12 * 3600000) * 100))) : 4;   // 飽足 12 小時封頂（和寵物資料卡一樣）
   const noFood = have('p:food') < 1;
-  h += '<div class="ps-card"><div class="ps-top">' + petCv(p.breed) + '<div class="meta"><b class="ps-name">' + petEsc(p.name) + '</b><small>' + (L ? L.breed + '・' + L.coat : '') + '</small></div></div>' +
+  if (plist.length > 1) h += '<div style="display:flex;gap:8px;justify-content:center">' + plist.map(x => '<button type="button" class="btn ' + ((x.slot || 1) === (p.slot || 1) ? '' : 'ghost') + '" data-pa="sel" data-k="' + (x.slot || 1) + '" style="padding:6px 12px">' + petEsc(x.name) + '</button>').join('') + '</div>';
+  const cardH = '<div class="ps-card"><div class="ps-top">' + petCv(p.breed, p) + '<div class="meta"><b class="ps-name">' + petEsc(p.name) + '</b><small>' + (L ? L.breed + '・' + L.coat : '') + '</small></div></div>' +
     '<div class="ps-stats"><div class="ps-st"><div><span>🍖 飽足</span><span class="' + (p.fed ? '' : 'ps-bad') + '">' + (p.fed ? '約剩 ' + petHrs(p.fedUntil) : '肚子餓了') + '</span></div><div class="bar"><i style="width:' + fedPct + '%;background:#ff8fa8"></i></div></div>' +
     '<div class="ps-st"><div><span>💗 親密</span><span>' + p.bond + '</span></div><div class="bar"><i style="width:' + ((p.bond % 10) * 10 || (p.bond ? 100 : 0)) + '%;background:#ffb04a"></i></div></div></div>' +
     '<div class="ps-foot"><span>飯碗存量 ' + p.bowl + ' / 3</span><span>背包飼料 ' + have('p:food') + '</span></div></div>' +
     '<button type="button" class="btn wide" style="margin:0" data-pa="act" data-k="feed"' + (noFood ? ' disabled' : '') + '>🍖 餵飼料' + (noFood ? '（背包沒有飼料）' : '') + '</button>';
-  if (care) { h += close; petCard.innerHTML = h; petPaint(petCard); return; }
+  if (care) { h += cardH + close; petCard.innerHTML = h; petPaint(petCard); return; }
   const buyBtn = (n, price) => '<button type="button" class="btn ps-buy" data-pa="buy" data-k="food" data-n="' + n + '"' + (me.coins < price ? ' disabled' : '') + '>×' + n + '<small>' + price + ' G</small></button>';
-  h += '<div class="ps-sec">商店</div>' +
-    '<div class="ps-food"><div class="ps-sack"><b></b></div><div class="meta"><b>寵物飼料</b><small>耐飽 ' + c.hours + ' 小時；飯碗最多存 3 份，餓了會自己吃</small></div>' + buyBtn(1, c.food) + buyBtn(10, c.food * 10) + '</div>' +
-    '<div class="ps-sec">寵物家具<small>擺在家裡：飯碗可倒飼料，玩具牠會自己去玩</small></div>' +
-    '<div class="ps-grid">' + PET_GOODS.map(([k, key, nm, dim]) => {   // 玩具和飯碗都可以重複買（想擺幾個都行）
-      const n = petOwnN(key), own = false, price = c[k], poor = me.coins < price;
+  const foodBody = '<div class="ps-food"><div class="ps-sack"><b></b></div><div class="meta"><b>寵物飼料</b><small>耐飽 ' + c.hours + ' 小時；飯碗最多存 3 份，餓了會自己吃</small></div>' + buyBtn(1, c.food) + buyBtn(10, c.food * 10) + '</div>';
+  const toysBody = '<div class="ps-sec">寵物家具<small>擺在家裡：飯碗可倒飼料，玩具牠會自己去玩</small></div>' +
+    '<div class="ps-grid">' + PET_GOODS.map(([k, key, nm, dim]) => {   // 每款只能買一個：買了就是解鎖，不能賣回去
+      const n = petOwnN(key), own = n > 0, price = c[k], poor = me.coins < price;
       return '<button type="button" class="ps-g' + (own ? ' own' : '') + (poor ? ' poor' : '') + '" data-pa="buy" data-k="' + k + '" data-n="1"' + (own || poor ? ' disabled' : '') + '>' +
         (own ? '<span class="ps-own">✓ 已擁有</span>' : n > 0 ? '<span class="ps-own">已有 ×' + n + '</span>' : '') + '<span class="ps-ico"><img src="' + petIcon(key, dim) + '" alt=""></span><b>' + nm + '</b><small>' + dim[0] + '×' + dim[1] + '</small>' + (own ? '' : '<span class="ps-price">' + price + ' G</span>') + '</button>';
-    }).join('') + '</div>' +
-    '<button type="button" class="ps-link" data-pa="rename">✎ 幫牠改名字</button>' +
-    '<button type="button" class="ps-link" data-pa="replay">回顧劇情</button>' +
-    '<button type="button" class="ps-link" data-pa="return">送回領養處</button>' + close;
-  petCard.innerHTML = h; paintClerk(); petPaint(petCard);
+    }).join('') + '</div>' ;
+  let secondBody = '';
+  if (plist.length < 2) secondBody = d.canSecond ? '<button type="button" class="btn wide" data-pa="adopt2">🐾 再領養一隻（' + c.adopt + ' G）</button>' : d.lv10 ? petExpHtml(d) : '<small style="text-align:center;opacity:.8">玩家 Lv.10 可以再領養第二隻</small>';
+  const tabs = [['care', '照顧'], ['toys', '玩具'], ['wear', '服飾'], ['other', '其他']];
+  if (!tabs.some(t => t[0] === petSec)) petSec = 'care';
+  h += '<div class="ps-tabs">' + tabs.map(t => '<button type="button" class="ps-tab' + (petSec === t[0] ? ' on' : '') + '" data-pa="sec" data-k="' + t[0] + '">' + t[1] + '</button>').join('') + '</div>';
+  if (petSec === 'care') h += cardH + '<div class="ps-sec">飼料</div>' + foodBody;
+  else if (petSec === 'toys') h += toysBody;
+  else if (petSec === 'wear') h += petWearHtml(d, p);
+  else {
+    if (plist.length < 2) h += '<div class="ps-sec">第二隻與擴建</div>' + secondBody;
+    h += '<div class="ps-links"><button type="button" class="ps-link" data-pa="rename">✎ 幫牠改名字</button>' +
+      '<button type="button" class="ps-link" data-pa="replay">回顧劇情</button>' +
+      (d.lv10 || plist.length > 1 ? '<button type="button" class="ps-link" data-pa="replay2">回顧擴建劇情</button>' : '') +
+      '<button type="button" class="ps-link" data-pa="replay3">回顧衣帽間劇情</button>' +
+      '<button type="button" class="ps-link" data-pa="return">送回領養處</button></div>';
+  }
+  h += close;
+  const sc_ = petCard.scrollTop; petCard.innerHTML = h; petCard.scrollTop = sc_; paintClerk(); petPaint(petCard);
+}
+/* ================= 寵物的帽子和衣服（疊在 petB 上；petWearNow＝現在畫的這隻穿什麼） ================= */
+let petWearNow = null;   // { hat, outfit }：畫之前設好、畫完清掉（見 pet-shop.js 的 petWd）
+const PET_WEAR_LIST = [   // [key, 名稱, 部位]
+  ['straw', '草帽', 'hat'], ['crown', '小皇冠', 'hat'], ['wizard', '巫師帽', 'hat'],
+  ['cape', '紅披風', 'outfit'], ['sweater', '條紋毛衣', 'outfit'], ['raincoat', '黃雨衣', 'outfit']
+];
+const PWX_FRONT = {   // 正面（也用在開心跳起來）：頭 y4～12、身體下緣 y13～15
+  straw(R) { R('#c9a15a', 2, 3, 12, 2); R('#e8c47a', 3, 2, 10, 1); R('#e8c47a', 5, 0, 6, 3); R('#a8783a', 5, 2, 6, 1); R('#e07a8a', 5, 2, 1, 1); R('#e07a8a', 4, 3, 1, 1); R('#fff2c8', 6, 0, 2, 1); },
+  crown(R) { R('#b98a1a', 4, 3, 8, 2); R('#ffd34d', 4, 2, 8, 2); R('#ffd34d', 4, 0, 1, 3); R('#ffd34d', 7, -1, 2, 4); R('#ffd34d', 11, 0, 1, 3); R('#fff3b0', 5, 2, 6, 1); R('#ff6b8a', 7, 2, 2, 1); R('#8fd4ff', 4, 0, 1, 1); R('#8fd4ff', 11, 0, 1, 1); },
+  wizard(R) { R('#4a3a8a', 3, 3, 10, 2); R('#6a56c0', 4, 2, 8, 1); R('#6a56c0', 5, 0, 6, 2); R('#6a56c0', 6, -2, 4, 2); R('#6a56c0', 7, -4, 2, 2); R('#ffd34d', 5, 2, 6, 1); R('#ffd34d', 7, -1, 1, 1); R('#fff3b0', 8, 0, 1, 1); R('#4a3a8a', 9, -5, 2, 1); },
+  cape(R) { R('#c0394f', 3, 12, 10, 3); R('#e0536a', 4, 12, 8, 2); R('#8a2438', 3, 15, 10, 1); R('#ffd34d', 7, 12, 2, 1); R('#a02c42', 3, 13, 1, 2); R('#a02c42', 12, 13, 1, 2); },
+  sweater(R) { R('#4a6fa5', 4, 12, 8, 3); R('#ffffff', 4, 13, 8, 1); R('#8fb4e8', 4, 12, 8, 1); R('#8fb4e8', 4, 14, 8, 1); R('#4a6fa5', 3, 13, 1, 2); R('#4a6fa5', 12, 13, 1, 2); R('#ffffff', 3, 14, 1, 1); R('#ffffff', 12, 14, 1, 1); },
+  raincoat(R) { R('#f2c230', 4, 12, 8, 3); R('#ffe066', 5, 12, 6, 1); R('#c99a10', 4, 14, 8, 1); R('#f2c230', 3, 13, 1, 2); R('#f2c230', 12, 13, 1, 2); R('#6a6a6a', 7, 13, 1, 1); R('#6a6a6a', 8, 14, 1, 1); }
+};
+const PWX_SIDE = {   // 側面（面向右）：頭 x3～14、y3～11；身體 x0～7、y10～14
+  straw(R) { R('#c9a15a', 4, 2, 10, 2); R('#e8c47a', 6, 0, 6, 2); R('#a8783a', 6, 1, 6, 1); R('#e07a8a', 6, 1, 1, 1); },
+  crown(R) { R('#b98a1a', 6, 3, 7, 1); R('#ffd34d', 6, 2, 7, 1); R('#ffd34d', 6, 0, 1, 3); R('#ffd34d', 9, -1, 2, 4); R('#ffd34d', 12, 0, 1, 3); R('#ff6b8a', 9, 2, 2, 1); },
+  wizard(R) { R('#4a3a8a', 4, 2, 10, 2); R('#6a56c0', 6, 0, 6, 2); R('#6a56c0', 7, -2, 4, 2); R('#6a56c0', 8, -4, 2, 2); R('#ffd34d', 6, 1, 6, 1); R('#fff3b0', 9, -1, 1, 1); },
+  cape(R) { R('#c0394f', 0, 11, 8, 3); R('#e0536a', 1, 11, 6, 2); R('#8a2438', 0, 14, 8, 1); R('#ffd34d', 6, 11, 1, 1); },
+  sweater(R) { R('#4a6fa5', 0, 11, 8, 3); R('#ffffff', 0, 12, 8, 1); R('#8fb4e8', 0, 11, 8, 1); R('#8fb4e8', 0, 13, 8, 1); },
+  raincoat(R) { R('#f2c230', 0, 11, 8, 3); R('#ffe066', 1, 11, 6, 1); R('#c99a10', 0, 13, 8, 1); R('#6a6a6a', 5, 12, 1, 1); }
+};
+const PWX_SLEEP = {   // 趴著睡：body y8+br～14
+  straw(R, br) { R('#c9a15a', 3, 5 + br, 10, 1); R('#e8c47a', 5, 3 + br, 6, 2); R('#a8783a', 5, 4 + br, 6, 1); },
+  crown(R, br) { R('#ffd34d', 5, 4 + br, 6, 2); R('#ffd34d', 5, 3 + br, 1, 1); R('#ffd34d', 7, 2 + br, 2, 2); R('#ffd34d', 10, 3 + br, 1, 1); R('#ff6b8a', 7, 5 + br, 2, 1); },
+  wizard(R, br) { R('#4a3a8a', 3, 5 + br, 10, 1); R('#6a56c0', 5, 3 + br, 6, 2); R('#6a56c0', 6, 1 + br, 4, 2); R('#6a56c0', 7, br, 2, 1); R('#ffd34d', 5, 4 + br, 6, 1); },
+  cape(R, br) { R('#c0394f', 2, 12 + br, 12, 2); R('#e0536a', 3, 12 + br, 10, 1); R('#8a2438', 2, 14, 12, 1); },
+  sweater(R, br) { R('#4a6fa5', 2, 12 + br, 12, 2); R('#ffffff', 2, 13 + br, 12, 1); R('#8fb4e8', 2, 12 + br, 12, 1); },
+  raincoat(R, br) { R('#f2c230', 2, 12 + br, 12, 2); R('#ffe066', 3, 12 + br, 10, 1); R('#c99a10', 2, 14, 12, 1); }
+};
+function petWearDrawX(px, py, pose, dir, now) {
+  const w = petWearNow; if (!w) return;
+  dir = dir === -1 ? -1 : 1;
+  const set = pose === 'sleep' ? PWX_SLEEP : pose === 'side' ? PWX_SIDE : PWX_FRONT, br = Math.floor((now || 0) / 900) % 2;
+  const R = (c, x, y, ww, h) => r(c, dir > 0 ? px + x : px + 16 - x - ww, py + y, ww, h);
+  if (w.outfit && set[w.outfit]) set[w.outfit](R, br);
+  if (w.hat && set[w.hat]) set[w.hat](R, br);
+}
+{ const petB_plain = petB; petB = function (L, px, py, o) { petB_plain(L, px, py, o); if (petWearNow) petWearDrawX(px, py, (o && o.pose) || 'front', o && o.dir, o && o.now); }; }   // 在原本的 petB 後面疊上衣服
+
+const PET_WEAR_N = Object.fromEntries(PET_WEAR_LIST.map(x => [x[0], x[1]]));
+function petWearOf(p) { return p && (p.hat || p.outfit) ? { hat: p.hat || null, outfit: p.outfit || null } : null; }
+const petWd = (W, fn) => () => { petWearNow = W; try { fn(); } finally { petWearNow = null; } };   // 畫這隻寵物時，套上牠穿的帽子和衣服
+async function petWearSet(p, kind, item) {
+  try {
+    const r_ = await enqueue(() => rpc('pet_wear_set', { p_slot: (p && p.slot) || 1, p_kind: kind, p_item: item }));
+    if (r_ && r_.pet) petPut(r_.pet);
+    petPubAt = 0; petBcast('pren', { i: myUid });   // 旁邊的人馬上重讀，看到新衣服
+    return true;
+  } catch (er) { const m = String(er && er.message); toast(/pet_wear_none/.test(m) ? '背包裡沒有這件，先到寵物店買吧' : /does not exist|PGRST202|42883/.test(m) ? '服飾還沒開放' : errText(er)); return false; }
+}
+function petWearHtml(d, p) {   // 寵物店：衣帽間（捐 100 木頭解鎖 → 買帽子和衣服 → 幫牠穿上）
+  const w = d.wear; if (!w) return '';
+  const own = w.own || {};
+  if ((w.wood | 0) < (w.need || 100)) {
+    const got = w.wood | 0, need = w.need || 100, bag = have('m:wood'), q = Math.min(bag, need - got);
+    return '<div class="ps-sec">衣帽間<small>捐 ' + need + ' 木頭，就能買寵物的帽子和衣服</small></div>' +
+      '<div><div style="display:flex;justify-content:space-between;font-weight:800"><span>木頭</span><span>' + got + ' / ' + need + '</span></div>' +
+      '<div style="height:12px;border:2px solid var(--edge);border-radius:8px;background:#fff;overflow:hidden"><div style="height:100%;width:' + Math.min(100, Math.round(got / need * 100)) + '%;background:var(--pink)"></div></div>' +
+      '<div style="display:flex;gap:8px;align-items:center;margin-top:6px"><small style="flex:1">背包 ' + bag + '</small><button type="button" class="btn" data-pa="wgive" data-n="1"' + (q < 1 ? ' disabled' : '') + '>捐 1</button><button type="button" class="btn" data-pa="wgive" data-n="all"' + (q < 1 ? ' disabled' : '') + '>全部捐出</button></div></div>';
+  }
+  const price = w.price || 500, poor = me.coins < price;
+  const cell = (k, kind) => {
+    const n = own[k] | 0, on = p && p[kind] === k;
+    return '<div class="ps-g" style="cursor:default"><span class="ps-ico"><canvas width="24" height="24" data-pk="' + (p ? p.breed : '') + '" data-' + kind + '="' + k + '" style="width:48px;height:48px;image-rendering:pixelated"></canvas></span><b>' + PET_WEAR_N[k] + '</b>' +
+      (n > 0 ? '<small style="color:#3f9a52;font-weight:700">✓ 已解鎖</small>' : '<button type="button" class="btn ps-buy" data-pa="wbuy" data-k="' + k + '"' + (poor ? ' disabled' : '') + '>買<small>' + price + ' G</small></button>') +
+      (n > 0 ? '<button type="button" class="btn ' + (on ? 'ghost' : '') + '" data-pa="wset" data-kind="' + kind + '" data-k="' + (on ? '-' : k) + '" style="padding:4px 8px">' + (on ? '脫下' : '穿上') + '</button>' : '') + '</div>';
+  };
+  return '<div class="ps-sec">衣帽間<small>' + (p ? petEsc(p.name) : '') + ' 現在：' + (p && p.hat ? PET_WEAR_N[p.hat] : '沒戴帽子') + '、' + (p && p.outfit ? PET_WEAR_N[p.outfit] : '沒穿衣服') + '</small></div>' +
+    '<div class="ps-grid">' + PET_WEAR_LIST.map(x => cell(x[0], x[2])).join('') + '</div>';
+}
+function petExpHtml(d) {   // 擴建捐獻：100 木頭 + 100 石頭
+  const ex = d.exp || {}, need = d.expNeed || 100;
+  return '<div class="ps-sec">擴建寵物店<small>捐齊材料就能再領養一隻</small></div><div style="display:flex;flex-direction:column;gap:10px">' + [['m:wood', ex.wood | 0], ['m:stone', ex.stone | 0]].map(([k, got]) => {
+    const bag = have(k), left = need - got, q = Math.min(bag, left), pct = Math.min(100, Math.round(got / need * 100));
+    return '<div><div style="display:flex;justify-content:space-between;font-weight:800"><span>' + (PET_NEED_N[k] || k) + '</span><span>' + got + ' / ' + need + '</span></div>' +
+      '<div style="height:12px;border:2px solid var(--edge);border-radius:8px;background:#fff;overflow:hidden"><div style="height:100%;width:' + pct + '%;background:var(--pink)"></div></div>' +
+      '<div style="display:flex;gap:8px;align-items:center;margin-top:6px"><small style="flex:1">背包 ' + bag + '</small>' +
+      (left > 0 ? '<button type="button" class="btn" data-pa="xgive" data-k="' + k + '" data-n="1"' + (q < 1 ? ' disabled' : '') + '>捐 1</button><button type="button" class="btn" data-pa="xgive" data-k="' + k + '" data-n="all"' + (q < 1 ? ' disabled' : '') + '>全部捐出</button>' : '<b style="color:var(--pink-deep)">已湊齊</b>') +
+      '</div></div>';
+  }).join('') + '</div>';
 }
 const PET_GOODS = [['bowl', 'petbowl', '木托盤雙碗', [2, 1]], ['toy_a', 'pettoya', '玩具籃', [1, 1]], ['toy_b', 'pettoyb', '貓跳台', [1, 2]], ['toy_c', 'pettoyc', '拔河繩與毛線球', [1, 1]], ['toy_d', 'pettoyd', '條紋隧道', [2, 1]],
   ['toy_e', 'pettoye', '啾啾小鴨', [1, 1]], ['toy_f', 'pettoyf', '藍色飛盤', [1, 1]], ['toy_g', 'pettoyg', '肉球磨爪板', [1, 1]], ['toy_h', 'pettoyh', '泡泡機', [1, 1]]];
@@ -187,17 +327,33 @@ async function petCall(name, args, ok) {
   }
   await petLoad();
 }
+function petStoryEnd(K) {
+  if (petReplay || petReplay2 || petReplay3) { petReplay = petReplay2 = petReplay3 = false; petRender(); }
+  else if (K === 2) petCall('pet_exp_seen', {}, () => {});
+  else if (K === 3) petCall('pet_wear_seen', {}, () => {});
+  else petCall('pet_meet', {}, () => {});
+}
 petCard.addEventListener('click', ev => {
   const b = ev.target.closest('[data-pa]'); if (!b || b.disabled) return;
   const a = b.dataset.pa, k = b.dataset.k, n = b.dataset.n;
   if (a === 'close') closePetShop();
+  else if (a === 'sec') { petSec = k; petCard.scrollTop = 0; petRender(); }
+  else if (a === 'sel') { petSelSlot = +k || 0; petMsg = ''; petRender(); }
+  else if (a === 'adopt2') { petAdopt2 = true; petPick = null; petMsg = ''; petRender(); }
+  else if (a === 'cancel2') { petAdopt2 = false; petPick = null; petMsg = ''; petRender(); }
   else if (a === 'rename') {
-    const nm = prompt('幫牠取新名字（1～8 字）', petMine ? petMine.name : '');
-    if (nm != null) petRename(nm).then(ok => { if (ok) petRender(); });
+    const tg = petSelPet(), nm = prompt('幫牠取新名字（1～8 字）', tg ? tg.name : '');
+    if (nm != null) petRename(nm, tg ? tg.slot : 1).then(ok => { if (ok) petRender(); });
   }
+  else if (a === 'replay3') { petReplay3 = true; petStoryAt = 0; petCgReset(); petRender(); }
+  else if (a === 'wgive') { const got = (petData && petData.wear && petData.wear.wood) | 0, q = n === 'all' ? Math.min(have('m:wood'), 100 - got) : 1; if (q > 0) petCall('pet_wear_give', { p_qty: q }, () => { petMsg = '謝謝你！'; }); }
+  else if (a === 'wbuy') petCall('pet_wear_buy', { p_item: k }, () => { petMsg = '買好了，到寵物列或這裡幫牠穿上吧'; });
+  else if (a === 'wset') { const tg = petSelPet(); if (tg) petWearSet(tg, b.dataset.kind, k === '-' ? null : k).then(() => petRender()); }
+  else if (a === 'replay2') { petReplay2 = true; petStoryAt = 0; petCgReset(); petRender(); }
+  else if (a === 'xgive') { const ex = (petData && petData.exp) || {}, got = k === 'm:wood' ? ex.wood | 0 : ex.stone | 0, lim = ((petData && petData.expNeed) || 100) - got, q = n === 'all' ? Math.min(have(k), lim) : 1; if (q > 0) petCall('pet_exp_give', { p_item: k, p_qty: q }, () => { petMsg = '謝謝你！'; }); }
   else if (a === 'replay') { petReplay = true; petStoryAt = 0; petCgReset(); petRender(); }
-  else if (a === 'story') { if (petCgSkipType()) return; if (petStoryAt < PET_STORY.length - 1) { petStoryAt++; petRender(); } else if (petReplay) { petReplay = false; petRender(); } else petCall('pet_meet', {}, () => {}); }
-  else if (a === 'storyskip') { if (petReplay) { petReplay = false; petRender(); } else petCall('pet_meet', {}, () => {}); }
+  else if (a === 'story') { if (petCgSkipType()) return; const K = petStoryK(); if (petStoryAt < PET_STORIES()[K].length - 1) { petStoryAt++; petRender(); } else petStoryEnd(K); }
+  else if (a === 'storyskip') petStoryEnd(petStoryK());
   else if (a === 'pick') { petPick = k; petRender(); }
   else if (a === 'give') { const lim = Math.min((petData.need[k] | 0) - (petData.have[k] | 0), ((petData.daily && petData.daily[k]) | 0) - ((petData.today && petData.today[k]) | 0)), q = n === 'all' ? Math.min(have(k), lim) : 1; if (q > 0) petCall('pet_build_give', { p_item: k, p_qty: q }, r => { petMsg = '謝謝你！'; }); }
   else if (a === 'pay') petCall('pet_build_pay', {}, () => { petCloseAfter = '完工啦！寵物店開張了～走進去找阿喵姊姊聊聊吧'; });
@@ -205,11 +361,11 @@ petCard.addEventListener('click', ev => {
   else if (a === 'adopt') {
     const nm = ((petCard.querySelector('#petname') || {}).value || '').trim();
     if (!nm) { petMsg = '先幫牠取個名字吧'; petRender(); return; }
-    petCall('pet_adopt', { p_breed: petPick, p_name: nm }, () => { petMsg = nm + ' 成為你的家人了！'; toast('領養成功：' + nm); });
+    petCall('pet_adopt', { p_breed: petPick, p_name: nm }, r => { petAdopt2 = false; petPick = null; if (r && r.pet && r.pet.slot) petSelSlot = r.pet.slot; petMsg = nm + ' 成為你的家人了！'; toast('領養成功：' + nm); });
   }
   else if (a === 'buy') petCall('pet_buy', { p_kind: k, p_qty: +n || 1 }, () => { petMsg = '謝謝惠顧～'; });
-  else if (a === 'act') petCall('pet_act', { p_kind: k }, () => { petHappy(k); petMsg = { pat: '牠開心地蹭蹭你', feed: '牠大口吃了起來', bowl: '飼料放進碗裡了', play: '玩得好開心！' }[k]; });
-  else if (a === 'return') { if (b.dataset.sure) petCall('pet_return', {}, () => { petMsg = '牠被送回領養處了…'; petPick = null; }); else { b.dataset.sure = '1'; b.textContent = '確定要送回嗎？再按一次確認'; } }
+  else if (a === 'act') petCall('pet_act', { p_kind: k, p_slot: (petSelPet() || {}).slot || 1 }, () => { petHappy(k, (petSelPet() || {}).slot); petMsg = { pat: '牠開心地蹭蹭你', feed: '牠大口吃了起來', bowl: '飼料放進碗裡了', play: '玩得好開心！' }[k]; });
+  else if (a === 'return') { if (b.dataset.sure) petCall('pet_return', { p_slot: (petSelPet() || {}).slot || 1 }, () => { petMsg = '牠被送回領養處了…'; petPick = null; petSelSlot = 0; }); else { b.dataset.sure = '1'; b.textContent = '確定要送回嗎？再按一次確認'; } }
 });
 petEl.addEventListener('keydown', ev => { if (ev.key === 'Escape') closePetShop(); });
 
@@ -218,14 +374,25 @@ let petSyncAt = 0;
 function petSync(force) {
   if (!me || (!force && Date.now() - petSyncAt < 60000)) return;
   petSyncAt = Date.now();
-  enqueue(() => rpc('pet_get')).then(d => { petUnlocked = !!(d && d.unlocked); petMine = (d && d.pet) || null; }).catch(() => {});
+  enqueue(() => rpc('pet_get')).then(d => { petUnlocked = !!(d && d.unlocked); petMine = (d && d.pet) || null; if (d) { if (!d.pets) d.pets = d.pet ? [d.pet] : []; if (!petOpen && !petBarOn) { petData = d; petMine = d.pets[0] || petMine; } } }).catch(() => {});
 }
 
 /* ---------- 跟班寵物：在農場、小村、森林、廣場、自己家跟在玩家後面走 ---------- */
-const petFol = { x: 0, y: 0, tr: [], px: -1, py: -1, scene: '', t: 0, still: 0, face: 1, moving: false, happyUntil: 0, nextBubble: 0, goal: null, nextGoal: 0, moveAt: 0, lx: -1, ly: -1, emo: null, fDots: 0, fBall: 0, items: -1, seenR: {} };
+const petNewFol = idx => ({ idx, x: 0, y: 0, tr: [], px: -1, py: -1, scene: '', t: 0, still: 0, face: 1, moving: false, happyUntil: 0, nextBubble: 0, goal: null, nextGoal: 0, moveAt: 0, lx: -1, ly: -1, emo: null, fDots: 0, fBall: 0, items: -1, seenR: {} });   // 每隻寵物一份跟班狀態（idx 0＝第一隻、1＝第二隻）
+const petFols = [petNewFol(0), petNewFol(1)];
+let petFol = petFols[0];
+/* 在「第 i 隻寵物」的身分下執行 fn：暫時把 petMine／petFol 換成那一隻，跟班、玩玩具、表情的程式就不用一隻一隻重寫 */
+function petCtx(i, fn) {
+  const sm = petMine, sf = petFol, a = petList();
+  if (i > 0 && !a[i]) return;
+  if (i > 0) petMine = a[i]; petFol = petFols[i];
+  try { return fn(); } finally { petMine = sm; petFol = sf; }
+}
+
 const PET_SCENES = { farm: 1, town: 1, forest: 1, swamp: 1, plaza: 1, house: 1 };   // 進自己的家也會跟進來（去朋友家也會跟去，朋友看得到）
 /* 外出設定（存在伺服器 pets.fmode）：stay 留在家／close 貼身／free 自由走動（預設）。留在家時只有在自己家裡看得到牠 */
-const petMode = () => { const m = petMine && petMine.mode; return m === 'stay' || m === 'close' ? m : 'free'; };
+const petModeOf = p => { const m = p && p.mode; return m === 'stay' || m === 'close' ? m : 'free'; };   // 外出模式每隻各自設定
+const petMode = () => petModeOf(petMine);
 function petShown() { return !!(petMine && petUnlocked && ready && PET_SCENES[scene]) && (petMode() !== 'stay' || (scene === 'house' && !visiting)); }
 /* 親密等級：用累計親密度算（伺服器只存 bond，等級和才藝解鎖都在前端算）；每升一級學會一個才藝，周圍的人都看得到 */
 const PET_LVB = [0, 45, 105, 225, 450, 900, 1350];
@@ -340,29 +507,36 @@ function petFreeStep(f, t, dt, cx, cy, radius) {
 }
 let petTrickAt = 0;
 function petDoTrick(k) {
+  const sel = petSelPet(), ix = Math.max(0, petList().findIndex(x => sel && (x.slot || 1) === (sel.slot || 1)));
+  if (ix > 0) { petCtx(ix, () => petDoTrick2(k, ix)); return; }
+  petDoTrick2(k, 0);
+}
+function petDoTrick2(k, ix) {
   const d = PET_TRICK_BY[k]; if (!d || !petMine) return;
   if (petLvOf(petMine.bond) < d.lv) { toast('親密 Lv.' + d.lv + ' 才學得會'); return; }
   if (!petShown()) { toast('寵物現在不在你身邊'); return; }
   const now = Date.now(); if (now - petTrickAt < 8000) { toast('牠剛表演完，休息一下吧'); return; }
   petTrickAt = now; petFol.wel = null; petFol.goal = null; petFol.trick = { k, t0: now, fx: 0 };
-  petBcast('ptk', { i: myUid, k });
+  petBcast('ptk', { i: myUid, k, s: ix ? 2 : 1 });
   petBarClose();
 }
 function onPetTrick(p) {   // 'ptk'：同一個地方的朋友的寵物在表演才藝
   if (!p || typeof p.i !== 'string' || typeof p.k !== 'string' || p.i === myUid || !PET_TRICK_BY[p.k]) return;
   const rp = remotes.get(p.i); if (!rp || !hereRp(rp)) return;
-  const f = petRFol[p.i]; if (!f || !petPub[p.i] || f.trick) return;
+  const f = petRFol[p.i + (p.s === 2 ? '#2' : '')]; if (!f || !petPub[p.i] || (p.s === 2 && !petPub[p.i].p2) || f.trick) return;
   f.trick = { k: p.k, t0: Date.now(), fx: 0, rx: rp.x, ry: rp.y };
 }
 function petEmote(k, ms) { const t = Date.now(); petFol.emo = { k, at: t, until: t + (ms || 2200) }; }
-function petHappy(kind) {
+function petHappy(kind, slot, sec) {
+  const i = Math.max(0, petList().findIndex(x => (x.slot || 1) === (slot || 1)));
+  if (i > 0) { petCtx(i, () => petHappy(kind, 1, 1)); return; }
   petFol.happyUntil = Date.now() + 2600;
   petEmote(kind === 'feed' || kind === 'bowl' ? 'yum' : kind === 'play' ? 'happy' : 'love', 2400);
   if (petShown() && typeof sparkle === 'function') sparkle(petFol.x, petFol.y - 0.4, '#ff9db8');
-  if (kind === 'pat') petTouchSend(myUid);   // 自己摸摸：同一個地方的朋友也看到牠開心跳一下、飄愛心
+  if (kind === 'pat') petTouchSend(myUid, sec ? 2 : 1);   // 自己摸摸：同一個地方的朋友也看到牠開心跳一下、飄愛心
 }
-function petBondCheck(oldB, newB) {
-  const lo = petLvOf(oldB), ln = petLvOf(newB), nm = (petMine && petMine.name) || '牠';
+function petBondCheck(oldB, newB, nameArg) {
+  const lo = petLvOf(oldB), ln = petLvOf(newB), nm = nameArg || (petMine && petMine.name) || '牠';
   if (ln > lo) {   // 升級：學會新才藝
     const tk = PET_TRICKS.find(x => x.lv === ln);
     setTimeout(() => { petEmote('star', 3200); toast('親密升到 Lv.' + ln + '！' + nm + (tk ? '學會了「' + tk.n + '」，到寵物資料卡看看' : '')); }, 2500);
@@ -374,7 +548,7 @@ let petWelSeen = false;
 const PET_WEL_DUR = 3300;
 function petWelFrame(f, t) {
   const w = f.wel, u = t - w.t0; if (u >= PET_WEL_DUR) return null;
-  const rx = Math.max(0, pl.x - 1), ry = pl.y, o = { x: rx, y: ry, pose: 'front', face: 1, emo: null, jump: 0 };
+  const rx = Math.max(0, pl.x - 1 + (f.idx ? 2 : 0)), ry = pl.y, o = { x: rx, y: ry, pose: 'front', face: 1, emo: null, jump: 0 };
   const ease = k => Math.max(0, Math.min(1, k));
   if (w.v === 0) {          // A 衝過來撲
     if (u < 1700) { const k = ease(u / 1700); o.x = rx - 5 * (1 - k); o.pose = 'side'; if (u < 1100) o.emo = 'alert'; }
@@ -389,38 +563,42 @@ function petWelFrame(f, t) {
     else if (u < 2700) o.emo = 'happy';
     else o.emo = 'love';
   } else {                  // D 繞著你轉一圈
-    if (u < 2500) { const a = Math.PI + (u / 2500) * Math.PI * 2, R = 1.8 - 0.8 * ease((u - 1800) / 700); o.x = pl.x + Math.cos(a) * R; o.y = pl.y + Math.sin(a) * R * 0.8; o.pose = 'side'; o.face = Math.cos(a - 0.01) > Math.cos(a) ? 1 : -1; o.face = -Math.sin(a) >= 0 ? 1 : -1; if (u < 800) o.emo = 'alert'; }
+    if (u < 2500) { const a = Math.PI + (f.idx ? Math.PI : 0) + (u / 2500) * Math.PI * 2, R = 1.8 - 0.8 * ease((u - 1800) / 700); o.x = pl.x + Math.cos(a) * R; o.y = pl.y + Math.sin(a) * R * 0.8; o.pose = 'side'; o.face = Math.cos(a - 0.01) > Math.cos(a) ? 1 : -1; o.face = -Math.sin(a) >= 0 ? 1 : -1; if (u < 800) o.emo = 'alert'; }
     else o.emo = 'love';
   }
   o.x = Math.max(0, o.x); o.y = Math.max(0, o.y);
   return o;
 }
 function petFollowEnts(now, ents) {
+  petFollowOne(now, ents, 0);
+  if (petList().length > 1) petCtx(1, () => petFollowOne(now, ents, 1));   // 第二隻（是否顯示看牠自己的外出模式）
+}
+function petFollowOne(now, ents, idx) {
   if (!petShown()) { if (me && ready && !petMine) petSync(); return; }
   const f = petFol, t = Date.now(), dt = Math.min(100, t - (f.t || t)); f.t = t;
   if (f.scene !== scene || f.px < 0) {
     f.scene = scene; f.x = pl.x; f.y = pl.y; f.tr = []; f.px = pl.x; f.py = pl.y; f.nextBubble = t + 30000; f.goal = null; f.items = -1; f.seenR = {};
     f.nextGoal = t + 15000; f.moveAt = t; f.still = t; petEmote('alert', 1800);
   }
-  if (!petWelSeen) { petWelSeen = true; f.wel = { v: Math.floor(Math.random() * 4), t0: t }; }
+  if (!idx && !petWelSeen) { petWelSeen = true; const wv = Math.floor(Math.random() * 4); f.wel = { v: wv, t0: t }; petFols[1].wel = { v: wv, t0: t }; }
   if (f.wel) {
     const w = petWelFrame(f, t), Lw = petLookOf(petMine.breed);
     if (w && Lw) {
       f.x = w.x; f.y = w.y; f.px = pl.x; f.py = pl.y; f.tr = []; f.still = t; f.nextGoal = t + 15000; f.moveAt = t; f.lx = pl.x; f.ly = pl.y;
       const bx = Math.round(w.x * T), by = Math.round(w.y * T);
-      ents.push({ y: w.y + 0.01, draw: () => petB(Lw, bx, by - w.jump, { pose: w.pose, now, dir: w.face }) });
+      ents.push({ y: w.y + 0.01, draw: petWd(petWearOf(petMine), () => petB(Lw, bx, by - w.jump, { pose: w.pose, now, dir: w.face })) });
       petNameEnt(ents, petMine.name, w.y, bx, by);
       if (w.emo) { const age = t - f.wel.t0; ents.push({ y: w.y + 6, draw: () => petEmoDraw(w.emo, bx + 1, by - 15 - w.jump + Math.round(Math.sin(age / 260))) }); }
       return;
     }
     f.wel = null; f.x = Math.max(0, pl.x - 1); f.y = pl.y; f.tr = []; f.still = t;
   }
-  const mf = petMeetFrame(myUid, t), Lm = mf ? petLookOf(petMine.breed) : null;   // 跟別人的寵物互動中（見檔案最後面）
+  const mf = petMeetFrame(idx ? myUid + '#2' : myUid, t), Lm = mf ? petLookOf(petMine.breed) : null;   // 跟別人的寵物互動中（見檔案最後面）
   if (mf && Lm) {
     f.x = mf.x; f.y = mf.y; f.px = pl.x; f.py = pl.y; f.tr = []; f.still = t; f.nextGoal = t + 15000; f.moveAt = t; f.lx = pl.x; f.ly = pl.y; f.moving = false; f.face = mf.face;
     if (mf.emo && (!f.emo || f.emo.k !== mf.emo || f.emo.until < t + 200)) petEmote(mf.emo, 2000);
     const bx = Math.round(f.x * T), by = Math.round(f.y * T);
-    ents.push({ y: f.y + 0.01, draw: () => petB(Lm, bx, by - mf.jump, { pose: mf.pose, now, dir: mf.face }) });
+    ents.push({ y: f.y + 0.01, draw: petWd(petWearOf(petMine), () => petB(Lm, bx, by - mf.jump, { pose: mf.pose, now, dir: mf.face })) });
     petNameEnt(ents, petMine.name, f.y, bx, by);
     if (f.emo && f.emo.until > t) { const e = f.emo, age = t - e.at, bob = Math.round(Math.sin(age / 260)), pop_ = age < 160 ? 3 : 0; ents.push({ y: f.y + 6, draw: () => { petEmoDraw(e.k, bx + 1, by - 15 - mf.jump + bob + pop_); } }); }
     return;
@@ -442,7 +620,7 @@ function petFollowEnts(now, ents) {
       petFreeStep(f, t, dt, pl.x, pl.y, 3);
       if (f.moving) { f.still = t; f.fDots = f.fBall = 0; }
     } else {
-      const tg = gl ? [gl.x, gl.y] : petFeetSpot();   // 貼身：緊貼在玩家身後一格
+      const tg = gl ? [gl.x, gl.y] : petFeetSpot(f.idx);   // 貼身：緊貼在玩家身後一格
       const dx = tg[0] - f.x, dy = tg[1] - f.y, d = Math.hypot(dx, dy);
       f.moving = d > 0.05;
       if (gl && !f.moving) { petGoalArrive(f, gl, t); }
@@ -469,12 +647,12 @@ function petFollowEnts(now, ents) {
   let bx = Math.round(f.x * T), by = Math.round(f.y * T);
   if (play) { bx = play.px; by = play.py; }
   if (trk) { bx += Math.round(trk.ox * T); by += Math.round(trk.oy * T); }
-  ents.push({ y: play ? play.sortY : f.y + 0.01, draw: () => {
+  ents.push({ y: play ? play.sortY : f.y + 0.01, draw: petWd(petWearOf(petMine), () => {
     if (play) { play.draw(L, now); return; }
     const jump = trk ? trk.jump : t < f.happyUntil ? Math.round(Math.abs(Math.sin((f.happyUntil - t) / 110)) * 5) : 0;
     if (trk) petTrickDraw(L, bx, by, jump, pose, now, trk.dir ? trk.dir : f.face, trk);
     else petB(L, bx, by - jump, { pose, now, dir: f.face });
-  } });
+  }) });
   if (trk && (trk.k === 'shake' || trk.k === 'fire')) ents.push({ y: f.y + 5, draw: () => petTrickTop(trk, bx, by, trk.jump, trk.dir ? trk.dir : f.face) });
   petNameEnt(ents, petMine.name, play ? play.sortY : f.y, bx, by);
   if (f.emo && f.emo.until > t) {
@@ -554,12 +732,14 @@ function petBarPos() {
   petBar.style.bottom = (low ? Math.round(innerHeight - rc.top + 8) : 18) + 'px';
 }
 function petBarRender() {
-  const d = petData, p = d && d.pet; if (!p) { petBarClose(); return; }
+  const d = petData, p = d && petSelPet(); if (!p) { petBarClose(); return; }
+  const plist = petList();
   const L = petLookOf(p.breed), left = Math.max(0, p.fedUntil - srvNow()), pct = Math.min(100, Math.round(left / (12 * 3600000) * 100));
   const bag = have('p:food');
   const btn = (a, ic, n, dis, tip) => '<button type="button" class="pb-b" data-b="' + a + '"' + (dis ? ' disabled' : '') + '><img src="' + petBIcon(ic) + '" alt="">' + tip + (n != null ? ' <small>' + n + '</small>' : '') + '</button>';
   petBar.innerHTML = '<button type="button" class="pb-x" data-b="x" aria-label="關閉">✕</button>' +
-    '<div class="pb-h"><canvas class="pb-pt" width="24" height="24" data-pk="' + p.breed + '"></canvas><div class="pb-m" style="font-size:16px">' + petEsc(p.name) + ' <button type="button" class="pb-ed" data-b="rename" aria-label="改名">✎</button><small><span style="color:#d9667f">♥</span> 親密 ' + p.bond + '</small></div></div>' +
+    (plist.length > 1 ? '<div class="pb-seg" style="margin-bottom:6px">' + plist.map(x => '<button type="button" data-b="sel:' + (x.slot || 1) + '" class="' + ((x.slot || 1) === (p.slot || 1) ? 'on' : '') + '">' + petEsc(x.name) + '</button>').join('') + '</div>' : '') +
+    '<div class="pb-h"><canvas class="pb-pt" width="24" height="24" data-pk="' + p.breed + '"' + (p.hat ? ' data-hat="' + p.hat + '"' : '') + (p.outfit ? ' data-outfit="' + p.outfit + '"' : '') + '></canvas><div class="pb-m" style="font-size:16px">' + petEsc(p.name) + ' <button type="button" class="pb-ed" data-b="rename" aria-label="改名">✎</button><small><span style="color:#d9667f">♥</span> 親密 ' + p.bond + '</small></div></div>' +
     (petNameEdit ? '<div class="pb-nm"><input id="pb-nin" maxlength="8" value="' + petEsc(p.name) + '" placeholder="1～8 字"><button type="button" data-b="rensave">儲存</button><button type="button" data-b="rencancel">取消</button></div>' : '') +
     '<div><div class="pb-r"><span>飽足</span><span>' + (left > 0 ? petHrs(p.fedUntil) : '肚子餓了！') + '</span></div><div class="pb-bar"><i style="width:' + pct + '%"></i></div></div>' +
     (function () { const lv = petLvOf(p.bond), nx = PET_LVB[lv], pv = PET_LVB[lv - 1], pc = nx ? Math.round((p.bond - pv) / (nx - pv) * 100) : 100;
@@ -567,17 +747,29 @@ function petBarRender() {
     '<div class="pb-r"><span>飯碗</span><span>' + p.bowl + ' / 3 份</span></div>' +
     '<div class="pb-r"><span>今天可得親密</span><span>摸摸 ' + p.patLeft + '・玩耍 ' + p.playLeft + '</span></div>' +
     '<div class="pb-acts">' + btn('pat', 'pat', p.patLeft, p.patLeft < 1, '摸摸') + btn('feed', 'feed', bag, bag < 1, '餵食') + '</div>' +
-    '<div class="pb-sec">🐾 外出時</div><div class="pb-seg">' + [['stay', '🏠 留在家', '只在家裡'], ['close', '🐾 貼身', '緊跟在後'], ['free', '🌿 自由走動', '在你附近逛']].map(m => '<button type="button" data-b="mode:' + m[0] + '" class="' + (petMode() === m[0] ? 'on' : '') + '">' + m[1] + '<small>' + m[2] + '</small></button>').join('') + '</div>' +
+    '<div class="pb-sec">🐾 外出時</div><div class="pb-seg">' + [['stay', '🏠 留在家', '只在家裡'], ['close', '🐾 貼身', '緊跟在後'], ['free', '🌿 自由走動', '在你附近逛']].map(m => '<button type="button" data-b="mode:' + m[0] + '" class="' + (petModeOf(p) === m[0] ? 'on' : '') + '">' + m[1] + '<small>' + m[2] + '</small></button>').join('') + '</div>' +
+    petBarWear(d, p) +
     '<div class="pb-sec">🎪 才藝<small> 身邊的人都看得到</small></div><div class="pb-tr">' + PET_TRICKS.map(x => { const ok = petLvOf(p.bond) >= x.lv; return '<button type="button" data-b="trick:' + x.k + '"' + (ok ? '' : ' disabled') + '>' + x.ic + ' ' + x.n + (ok ? '' : '<small>Lv.' + x.lv + '</small>') + '</button>'; }).join('') + '</div>';
   petPaint(petBar);
   if (petNameEdit) { const i = petBar.querySelector('#pb-nin'); if (i && document.activeElement !== i) { i.focus(); i.select(); } }
 }
 async function petBarOpen() {
   if (!ready || !me || paused()) return;
-  try { petData = await enqueue(() => rpc('pet_get')); petMine = petData.pet || null; } catch (e) { toast(errText(e)); return; }
+  try { petData = await enqueue(() => rpc('pet_get')); if (!petData.pets) petData.pets = petData.pet ? [petData.pet] : []; petMine = petData.pet || null; } catch (e) { toast(errText(e)); return; }
   if (!petMine) { toast('你還沒有寵物'); return; }
   petBarOn = true; petBar.hidden = false; petBarRender();
   clearInterval(petBarTimer); petBarTimer = setInterval(() => { if (!petBarOn) petBarClose(); else if (!petNameEdit) petBarRender(); }, 30000);
+}
+function petBarWear(d, p) {   // 寵物列的穿搭：只列出背包裡有的帽子和衣服
+  const w = d && d.wear; if (!w) return '';
+  const own = w.own || {}, has = PET_WEAR_LIST.filter(x => (own[x[0]] | 0) > 0);
+  if ((w.wood | 0) < (w.need || 100)) return '<div class="pb-sec">👕 穿搭<small> 到寵物店捐木頭解鎖衣帽間</small></div>';
+  if (!has.length) return '<div class="pb-sec">👕 穿搭<small> 到寵物店的衣帽間買帽子和衣服</small></div>';
+  const row = (kind, nm) => {
+    const list = has.filter(x => x[2] === kind); if (!list.length) return '';
+    return '<div class="pb-seg" style="margin-bottom:4px"><button type="button" disabled style="opacity:.8">' + nm + '</button>' + '<button type="button" data-b="wear:' + kind + ':-" class="' + (p[kind] ? '' : 'on') + '">無</button>' + list.map(x => '<button type="button" data-b="wear:' + kind + ':' + x[0] + '" class="' + (p[kind] === x[0] ? 'on' : '') + '">' + x[1] + '</button>').join('') + '</div>';
+  };
+  return '<div class="pb-sec">👕 穿搭</div>' + row('hat', '帽子') + row('outfit', '衣服');
 }
 function petBarClose() { petNameEdit = false; petBarOn = false; petBar.hidden = true; clearInterval(petBarTimer); }
 function petBarToggle() { if (petBarOn) petBarClose(); else petBarOpen(); }
@@ -587,29 +779,34 @@ petBar.addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'En
 petBar.addEventListener('click', async e => {
   const b = e.target.closest('[data-b]'); if (!b || b.disabled || petBarBusy) return;
   const k = b.dataset.b; if (k === 'x') { petBarClose(); return; }
+  if (/^wear:/.test(k)) {   // 'wear:hat:straw' 或 'wear:outfit:-'（脫下）
+    const [, kind, it] = k.split(':'), tg = petSelPet(); if (!tg || petBarBusy) return;
+    petBarBusy = true; petWearSet(tg, kind, it === '-' ? null : it).then(() => { petBarBusy = false; if (petBarOn) petBarRender(); }); return;
+  }
   if (k === 'rename') { petNameEdit = true; petBarRender(); return; }
   if (k === 'rencancel') { petNameEdit = false; petBarRender(); return; }
+  if (/^sel:/.test(k)) { petSelSlot = +k.slice(4) || 0; petNameEdit = false; petBarRender(); return; }
   if (k === 'rensave') {
-    petBarBusy = true; const ok = await petRename((petBar.querySelector('#pb-nin') || {}).value); petBarBusy = false;
+    petBarBusy = true; const ok = await petRename((petBar.querySelector('#pb-nin') || {}).value, (petSelPet() || {}).slot || 1); petBarBusy = false;
     if (ok) petNameEdit = false; petBarRender(); return;
   }
   if (/^trick:/.test(k)) { petDoTrick(k.slice(6)); return; }
   if (/^mode:/.test(k)) {   // 外出設定：存到伺服器，其他玩家也看得到一致的結果
-    const m = k.slice(5); if (m === petMode()) return;
+    const m = k.slice(5), tgm = petSelPet(); if (m === petModeOf(tgm)) return;
     petBarBusy = true;
     try {
-      const r = await enqueue(() => rpc('pet_set_mode', { p_mode: m }));
-      const nm = (r && r.mode) || m; if (petMine) petMine.mode = nm; if (petData && petData.pet) petData.pet.mode = nm;
+      const r = await enqueue(() => rpc('pet_set_mode', { p_mode: m, p_slot: tgm ? tgm.slot || 1 : 1 }));
+      const nm = (r && r.mode) || m; if (tgm) tgm.mode = nm; if (petMine && tgm && (petMine.slot || 1) === (tgm.slot || 1)) petMine.mode = nm;
       toast(nm === 'stay' ? '牠會留在家裡等你' : nm === 'close' ? '牠會緊跟在你身後' : '牠會在你附近自由走動');
     } catch (er) { const msg = String(er && er.message); toast(/does not exist|PGRST202|42883/.test(msg) ? '這個設定還沒開放' : errText(er)); }
     petBarBusy = false; petBarRender(); return;
   }
   petBarBusy = true;
   try {
-    const ob_ = petMine ? petMine.bond : 0;
-    const r = await enqueue(() => rpc('pet_act', { p_kind: k }));
+    const tg = petSelPet(), ob_ = tg ? tg.bond : 0;
+    const r = await enqueue(() => rpc('pet_act', { p_kind: k, p_slot: tg ? tg.slot || 1 : 1 }));
     if (r && r.inv) Object.assign(inv, r.inv);
-    petData.pet = r.pet; petMine = r.pet; petHappy(k); petBondCheck(ob_, r.pet.bond); refreshHud(); petBarClose();   // 按完就關，才看得到寵物的動作
+    petPut(r.pet); petHappy(k, r.pet.slot); petBondCheck(ob_, r.pet.bond, r.pet.name); refreshHud();   // 餵食、摸摸後寵物列保持開著，可以連續操作
   } catch (er) { toast(errText(er)); if (k === 'pat' && /pet_tired/.test(String(er && er.message))) petEmote('angry', 2600); }
   petBarBusy = false; if (petBarOn) petBarRender();
 });
@@ -630,20 +827,21 @@ function petRemoteEnts(now, ents) {
   const t = Date.now(), dt = Math.min(100, t - (petRT || t)); petRT = t;
   petMeetTick(t); petMeetBalls(ents, now);   // 寵物之間的互動
   list.forEach(rp => {
-    const pb = petPub[rp.id]; if (!pb) return;
+    const pb0 = petPub[rp.id]; if (!pb0) return;
+    const one = (pb, key, idx) => {
     const md = pb.mode === 'stay' || pb.mode === 'close' ? pb.mode : 'free';
     if (md === 'stay' && !(scene === 'house' && visiting && String(visiting.uid) === String(rp.id))) return;   // 留在家的寵物只在牠家裡看得到
     const L = petLookOf(pb.breed); if (!L) return;
-    let f = petRFol[rp.id];
-    if (!f || f.w !== rp.w) f = petRFol[rp.id] = { x: rp.x, y: rp.y, face: 1, still: t, w: rp.w };
+    let f = petRFol[key];
+    if (!f || f.w !== rp.w) f = petRFol[key] = { x: rp.x, y: rp.y, face: 1, still: t, w: rp.w };
     const dx = rp.x - f.x, dy = rp.y - f.y, d = Math.hypot(dx, dy);
-    const mf = petMeetFrame(rp.id, t);
+    const mf = petMeetFrame(idx ? rp.id + '#2' : rp.id, t);
     const trk = mf ? null : petTrickFrame(f, t);
     if (f.trick && Math.hypot(rp.x - f.trick.rx, rp.y - f.trick.ry) > 0.6) f.trick = null;   // 主人走開了就中斷
     if (mf) { f.x = mf.x; f.y = mf.y; f.face = mf.face; f.moving = false; f.still = t; if (mf.emo && (!f.emo || f.emo.k !== mf.emo || f.emo.until < t + 200)) f.emo = { k: mf.emo, at: t, until: t + 2000 }; }
     else if (trk) { f.moving = false; f.still = t; }
     else if (md === 'close') {
-      const near = 1.15, stopAt = 1.0;   // 貼身：緊貼不離
+      const near = 1.15 + idx, stopAt = 1.0 + idx;   // 貼身：緊貼不離
       f.moving = d > near;
       if (f.moving) { const st = Math.min(d - stopAt, 5.2 * dt / 1000); f.x += dx / d * st; f.y += dy / d * st; if (Math.abs(dx) > 0.05) f.face = dx < 0 ? -1 : 1; f.still = t; }
     } else { petFreeStep(f, t, dt, rp.x, rp.y, 3); if (f.moving) f.still = t; }
@@ -652,19 +850,22 @@ function petRemoteEnts(now, ents) {
     const pose = mf ? mf.pose : trk ? trk.pose : happy ? 'happy' : f.moving ? 'side' : t - f.still > 20000 ? 'sleep' : 'front';
     const jump = mf ? mf.jump : trk ? trk.jump : happy ? Math.round(Math.abs(Math.sin((f.happyUntil - t) / 110)) * 5) : 0;
     const bx = Math.round((f.x + (trk ? trk.ox : 0)) * T), by = Math.round((f.y + (trk ? trk.oy : 0)) * T);
-    ents.push({ y: f.y + 0.01, draw: () => { if (trk) petTrickDraw(L, bx, by, jump, pose, now, trk.dir ? trk.dir : f.face, trk); else petB(L, bx, by - jump, { pose, now, dir: f.face }); } });
+    ents.push({ y: f.y + 0.01, draw: petWd(petWearOf(pb), () => { if (trk) petTrickDraw(L, bx, by, jump, pose, now, trk.dir ? trk.dir : f.face, trk); else petB(L, bx, by - jump, { pose, now, dir: f.face }); }) });
     if (trk && (trk.k === 'shake' || trk.k === 'fire')) ents.push({ y: f.y + 5, draw: () => petTrickTop(trk, bx, by, jump, trk.dir ? trk.dir : f.face) });
     petNameEnt(ents, pb.name, f.y, bx, by);
     if (f.emo && f.emo.until > t) {
       const e = f.emo, age = t - e.at, bob = Math.round(Math.sin(age / 260)), pop_ = age < 160 ? 3 : 0;
       ents.push({ y: f.y + 6, draw: () => { petEmoDraw(e.k, bx + 1, by - 15 - jump + bob + pop_); } });
     }
+    };
+    one(pb0, rp.id, 0);
+    if (pb0.p2) one(Object.assign({ mode: pb0.mode }, pb0.p2), rp.id + '#2', 1);   // 對方的第二隻
   });
 }
 /* ---------- 朋友摸寵物：面向別人的寵物按動作鍵，大家都看得到（只有表情和愛心，不加親密度、沒有次數限制） ---------- */
 let petTouchAt = 0;
-function petTouchSend(owner) {
-  try { if (syncScene() && net && net.ok) net.ch.send({ type: 'broadcast', event: 'ptp', payload: { i: myUid, to: owner } }); } catch (e) { /* 略過 */ }
+function petTouchSend(owner, slot) {
+  try { if (syncScene() && net && net.ok) net.ch.send({ type: 'broadcast', event: 'ptp', payload: { i: myUid, to: owner, s: slot === 2 ? 2 : 1 } }); } catch (e) { /* 略過 */ }
 }
 function petRemoteAt(x, y) {   // 這一格上有沒有別人的寵物（玩家本人站在這格時以玩家為優先，呼叫端先判斷）
   if (!me || !syncScene() || scene === 'tarot' || scene === 'cafe' || scene === 'arcade' || scene === 'temple' || scene === 'church' || scene === 'boat') return null;
@@ -673,7 +874,10 @@ function petRemoteAt(x, y) {   // 這一格上有沒有別人的寵物（玩家�
     if (!hereRp(rp) || !petPub[rp.id]) return;
     const f = petRFol[rp.id]; if (!f || f.w !== rp.w) return;
     if (Math.round(f.x) === x && Math.round(f.y) === y) hit = rp;
+    const f2 = petRFol[rp.id + '#2'];
+    if (f2 && petPub[rp.id].p2 && f2.w === rp.w && Math.round(f2.x) === x && Math.round(f2.y) === y) hit = Object.assign({}, rp, { s2: 1 });
   });
+  if (!hit && petHW && petHW.s2 && petHW.s2.vis && petHW.s2.f && Math.round(petHW.s2.f.x) === x && Math.round(petHW.s2.f.y) === y) hit = { id: petHW.uid, host: 1, s2: 1 };
   if (!hit && petHW && petHW.vis && petHW.f && Math.round(petHW.f.x) === x && Math.round(petHW.f.y) === y) hit = { id: petHW.uid, host: 1 };   // 屋主不在線、在家等待的寵物
   return hit;
 }
@@ -686,18 +890,19 @@ function petTouchRemote(rp) {
   if (!ready || !me || !rp) return;
   const now = performance.now(); if (now - petTouchAt < 700) return;   // 只擋連按，不限每天次數
   petTouchAt = now;
-  const f = rp.host ? (petHW && petHW.f) : petRFol[rp.id]; if (f) petShowTouched(f, Date.now());
+  const f = rp.host ? (rp.s2 ? petHW && petHW.s2 && petHW.s2.f : petHW && petHW.f) : petRFol[rp.id + (rp.s2 ? '#2' : '')]; if (f) petShowTouched(f, Date.now());
   myEmo = { id: 'heart', at: now };   // 自己頭上也冒小愛心
-  petTouchSend(rp.id);
+  petTouchSend(rp.id, rp.s2 ? 2 : 1);
   if (visiting && String(rp.id) === String(visiting.uid)) petVisitTouchLog(rp.host ? (petHW && petHW.pb) : petPub[rp.id]);
 }
 function onPetTouch(p) {
   if (!p || typeof p !== 'object' || typeof p.i !== 'string' || typeof p.to !== 'string') return;
   const from = remotes.get(p.i); if (!from || !hereRp(from)) return;
   const t = Date.now();
-  if (p.to === myUid) { if (petShown()) { petFol.happyUntil = t + 2400; petFol.still = t; petEmote('love', 2400); if (typeof sparkle === 'function') sparkle(petFol.x, petFol.y - 0.4, '#ff9db8'); } }
-  else if (petHW && petHW.vis && petHW.f && String(petHW.uid) === p.to) petShowTouched(petHW.f, t);   // 屋主不在線：大家都看到等待中的寵物被摸
-  else { const o = remotes.get(p.to), f = petRFol[p.to]; if (!o || !f || !hereRp(o)) return; petShowTouched(f, t); }
+  const sec = p.s === 2;
+  if (p.to === myUid) { const doit = () => { if (petShown()) { petFol.happyUntil = t + 2400; petFol.still = t; petEmote('love', 2400); if (typeof sparkle === 'function') sparkle(petFol.x, petFol.y - 0.4, '#ff9db8'); } }; if (sec) { if (petList().length > 1) petCtx(1, doit); } else doit(); }
+  else if (petHW && petHW.uid && String(petHW.uid) === p.to && (sec ? petHW.s2 && petHW.s2.vis && petHW.s2.f : petHW.vis && petHW.f)) petShowTouched(sec ? petHW.s2.f : petHW.f, t);   // 屋主不在線：大家都看到等待中的寵物被摸
+  else { const o = remotes.get(p.to), f = petRFol[p.to + (sec ? '#2' : '')]; if (!o || !f || !hereRp(o)) return; petShowTouched(f, t); }
   if (p.i !== p.to) from.emo = { id: 'heart', at: performance.now() };   // 摸的人頭上冒小愛心
 }
 
@@ -707,10 +912,10 @@ function onPetTouch(p) {
    朋友互動：面向寵物按動作鍵＝摸摸；面向玩具＝陪玩；面向飯碗＝餵點心（用自己的飼料，要伺服器的 pet_visit_feed）。 */
 const petHash = s => { let h = 0; s = String(s); for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0; return Math.abs(h); };
 const petVisitMode = uid => petHash(uid + '|' + worldKey() + '|' + Math.floor(Date.now() / 1800000)) % 2 ? 'feet' : 'walk';
-function petFeetSpot() {   // 玩家身後一格（走不到就貼在玩家那格）
+function petFeetSpot(idx) {   // 玩家身後一格（第二隻在兩格後；走不到就退一格、再不行就貼在玩家那格）
   const o = { up: [0, 1], down: [0, -1], left: [1, 0], right: [-1, 0] }[pl.face] || [0, 1];
-  const x = pl.x + o[0], y = pl.y + o[1];
-  return walkable(x, y) ? [x, y] : [pl.x, pl.y];
+  for (let k = idx ? 2 : 1; k >= 1; k--) { const x = pl.x + o[0] * k, y = pl.y + o[1] * k; if (walkable(x, y)) return [x, y]; }
+  return [pl.x, pl.y];
 }
 let petHW = null, petFeedBusy = false, petVLAt = 0, petPlayAtT = 0;
 function petEmoteOn(f, k, ms) { const t = Date.now(); f.emo = { k, at: t, until: t + (ms || 2200) }; }
@@ -733,32 +938,37 @@ function petHostEnts(now, ents) {
   if (!visiting || scene !== 'house' || !ready || !me || !house) { petHW = null; return; }
   const hid = visiting.uid, t = Date.now();
   if (!petHW || petHW.v !== visiting) {
-    const W0 = petHW = { uid: hid, v: visiting, since: t, vis: false, pb: null, spot: null, f: null, wel: null, welDone: false, sent: false, seed: petHash(hid + '|' + Math.floor(t / 1800000)) };
+    const W0 = petHW = { uid: hid, v: visiting, since: t, vis: false, pb: null, spot: null, f: null, wel: null, welDone: false, sent: false, seed: petHash(hid + '|' + Math.floor(t / 1800000)), s2: { vis: false, spot: null, f: null, wel: null, welDone: false, seed: 0 } };
+    W0.s2.seed = W0.seed + 7;
     rpc('pet_public_many', { p_uids: [hid] }).then(d => { W0.pb = (d && d[hid]) || false; }).catch(() => { W0.pb = false; });
   }
   const W = petHW, hp = remotes.get(hid), online = !!(hp && hereRp(hp));
   if (t - W.since < 2500 || !net || !net.ok) return;   // 剛進門先等一下，確認屋主在不在線
   if (!W.sent) { W.sent = true; petBcast('pwl', { i: myUid, h: hid }); }   // 通知屋子裡的人：有訪客進門了（屋主在線，他的寵物會自己歡迎）
-  if (online) { W.vis = false; W.f = null; W.wel = null; return; }
+  if (online) { W.vis = false; W.f = null; W.wel = null; W.s2.vis = false; W.s2.f = null; W.s2.wel = null; return; }
   if (!W.pb) return;
-  const L = petLookOf(W.pb.breed); if (!L) return;
-  if (!W.f) {
-    const sp = petHostSpot(W.seed); if (!sp) return;
-    W.spot = sp; W.f = { x: sp.x, y: sp.y, face: 1, still: t, w: worldKey(), nextEmo: t + 3000 }; W.vis = true;
-    if (!W.welDone) { W.welDone = true; W.wel = { to: myUid, t0: t }; }
+  petHostOne(W, W.pb, now, ents, t);
+  if (W.pb.p2) petHostOne(W.s2, Object.assign({ mode: W.pb.mode }, W.pb.p2), now, ents, t);   // 屋主不在線：兩隻都在家等
+}
+function petHostOne(S, pb, now, ents, t) {   // S＝這一隻的等待狀態（第一隻就是 petHW 本身，第二隻是 petHW.s2）
+  const L = petLookOf(pb.breed); if (!L) return;
+  if (!S.f) {
+    const sp = petHostSpot(S.seed); if (!sp) return;
+    S.spot = sp; S.f = { x: sp.x, y: sp.y, face: 1, still: t, w: worldKey(), nextEmo: t + 3000 }; S.vis = true;
+    if (!S.welDone) { S.welDone = true; S.wel = { to: myUid, t0: t }; }
   }
-  const f = W.f, dt = Math.min(100, t - (W.t || t)); W.t = t;
-  let tg = [W.spot.x, W.spot.y], stop = 0.05, play = null;
-  if (W.wel) {   // 迎接：跑到訪客旁邊，跳起來冒愛心，再回去
-    const who = W.wel.to === myUid ? pl : remotes.get(W.wel.to);
-    if (!who || t - W.wel.t0 > 12000) W.wel = null;
+  const f = S.f, dt = Math.min(100, t - (S.t || t)); S.t = t;
+  let tg = [S.spot.x, S.spot.y], stop = 0.05, play = null;
+  if (S.wel) {   // 迎接：跑到訪客旁邊，跳起來冒愛心，再回去
+    const who = S.wel.to === myUid ? pl : remotes.get(S.wel.to);
+    if (!who || t - S.wel.t0 > 12000) S.wel = null;
     else {
       tg = [who.x, who.y]; stop = 1.05;
-      if (!W.wel.at && Math.hypot(who.x - f.x, who.y - f.y) < 1.5) { W.wel.at = t; petShowTouched(f, t); }
-      if (W.wel.at && t - W.wel.at > 3000) W.wel = null;
+      if (!S.wel.at && Math.hypot(who.x - f.x, who.y - f.y) < 1.5) { S.wel.at = t; petShowTouched(f, t); }
+      if (S.wel.at && t - S.wel.at > 3000) S.wel = null;
     }
   }
-  const gl = !W.wel ? f.goal : null;
+  const gl = !S.wel ? f.goal : null;
   if (gl) {   // 朋友叫牠去玩玩具／吃點心
     if (!gl.at) {
       if (Math.hypot(gl.x - f.x, gl.y - f.y) < 0.06) { gl.at = t; gl.px0 = Math.round(f.x * T); gl.py0 = Math.round(f.y * T); petEmoteOn(f, gl.k === 'petbowl' ? 'yum' : 'happy', 2400); }
@@ -771,16 +981,16 @@ function petHostEnts(now, ents) {
     f.moving = d > stop;
     if (f.moving) { const st = Math.min(d - lim, 5.2 * dt / 1000); f.x += dx / d * st; f.y += dy / d * st; if (Math.abs(dx) > 0.05) f.face = dx < 0 ? -1 : 1; f.still = t; }
   } else f.moving = false;
-  if (!play && !f.moving && !W.wel && t > f.nextEmo) { f.nextEmo = t + 5000 + Math.random() * 3000; petEmoteOn(f, W.spot.type === 'door' ? 'dots' : 'sleepy', 2200); }
+  if (!play && !f.moving && !S.wel && t > f.nextEmo) { f.nextEmo = t + 5000 + Math.random() * 3000; petEmoteOn(f, S.spot.type === 'door' ? 'dots' : 'sleepy', 2200); }
   const happy = t < (f.happyUntil || 0);
-  const sleeping = !play && !f.moving && !W.wel && !happy && W.spot.type !== 'door' && t - f.still > 2500;
+  const sleeping = !play && !f.moving && !S.wel && !happy && S.spot.type !== 'door' && t - f.still > 2500;
   const pose = happy ? 'happy' : f.moving ? 'side' : sleeping ? 'sleep' : 'front';
   const jump = happy ? Math.round(Math.abs(Math.sin((f.happyUntil - t) / 110)) * 5) : 0;
   let bx = Math.round(f.x * T), by = Math.round(f.y * T);
   if (play) { bx = play.px; by = play.py; }
-  if (W.spot.type === 'bed') { const sx = W.spot.x * T, sy = W.spot.y * T; ents.push({ y: W.spot.y + 0.005, draw: () => { r('#b9704a', sx - 3, sy + 9, 22, 7); r('#e8b894', sx - 2, sy + 8, 20, 6); } }); }
-  ents.push({ y: play ? play.sortY : f.y + 0.01, draw: () => { if (play) { play.draw(L, now); return; } petB(L, bx, by - jump, { pose, now, dir: f.face }); } });
-  petNameEnt(ents, W.pb.name, play ? play.sortY : f.y, bx, by);
+  if (S.spot.type === 'bed') { const sx = S.spot.x * T, sy = S.spot.y * T; ents.push({ y: S.spot.y + 0.005, draw: () => { r('#b9704a', sx - 3, sy + 9, 22, 7); r('#e8b894', sx - 2, sy + 8, 20, 6); } }); }
+  ents.push({ y: play ? play.sortY : f.y + 0.01, draw: petWd(petWearOf(pb), () => { if (play) { play.draw(L, now); return; } petB(L, bx, by - jump, { pose, now, dir: f.face }); }) });
+  petNameEnt(ents, pb.name, play ? play.sortY : f.y, bx, by);
   if (f.emo && f.emo.until > t) {
     const e = f.emo, age = t - e.at, bob = Math.round(Math.sin(age / 260)), pop_ = age < 160 ? 3 : 0;
     ents.push({ y: f.y + 6, draw: () => { petEmoDraw(e.k, bx + 1, by - 15 - jump + bob + pop_); } });
@@ -790,15 +1000,21 @@ function onPetWelcome(p) {   // 'pwl'：有訪客進屋
   if (!p || typeof p.i !== 'string' || typeof p.h !== 'string' || p.i === myUid) return;
   const from = remotes.get(p.i); if (!from || !hereRp(from)) return;
   const t = Date.now();
-  if (p.h === myUid) { if (!visiting && scene === 'house' && petShown()) { petFol.happyUntil = t + 2600; petFol.still = t; petEmote('alert', 900); setTimeout(() => petEmote('love', 2400), 900); } return; }   // 我是屋主：寵物歡迎來訪的朋友
+  if (p.h === myUid) { if (!visiting && scene === 'house') { for (let i_ = 0; i_ < Math.min(2, Math.max(1, petList().length)); i_++) petCtx(i_, () => { if (!petShown()) return; const fx = petFol; fx.happyUntil = t + 2600; fx.still = t; petEmote('alert', 900); setTimeout(() => petCtx(i_, () => petEmote('love', 2400)), 900); }); } return; }   // 我是屋主：寵物歡迎來訪的朋友
   const W = petHW; if (W && W.vis && String(W.uid) === p.h && !W.wel) W.wel = { to: p.i, t0: t };   // 屋主不在線：等待的寵物跑去迎接新來的人
+  if (W && W.s2 && W.s2.vis && String(W.uid) === p.h && !W.s2.wel) W.s2.wel = { to: p.i, t0: t };
 }
 function petApplyGoal(hid, it) {   // 叫屋主的寵物去玩玩具／吃飯碗：屋主在線由屋主那邊演，不在線由訪客這邊演
   if (!house || !it || !/^pet(toy|bowl)/.test(it.k)) return false;
   const gl = petMakeGoal(it); if (!gl) return false;
   const t = Date.now();
-  if (String(hid) === String(myUid) && !visiting) { if (!petShown() || petFol.goal) return false; petFol.goal = gl; petFol.nextGoal = t + 25000; petFol.fDots = petFol.fBall = 1; petEmote('alert', 1200); return true; }
-  const W = petHW; if (W && W.vis && W.f && String(W.uid) === String(hid) && !W.f.goal && !W.wel) { W.f.goal = gl; petEmoteOn(W.f, 'alert', 1200); return true; }
+  if (String(hid) === String(myUid) && !visiting) {   // 自己的家：叫比較閒的那一隻
+    for (let i_ = 0; i_ < Math.min(2, Math.max(1, petList().length)); i_++) { if (petFols[i_].goal) continue; const ok_ = petCtx(i_, () => { if (!petShown()) return false; petFol.goal = gl; petFol.nextGoal = t + 25000; petFol.fDots = petFol.fBall = 1; petEmote('alert', 1200); return true; }); if (ok_) return true; }
+    return false;
+  }
+  const W = petHW;
+  if (W && W.vis && W.f && String(W.uid) === String(hid) && !W.f.goal && !W.wel) { W.f.goal = gl; petEmoteOn(W.f, 'alert', 1200); return true; }
+  if (W && W.s2 && W.s2.vis && W.s2.f && String(W.uid) === String(hid) && !W.s2.f.goal && !W.s2.wel) { W.s2.f.goal = gl; petEmoteOn(W.s2.f, 'alert', 1200); return true; }
   return false;
 }
 function onPetGoal(p) {   // 'pgl'
@@ -839,10 +1055,10 @@ async function petBowlAct() {
   if (!petMine) { toast('你還沒有寵物，先到領養店領養一隻吧'); return; }
   if (petBarBusy) return; petBarBusy = true;
   try {
-    const r = await enqueue(() => rpc('pet_act', { p_kind: 'bowl' }));
+    const tgt = petList().slice().sort((x, y) => x.bowl - y.bowl)[0] || petMine;   // 倒給飯碗存量比較少的那一隻
+    const r = await enqueue(() => rpc('pet_act', { p_kind: 'bowl', p_slot: (tgt && tgt.slot) || 1 }));
     if (r && r.inv) Object.assign(inv, r.inv);
-    petMine = r.pet; if (petData) petData.pet = r.pet;
-    const ob2 = petMine ? petMine.bond : 0; toast('飼料倒進飯碗了（' + r.pet.bowl + '/3）'); petHappy('bowl'); petBondCheck(ob2, r.pet.bond); refreshHud();
+    const ob2 = tgt ? tgt.bond : 0; petPut(r.pet); toast('飼料倒進飯碗了（' + r.pet.bowl + '/3）'); petHappy('bowl', r.pet.slot); petBondCheck(ob2, r.pet.bond, r.pet.name); refreshHud();
   } catch (er) { toast(have('p:food') < 1 && /not_enough_items/.test(String(er && er.message)) ? '背包裡沒有飼料，到寵物店買吧' : errText(er)); }
   petBarBusy = false; if (petBarOn) petBarRender();
 }
@@ -851,7 +1067,9 @@ function petHomeGoal(f, t) {
   if (scene !== 'house' || visiting || !house || !house.items || !petMine) { f.goal = null; return null; }
   if (f.goal) return f.goal;
   if (t < f.nextGoal || t - f.moveAt < 4000) return null;
-  const its = house.items.filter(i => /^pet(toy|bowl)/.test(i.k));
+  let its = house.items.filter(i => /^pet(toy|bowl)/.test(i.k));
+  const busyO = petFols.filter(o => o !== f && o.goal).map(o => o.goal.ox + ',' + o.goal.oy);   // 另一隻正在玩的玩具先不搶
+  if (busyO.length) { const free = its.filter(i => !busyO.includes(((RX + i.x) * T) + ',' + ((RY + i.y) * T))); if (free.length) its = free; }
   f.nextGoal = t + 20000 + Math.random() * 25000;
   if (!its.length) return null;
   return (f.goal = petMakeGoal(its[Math.floor(Math.random() * its.length)]));
@@ -876,11 +1094,15 @@ function petMakeGoal(it) {
 function petPlayAt(it) {
   if (!petMine) { toast('你還沒有寵物，先到領養店領養一隻吧'); return; }
   if (!petShown()) return;
-  if (petFol.goal) { toast(petMine.name + '正在玩呢'); return; }
-  const gl = petMakeGoal(it);
-  if (!gl) { toast(petMine.name + '走不到這個玩具旁邊，換個位置擺吧'); return; }
-  petFol.goal = gl; petFol.nextGoal = Date.now() + 25000; petFol.fDots = petFol.fBall = 1;
-  petEmote('alert', 1200);
+  const n = Math.min(2, Math.max(1, petList().length));
+  let idx = -1; for (let k = 0; k < n; k++) if (!petFols[k].goal) { idx = k; break; }
+  if (idx < 0) { toast(petMine.name + (n > 1 ? '和牠的夥伴都' : '') + '正在玩呢'); return; }
+  petCtx(idx, () => {
+    const gl = petMakeGoal(it);
+    if (!gl) { toast(petMine.name + '走不到這個玩具旁邊，換個位置擺吧'); return; }
+    petFol.goal = gl; petFol.nextGoal = Date.now() + 25000; petFol.fDots = petFol.fBall = 1;
+    petEmote('alert', 1200);
+  });
 }
 function petGoalArrive(f, gl, t) {
   if (gl.at) return;
@@ -889,7 +1111,7 @@ function petGoalArrive(f, gl, t) {
   if (petMine && petMine.playLeft > 0) {
     petEmote('happy', 2400);
     const ob_ = petMine.bond;
-    enqueue(() => rpc('pet_act', { p_kind: 'play' })).then(r => { petMine = r.pet; if (petData) petData.pet = r.pet; petBondCheck(ob_, r.pet.bond); if (petBarOn) petBarRender(); }).catch(() => {});
+    enqueue(() => rpc('pet_act', { p_kind: 'play', p_slot: (petMine && petMine.slot) || 1 })).then(r => { petPut(r.pet); petBondCheck(ob_, r.pet.bond, r.pet.name); if (petBarOn) petBarRender(); }).catch(() => {});
   } else { gl.noReward = true; petEmote('happy', 2400); }   // 今天的親密度次數用完：照樣玩，只是不加親密度，玩完冒汗
 }
 /* ---------- 四種玩具 × 三種動作（每次隨機挑一種） ---------- */
@@ -1088,7 +1310,9 @@ const PET_MEET_SLOT = 30000, PET_MEET_DUR = { A: 8000, B: 13000, C: 10000, D: 11
 const petMeets = new Map();   // 主人 id → 這一段互動 { k, ids:[a,b], t0, ax, ay, scene, ow:{id:{x,y}}, s:{id:{x,y,ts}} }
 let petMeetChk = 0;
 const petMeetEase = z => { z = Math.max(0, Math.min(1, z)); return z * z * (3 - 2 * z); };
+const petOwnerOf = id => String(id).replace(/#2$/, '');   // 第二隻寵物的互動代號是「主人 id#2」
 function petMeetOwner(id) {   // 主人現在的位置（不在這個世界就回 null）
+  id = petOwnerOf(id);
   if (id === myUid) return { x: pl.x, y: pl.y };
   const rp = remotes.get(id); return rp && hereRp(rp) ? { x: rp.x, y: rp.y } : null;
 }
@@ -1115,20 +1339,25 @@ function petMeetTick(t) {
   const parts = [];
   const add = (id, o, f, mode) => { if (mode === 'free' && o && f && !petMeets.has(id)) parts.push({ id, o, f }); };
   if (petShown() && petMode() === 'free' && petFol.scene === scene && !petFol.wel && !petFol.goal && !cooking) add(myUid, { x: pl.x, y: pl.y }, petFol, 'free');
+  { const l2 = petList(), f2 = petFols[1]; if (l2.length > 1 && petModeOf(l2[1]) === 'free' && petCtx(1, () => petShown()) && f2.scene === scene && !f2.wel && !f2.goal && !cooking) add(myUid + '#2', { x: pl.x, y: pl.y }, f2, 'free'); }
   remotes.forEach(rp => {
     if (!hereRp(rp)) return; const pb = petPub[rp.id], f = petRFol[rp.id];
     if (pb && f && f.w === rp.w && !f.trick && petLookOf(pb.breed)) add(rp.id, { x: rp.x, y: rp.y }, f, pb.mode === 'stay' || pb.mode === 'close' ? pb.mode : 'free');
+    const p2 = pb && pb.p2, f2 = petRFol[rp.id + '#2'];
+    if (p2 && f2 && f2.w === rp.w && !f2.trick && petLookOf(p2.breed)) { const m2 = p2.mode || pb.mode; add(rp.id + '#2', { x: rp.x, y: rp.y }, f2, m2 === 'stay' || m2 === 'close' ? m2 : 'free'); }
   });
+  const busyOwn = new Set(); petMeets.forEach(m_ => m_.ids.forEach(id_ => busyOwn.add(petOwnerOf(id_))));   // 同一位主人同時只參加一場互動
   parts.sort((p, q) => p.id < q.id ? -1 : 1);
   for (let i = 0; i < parts.length; i++) for (let j = i + 1; j < parts.length; j++) {
     const a = parts[i], b = parts[j]; if (petMeets.has(a.id) || petMeets.has(b.id)) continue;
+    const oa = petOwnerOf(a.id), ob = petOwnerOf(b.id); if (oa === ob || busyOwn.has(oa) || busyOwn.has(ob)) continue;
     if (Math.hypot(a.o.x - b.o.x, a.o.y - b.o.y) > 3.5) continue;
     const h = petHash(a.id + '|' + b.id + '|' + slot); if (h % 3 !== 0) continue;
     const ax = Math.round((a.o.x + b.o.x) / 2 * 2) / 2, ay = Math.round(((a.o.y + b.o.y) / 2 + 1) * 2) / 2;
     if (!petMeetBox(ax, ay)) continue;
     const k = 'ABCD'[(h >> 3) % 4], m = { k, ids: [a.id, b.id], t0, dur: PET_MEET_DUR[k], ax, ay, scene, ow: { [a.id]: { x: a.o.x, y: a.o.y }, [b.id]: { x: b.o.x, y: b.o.y } },
       s: { [a.id]: { x: a.f.x, y: a.f.y, ts: sn }, [b.id]: { x: b.f.x, y: b.f.y, ts: sn } } };
-    petMeets.set(a.id, m); petMeets.set(b.id, m);
+    petMeets.set(a.id, m); petMeets.set(b.id, m); busyOwn.add(oa); busyOwn.add(ob);
   }
 }
 /* 這一刻某位主人的寵物在互動裡該在哪、什麼姿勢（沒有互動就回 null）。回傳 { x, y, face, pose, jump, emo } */

@@ -2,6 +2,8 @@
    一格畫面 192×108，用 CSS 放大成滿版。每一句對白對應一格（PET_CG_BEATS），同一格連續出現時畫面接著動，換格時從黑色淡入。
    petCgStart(canvas, beatId) 開始播；petCgType(el) 讓對白一個字一個字出現；petCgSkipType() 按「繼續」時如果字還沒出完，先補完。 */
 const PET_CG_BEATS = ['inside', 'trail', 'trail', 'trail', 'shop', 'paw', 'open'];   // 對應 PET_STORY 的每一句
+const PET_CG_BEATS3 = ['wear1', 'wear1', 'wear2', 'wear2', 'wear2', 'wear3', 'wear3'];   // 對應 PET_STORY3（衣帽間）
+const PET_CG_BEATS2 = ['crowd', 'crowd', 'plan', 'plan', 'ask', 'ask'];   // 對應 PET_STORY2（Lv.10 擴建、再領養一隻）
 const pcgState = { beat: '', from: '', t0: 0 }, pcgType = { el: null, full: '', at: 0, done: true };
 const PCG_PATH = Array.from({ length: 11 }, (_, i) => { const t = i / 10; return [Math.round(4 + t * 90), Math.round(100 - t * 17 + (i % 2 ? 2 : -1))]; });
 function pcgRnd(seed) { let s = seed; return () => (s = (s * 16807) % 2147483647) / 2147483647; }
@@ -79,7 +81,81 @@ function pcgOpen(t) {
   r('#6a4a5a', 14, 52, 24, 40); r('#6a4a5a', 16, 38, 20, 16); r('#6a4a5a', 14, 30, 6, 10); r('#6a4a5a', 32, 30, 6, 10);
   const rn = pcgRnd(3); for (let i = 0; i < 9; i++) { const ph = rn() * 6; const x = 66 + Math.floor(rn() * 60), y = 16 + Math.floor(rn() * 36) - Math.round(((t - 1) > 0 ? (t - 1) * 3 : 0) % 8); if (t > 0.8) pcgHeart(i % 2 ? '#ff9db8' : '#ffd34d', x, y + Math.round(Math.sin(t * 2 + ph) * 2)); }
 }
+
+/* ---- 第二隻（Lv.10 擴建）的三格畫面 ---- */
+function pcgPile(x, y, kind) {   // 木頭堆／石頭堆
+  if (kind === 'wood') { for (let i = 0; i < 3; i++) for (let j = 0; j <= i; j++) { const px = x + j * 9 - i * 4 + 4, py = y - i * 5; r('#7a4a28', px, py, 10, 6); r('#c78552', px + 1, py + 1, 8, 4); r('#e0a070', px + 1, py + 1, 8, 1); r('#a8683a', px + 8, py + 1, 1, 4); } }
+  else { r('#7f8590', x, y - 4, 14, 8); r('#aab0ba', x + 1, y - 3, 12, 4); r('#7f8590', x + 12, y - 9, 12, 12); r('#c3c8d0', x + 13, y - 8, 9, 6); r('#6a707a', x + 6, y - 11, 10, 8); r('#b4bac4', x + 7, y - 10, 7, 4); }
+}
+function pcgPet(key, x, y, s, d, pose) { const L = petOf(key); if (!L) return; g.save(); g.translate(x, y); g.scale(s, s); petB(L, 0, 0, { pose: pose || 'front', now: performance.now(), dir: d || 1 }); g.restore(); }
+function pcgShopRoom() {
+  r('#f5dfc0', 0, 0, 192, 108); for (let y = 6; y < 70; y += 12) r('#ecd6b6', 0, y, 192, 1);
+  r('#a8683a', 0, 72, 192, 36); for (let y = 76; y < 108; y += 8) r('#955a30', 0, y, 192, 1);
+}
+function pcgCrowd(t) {   // 店裡擠滿了毛孩，阿喵姊姊流汗
+  pcgShopRoom();
+  r('#e8cfa8', 14, 14, 40, 3); r('#a8683a', 14, 17, 40, 2); r('#ff9db8', 20, 6, 6, 8); r('#9fd296', 32, 8, 6, 6);
+  r('#c08a62', 60, 58, 72, 14); r('#a8683a', 60, 70, 72, 5); r('#e8cfa8', 60, 58, 72, 2);
+  g.save(); g.translate(78, 16); g.scale(3, 3); clerkArt('cl_a', 0, 0, performance.now()); g.restore();
+  const dr = Math.round(Math.sin(t * 3)); r('#8fc4e8', 118, 30 + dr, 3, 5); r('#bfe3f5', 119, 31 + dr, 1, 2);
+  [['cat_orange', 6, 62], ['shiba_white', 30, 74], ['cat_black', 140, 62], ['corgi', 160, 74], ['cat_tabby', 52, 84], ['golden', 118, 84], ['shiba_red', 8, 88]].forEach(([k, x, y], i) => pcgPet(k, x, y - Math.round(Math.abs(Math.sin(t * 3 + i)) * 2), 1, i % 2 ? -1 : 1));
+}
+function pcgPlan(t) {   // 櫃檯攤開藍圖，旁邊堆著木頭和石頭
+  pcgShopRoom();
+  r('#e8cfa8', 14, 14, 40, 3); r('#a8683a', 14, 17, 40, 2); r('#ff9db8', 20, 6, 6, 8); r('#9fd296', 32, 8, 6, 6);
+  r('#c08a62', 40, 58, 112, 14); r('#a8683a', 40, 70, 112, 5); r('#e8cfa8', 40, 58, 112, 2);
+  g.save(); g.translate(78, 20); g.scale(3, 3); clerkArt('cl_a', 0, 0, performance.now()); g.restore();
+  const x = 96, y = 50, w = 52, h = 24;
+  r('#8a6a50', x - 1, y - 1, w + 2, h + 2); r('#8fc4e8', x, y, w, h); for (let i = 4; i < w; i += 6) r('rgba(255,255,255,.25)', x + i, y, 1, h); for (let j = 4; j < h; j += 6) r('rgba(255,255,255,.25)', x, y + j, w, 1);
+  r('#fff', x + 5, y + 8, 22, 1); r('#fff', x + 5, y + 8, 1, 14); r('#fff', x + 5, y + 21, 22, 1); r('#fff', x + 26, y + 8, 1, 14); r('#fff', x + 27, y + 14, 20, 1); r('#fff', x + 46, y + 14, 1, 12); r('#fff', x + 27, y + 25, 20, 1);
+  if (Math.floor(t * 2) % 2) r('#ffd34d', x + 30, y + 17, 4, 4); else r('#ffb04a', x + 30, y + 17, 4, 4);
+  pcgPile(10, 98, 'wood'); pcgPile(150, 98, 'stone');
+}
+function pcgAsk(t) {   // 阿喵姊姊抱著一隻小貓拜託你
+  pcgShopRoom(); r('#a8683a', 0, 74, 192, 34); for (let y = 78; y < 108; y += 8) r('#955a30', 0, y, 192, 1);
+  r('#8a6a50', 120, 12, 52, 38); r('#bfe3f5', 123, 15, 46, 32); r('#fff', 145, 15, 2, 32); r('#fff', 123, 29, 46, 2);
+  g.save(); g.translate(44, 16); g.scale(4, 4); clerkArt('cl_a', 0, 0, performance.now()); g.restore();
+  pcgPet('cat_white', 74, 62 - Math.round(Math.abs(Math.sin(t * 3)) * 2), 1.8, -1);
+  r('#ffe3cc', 70, 80, 8, 4); r('#ffe3cc', 112, 80, 8, 4);
+  for (let i = 0; i < 5; i++) { const ph = (t * 0.4 + i / 5) % 1; pcgHeart(i % 2 ? '#ffb04a' : '#ff9db8', 76 + i * 10, Math.round(70 - ph * 40)); }
+  pcgSparkle(t, 12, 17);
+}
+
+/* ---- 衣帽間（寵物服飾）的三格畫面 ---- */
+function pcgWPet(key, x, y, s, d, ids) { const L = petOf(key); if (!L) return; g.save(); g.translate(x, y); g.scale(s, s); petB(L, 0, 0, { pose: 'front', now: performance.now(), dir: d || 1 }); const R = (c, a, b, w, h) => r(c, a, b, w, h); (ids || []).forEach(id => PWX_FRONT[id](R)); g.restore(); }
+function pcgWear1(t) {   // 阿喵姊姊拿小披風給小狗比一比
+  pcgShopRoom(); r('#e8cfa8', 14, 14, 40, 3); r('#a8683a', 14, 17, 40, 2); r('#9fd296', 20, 6, 6, 8);
+  r('#8a6a50', 126, 10, 50, 40); r('#bfe3f5', 129, 13, 44, 34); r('#fff', 150, 13, 2, 34); r('#fff', 129, 28, 44, 2);
+  g.save(); g.translate(30, 14); g.scale(4, 4); clerkArt('cl_a', 0, 0, performance.now()); g.restore();
+  pcgWPet('shiba_red', 104, 62 - Math.round(Math.abs(Math.sin(t * 3)) * 2), 2, -1, ['cape']);
+  r('#ffe3cc', 82, 82, 8, 4);
+  for (let i = 0; i < 4; i++) { const ph = (t * 0.4 + i / 4) % 1; pcgHeart(i % 2 ? '#ffb04a' : '#ff9db8', 100 + i * 12, Math.round(60 - ph * 30)); }
+}
+function pcgWear2(t) {   // 衣帽間設計圖＋木頭＋錘子
+  pcgShopRoom(); r('#e8cfa8', 14, 14, 40, 3); r('#a8683a', 14, 17, 40, 2);
+  r('#c08a62', 30, 58, 132, 14); r('#a8683a', 30, 70, 132, 5); r('#e8cfa8', 30, 58, 132, 2);
+  g.save(); g.translate(72, 16); g.scale(3, 3); clerkArt('cl_a', 0, 0, performance.now()); g.restore();
+  const x = 92, y = 48, w = 56, h = 24; r('#8a6a50', x - 1, y - 1, w + 2, h + 2); r('#8fc4e8', x, y, w, h); for (let i = 4; i < w; i += 6) r('rgba(255,255,255,.25)', x + i, y, 1, h); for (let j = 4; j < h; j += 6) r('rgba(255,255,255,.25)', x, y + j, w, 1);
+  r('#fff', x + 6, y + 5, 26, 1); r('#fff', x + 8, y + 5, 1, 16); r('#fff', x + 30, y + 5, 1, 16); [0, 1, 2].forEach(i => { r('#fff', x + 12 + i * 6, y + 6, 1, 3); r('#fff', x + 11 + i * 6, y + 9, 3, 1); });
+  r('#fff', x + 38, y + 6, 12, 14); r('#8fc4e8', x + 40, y + 8, 8, 10); r('#fff', x + 43, y + 9, 2, 1);
+  const hm = Math.round(Math.sin(t * 6) * 3); g.save(); g.translate(150, 44); g.rotate(hm / 14); r('#7a4a28', 0, 0, 2, 12); r('#9aa0aa', -3, -3, 8, 4); g.restore();
+  pcgPile(10, 98, 'wood'); pcgPile(34, 92, 'wood');
+}
+function pcgWear3(t) {   // 兩隻穿新衣站在鏡子前
+  pcgShopRoom(); r('#8a6a50', 66, 6, 60, 66); r('#dff1fb', 69, 9, 54, 60); r('rgba(255,255,255,.5)', 72, 12, 6, 40); r('rgba(255,255,255,.35)', 82, 12, 3, 30);
+  pcgWPet('shiba_red', 20, 56, 2, 1, ['crown', 'cape']);
+  pcgWPet('cat_black', 140, 56, 2, -1, ['wizard', 'sweater']);
+  pcgWPet('corgi', 78, 36, 1.4, 1, ['straw', 'raincoat']);
+  for (let i = 0; i < 6; i++) { const ph = (t * 0.4 + i / 6) % 1; pcgHeart(i % 2 ? '#ffb04a' : '#ff9db8', 30 + i * 28, Math.round(52 - ph * 36)); }
+  pcgSparkle(t, 16, 43);
+}
 function pcgDraw(beat, t) {
+  if (beat === 'wear1') { pcgWear1(t); return; }
+  if (beat === 'wear2') { pcgWear2(t); return; }
+  if (beat === 'wear3') { pcgWear3(t); return; }
+  if (beat === 'crowd') { pcgCrowd(t); return; }
+  if (beat === 'plan') { pcgPlan(t); return; }
+  if (beat === 'ask') { pcgAsk(t); return; }
   if (beat === 'inside') pcgInside(t);
   else if (beat === 'trail') { pcgSky(t); pcgHouse(0); PCG_PATH.forEach(([x, y], i) => { if (t > 0.5 + i * 0.28) pcgPaw(x, y, '#8a6a50'); }); pcgSparkle(t, 14, 21); }
   else if (beat === 'shop') {
