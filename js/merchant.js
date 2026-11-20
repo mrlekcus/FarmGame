@@ -20,10 +20,14 @@ function renderMerchant() {
     return '<div class="row"><canvas class="fico" width="16" height="16" data-mi="' + esc(o.item) + '"></canvas><div class="meta"><b>' + esc(itemName(o.item)) + (o.qty > 1 ? ' ×' + o.qty : '') + '</b><small>' + (/^f:/.test(o.item) ? '商人專屬家具，家具店買不到' : /^s:/.test(o.item) ? '雜交種子，雜貨攤買不到' : '每天限買一份') + '</small></div>' +
       '<button type="button" class="btn small" data-a="buy" data-i="' + o.i + '"' + (mcBusy || got || coins < o.price ? ' disabled' : '') + '>' + (got ? '已買' : o.price + ' G') + '</button></div>';
   }).join('');
-  const w = d.want, mx = Math.min(w.left, have(w.item));
-  const want = '<div class="row"><canvas class="fico" width="16" height="16" data-mi="' + esc(w.item) + '"></canvas><div class="meta"><b>今天高價收：' + esc(itemName(w.item)) + '</b><small>每個 ' + w.price + ' G（原價 1.6 倍）· 今天還能賣 ' + w.left + ' 個 · 持有 ' + have(w.item) + '</small></div>' +
-    '<button type="button" class="btn small" data-a="sell" data-n="1"' + (mcBusy || mx < 1 ? ' disabled' : '') + '>賣 1 個</button>' +
-    '<button type="button" class="btn small" data-a="sell" data-n="' + mx + '"' + (mcBusy || mx < 2 ? ' disabled' : '') + '>全賣 ' + mx + ' 個</button></div>';
+  const wl = d.wants || (d.want ? [d.want] : []);   // 新版：每天 3 樣；舊版伺服器只有 1 樣
+  const want = wl.map((w, wi) => {
+    const mx = Math.min(w.left, have(w.item)), idx = d.wants ? ' data-i="' + wi + '"' : '';
+    const mult = w.mult ? Math.round(w.mult * 10) / 10 : 1.6;
+    return '<div class="row"><canvas class="fico" width="16" height="16" data-mi="' + esc(w.item) + '"></canvas><div class="meta"><b>' + (w.rare ? '✨ 稀有收購：' : w.dish ? '🍲 料理收購：' : '今天高價收：') + esc(itemName(w.item)) + '</b><small>每個 ' + w.price + ' G（原價 ' + mult + ' 倍）・今天還收 ' + w.left + ' 個・背包 ' + have(w.item) + ' 個</small></div>' +
+      '<button type="button" class="btn small" data-a="sell"' + idx + ' data-n="1"' + (mcBusy || mx < 1 ? ' disabled' : '') + '>賣 1 個</button>' +
+      '<button type="button" class="btn small" data-a="sell"' + idx + ' data-n="' + mx + '"' + (mcBusy || mx < 2 ? ' disabled' : '') + '>全賣 ' + mx + ' 個</button></div>';
+  }).join('');
   mcCard.innerHTML = '<div class="shop-h"><canvas class="fico" width="16" height="16" data-milo="1"></canvas><h2>旅行商人 米羅</h2><span class="chip gold">' + coins + ' G</span></div><p class="empty">米羅：「走過路過別錯過，都是遠方帶來的好東西！」</p><h3>今天的商品</h3>' + offers + '<h3>高價收購</h3>' + want +
     '<button type="button" class="btn ghost wide" data-a="close">離開</button>';
   mcCard.querySelectorAll('canvas[data-milo]').forEach(cv => npcIcon(cv.getContext('2d'), 'milo'));
@@ -43,7 +47,7 @@ mcCard.addEventListener('click', async e => {
   if (a === 'close') { closeMerchant(); return; }
   mcBusy = true; renderMerchant();
   try {
-    const r = await enqueue(() => a === 'buy' ? rpc('merchant_buy', { p_i: +b.dataset.i }) : rpc('merchant_sell', { p_qty: +b.dataset.n }));
+    const r = await enqueue(() => a === 'buy' ? rpc('merchant_buy', { p_i: +b.dataset.i }) : rpc('merchant_sell', b.dataset.i === undefined ? { p_qty: +b.dataset.n } : { p_i: +b.dataset.i, p_qty: +b.dataset.n }));
     if (r.inv) Object.assign(inv, r.inv);
     if (typeof r.coins === 'number') me.coins = r.coins;
     if (r.earned) toast('賣出得到 ' + r.earned + ' G');
