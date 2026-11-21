@@ -190,11 +190,13 @@ function petRender() {
   else if (petSec === 'wear') h += petWearHtml(d, p);
   else {
     if (plist.length < 2) h += '<div class="ps-sec">第二隻與擴建</div>' + secondBody;
-    h += '<div class="ps-links"><button type="button" class="ps-link" data-pa="rename">✎ 幫牠改名字</button>' +
-      '<button type="button" class="ps-link" data-pa="replay">回顧劇情</button>' +
-      (d.lv10 || plist.length > 1 ? '<button type="button" class="ps-link" data-pa="replay2">回顧擴建劇情</button>' : '') +
-      '<button type="button" class="ps-link" data-pa="replay3">回顧衣帽間劇情</button>' +
-      '<button type="button" class="ps-link" data-pa="return">送回領養處</button></div>';
+    const rb = (pa, ic, t, sub_, off) => '<button type="button" class="btn ghost wide ps-rb" data-pa="' + pa + '"' + (off ? ' disabled' : '') + '><span class="ic">' + ic + '</span><span><b>' + t + '</b><small>' + sub_ + '</small></span></button>';
+    const exp_ = d.lv10 || plist.length > 1;
+    h += '<div class="ps-sec">劇情回憶</div><div class="ps-rbs">' +
+      rb('replay', '🐾', '第一次相遇', '阿喵姊姊與窗外的小腳印') +
+      rb('replay2', '🏗️', '擴建領養店', exp_ ? '店裡擠滿毛孩，要蓋大一點' : '玩家 Lv.10 解鎖', !exp_) +
+      rb('replay3', '👗', '衣帽間', '幫毛孩打扮的小故事') + '</div>' +
+      '<div class="ps-half"><button type="button" class="btn ghost" data-pa="rename">✎ 幫牠改名字</button><button type="button" class="btn ghost" data-pa="return">送回領養處</button></div>';
   }
   h += close;
   const sc_ = petCard.scrollTop; petCard.innerHTML = h; petCard.scrollTop = sc_; paintClerk(); petPaint(petCard);

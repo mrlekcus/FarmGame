@@ -150,6 +150,7 @@ function pcgWear3(t) {   // 兩隻穿新衣站在鏡子前
   pcgSparkle(t, 16, 43);
 }
 function pcgDraw(beat, t) {
+  if (typeof woolCgDraw === 'function' && woolCgDraw(beat, t)) return;   // 裁縫鋪羊毛劇情（wool.js）
   if (beat === 'wear1') { pcgWear1(t); return; }
   if (beat === 'wear2') { pcgWear2(t); return; }
   if (beat === 'wear3') { pcgWear3(t); return; }

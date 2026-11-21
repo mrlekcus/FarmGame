@@ -94,10 +94,11 @@ const pickOf = a => a[Math.floor(Math.random() * a.length)];
 function renderSty() {
   const S = SHOP_STY[syKind], coins = me ? me.coins : 0, cur = myChar();
   const head = '<div class="shop-h"><h2>' + S.title + '</h2><span class="chip gold">' + coins + ' G</span></div>';
+  if (syKind === 'fit' && syStage === 'wstory') { renderWoolStory(head); return; }
   if (syStage === 'talk') {
     syCard.innerHTML = head +
       '<div class="row"><canvas width="16" height="20" data-clerk="1" style="width:64px;height:80px;image-rendering:pixelated;flex:none"></canvas><div class="meta"><b>' + S.clerk + '</b><small style="font-size:14px;line-height:1.5;white-space:normal">' + syLine + '</small></div></div>' +
-      '<button type="button" class="btn wide" data-a="list">' + S.look + '</button>' +
+      '<button type="button" class="btn wide" data-a="list">' + S.look + '</button>' + (syKind === 'fit' ? woolTalkBtn() : '') +
       '<button type="button" class="btn ghost wide" data-a="chat">聊聊</button>' +
       '<button type="button" class="btn ghost wide" data-a="close">沒事了，謝謝</button>';
     const c2 = syCard.querySelector('canvas[data-clerk]').getContext('2d'); c2.clearRect(0, 0, 16, 20); g = c2;
@@ -105,6 +106,7 @@ function renderSty() {
     g = ctx;
     return;
   }
+  if (syKind === 'fit' && syStage === 'wool') { renderWoolShop(head, cur); return; }
   if (syKind === 'fit') { renderFitShop(head, cur, coins); return; }
   if (syKind === 'furn') { renderFurnShop(head, coins); return; }
   renderStyleShop(head, cur, coins, S);
@@ -118,7 +120,7 @@ async function loadFitToday() {
     fitToday = await enqueue(() => rpc('fit_daily'));
     if (isGmShop()) {   // GM：列出所有要買的衣服（今天上架的沿用後端的顏色與價錢，其餘價錢由後端決定）
       const by = {}; fitToday.items.forEach(x => { by[x.i] = x; });
-      const all = []; for (let i = FREE_N.fits; i < FITS.length; i++) all.push(by[i] || { i, c: 0, p: null });
+      const all = []; for (let i = FREE_N.fits; i < FITS.length; i++) { if (i >= 27 && i <= 30) continue; all.push(by[i] || { i, c: 0, p: null }); }   // 27～30 是羊毛款，在羊毛專區買
       fitToday = Object.assign({}, fitToday, { items: all, gm: true });
     }
     fitToday.items.forEach(({ i, c }) => {
@@ -191,7 +193,7 @@ function renderFurnShop(head, coins) {
   syCard.innerHTML = head + '<div class="tabs2">' + tab('furn', '今日家具') + tab('wall', '牆面') + tab('floor', '地板') + tab('door', '門') + '</div>' + note + rows + tail;
   syCard.querySelectorAll('canvas[data-fk]').forEach(cv => { try { furnIcon(cv, cv.dataset.fk); } catch (e) { /* 略過 */ } });
 }
-function openSty(kind) { syKind = kind; syStage = 'talk'; syLine = pickOf(SHOP_STY[kind].hello); syOpen = true; pressed.length = 0; renderSty(); syEl.hidden = false; syCard.focus(); }
+function openSty(kind) { syKind = kind; syStage = 'talk'; syLine = pickOf(SHOP_STY[kind].hello); syOpen = true; pressed.length = 0; renderSty(); syEl.hidden = false; syCard.focus(); if (kind === 'fit') woolOnOpen(); }
 function closeSty() { syOpen = false; syEl.hidden = true; }
 syCard.addEventListener('click', async e => {
   const b = e.target.closest('button[data-a]');
@@ -218,6 +220,7 @@ syCard.addEventListener('click', async e => {
     } catch (err) { toast(errText(err)); await resync(); }
     syBusy = false; if (syOpen) renderSty(); refreshHud(); return;
   }
+  if (syKind === 'fit' && /^w[a-z]+$/.test(a) && await woolAction(a, b)) return;   // 羊毛專區與劇情（wool.js）
   if (a === 'chat') { syLine = pickOf(S.chat); renderSty(); return; }
   if (a === 'pick') { fitSel[+b.dataset.i] = +b.dataset.c; renderSty(); return; }
   if (a === 'fbuy' || a === 'fwear') {

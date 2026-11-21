@@ -2,7 +2,8 @@
 /* 料理與烹飪小遊戲 —— 雷克斯農場。所有檔案共用同一個全域範圍，載入順序見 index.html。 */
 /* ---------- 料理：廚房灶台（家裡擺了才能用） ---------- */
 const DISHC = { americano: '#6a3a20', latte: '#d9b48a', pancake: '#e8c07a', rcake: '#f3d79a', stew: '#e8a05a', pie: '#f0a64a', grilled: '#c98f62', soup: '#e8c97a', escargot: '#b98a62',
-  berryjam: '#d6455d', herbtea: '#b9d86a', hollydrink: '#e8786a', berrypie: '#7a86e0', lotussoup: '#f0d9c0', frostsoup: '#b8e8f0', lotuscake: '#f2b6cc', omelet: '#f5d04a', pudding: '#f2c987' };
+  berryjam: '#d6455d', herbtea: '#b9d86a', hollydrink: '#e8786a', berrypie: '#7a86e0', lotussoup: '#f0d9c0', frostsoup: '#b8e8f0', lotuscake: '#f2b6cc', omelet: '#f5d04a', pudding: '#f2c987',
+  beetsoup: '#b0386a', beetcake: '#c4527f', cornsoup: '#f2d55a', grilledcorn: '#e0a93a', melonsoda: '#a8e6a0', melonpudding: '#cfeaa0' };
 function drawDish(x, y, k) {   // 盤子上的料理（像素）；直接畫在目前的畫布上
   ob('#fffaf0', '#c9b79a', x + 2, y + 9, 12, 5);
   ob(DISHC[k] || '#f3c77a', 'rgba(90,60,40,.5)', x + 3, y + 5, 10, 6);

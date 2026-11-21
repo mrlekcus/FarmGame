@@ -23,7 +23,7 @@ const ACH = [
   { id: 'star_dish', ic: '💫', n: '五星廚師', d: '5 道料理的圖鑑品質達到 ★5' }, { id: 'star_all', ic: '👑', n: '星光圖鑑王', d: '魚、蟲、料理圖鑑全部達到 ★5' },
   { id: 'sweet_all', ic: '🧁', n: '烘焙名師', d: '所有甜點、烘焙類料理都煮過' }, { id: 'dish100', ic: '🍽️', n: '百份料理', d: '累計煮出 100 份料理' }
 ];
-FITS.forEach((nm, i) => { if (i >= FREE_N.fits && i < 20) ACH.push({ id: 'fit' + i, ic: '<span class="achic"><canvas class="achcv tall" data-ach="fit' + i + '" width="16" height="20"></canvas></span>', n: nm + '收藏家', d: '集齊「' + nm + '」的 ' + OUTFITS.length + ' 種顏色' }); });
+FITS.forEach((nm, i) => { if (i >= FREE_N.fits && (i < 20 || (i >= 27 && i <= 30))) ACH.push({ id: 'fit' + i, ic: '<span class="achic"><canvas class="achcv tall" data-ach="fit' + i + '" width="16" height="20"></canvas></span>', n: nm + '收藏家', d: '集齊「' + nm + '」的 ' + OUTFITS.length + ' 種顏色' }); });
 /* 髮型／帽子／眼鏡收藏家：集齊一款的所有顏色（成就 id：hs款式、ht款式、gl款式；盲盒獎品不算，和衣服一樣）。眼鏡的 0 號原色買不到，所以眼鏡是 7 色 */
 const LOOK_ACH = {
   style: { p: 'hs', ic: '💇', max: 21, nm: STYLES, tot: HAIRS.length },
@@ -31,7 +31,7 @@ const LOOK_ACH = {
   glass: { p: 'gl', ic: '👓', max: 7, nm: GLASSES, tot: GLASSCOL.length - 1 }
 };
 const LOOK_ACH_K = { hs: 'style', ht: 'hat', gl: 'glass' };
-const lookAchOn = (k, i) => i >= FREE_N[k] && i <= LOOK_ACH[k].max && !(k === 'hat' && i === 3);
+const lookAchOn = (k, i) => i >= FREE_N[k] && (i <= LOOK_ACH[k].max || (k === 'hat' && i >= 20 && i <= 23)) && !(k === 'hat' && i === 3);   // 帽子 20～23 是羊毛帽
 Object.keys(LOOK_ACH).forEach(k => LOOK_ACH[k].nm.forEach((nm, i) => {
   if (lookAchOn(k, i)) ACH.push({ id: LOOK_ACH[k].p + i, ic: '<span class="achic"><canvas class="achcv" data-ach="' + LOOK_ACH[k].p + i + '" width="16" height="17"></canvas></span>', n: nm + '收藏家', d: '集齊「' + nm + '」的 ' + LOOK_ACH[k].tot + ' 種顏色' });
 }));
