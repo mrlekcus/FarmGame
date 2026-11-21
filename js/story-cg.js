@@ -149,10 +149,40 @@ const SCG_VSC = [
     sgNpcK('oak', 46, 56, t, 2); sgNpcK('gui', 68, 56 + (sgS(t * 6) > .5 ? -2 : 0), t, 2); sgMe(4, 46); }
 ];
 
+/* ---------- 潛水篇：柴犬船長的舊潛水鏡（第一次按「潛水」自動播一次，之後在船長選單可重看）---------- */
+const SCG_DIV = [
+  { title: '舊潛水鏡', lines: [
+    { s: 'cpt', t: '這副潛水鏡，是我年輕時用的。那時候的海，乾淨得連海底的星星都看得見。' }
+  ] },
+  { title: '現在的海', lines: [
+    { s: '', t: '（水下，垃圾在海裡慢慢飄著。）' },
+    { s: 'cpt', t: '可是現在……變成這樣了。漁網、輪胎、瓶瓶罐罐，越積越多。' }
+  ] },
+  { title: '下水吧', lines: [
+    { s: 'cpt', t: '我老了，下不去了。你願意替我，把這片海弄乾淨嗎？' },
+    { s: 'me', opts: [['我來幫忙！', '好孩子！潛水鏡借你，下去吧，汪！'], ['我先看看情況。', '好，不急。想下水的時候，隨時來找我，汪！']] },
+    { s: '', t: '（柴犬船長把舊潛水鏡，交到你的手上。）' }
+  ] }
+];
+let scgDW = null;
+function sgUnder(clean, t, fn) {
+  const old = g; if (!scgDW) { scgDW = { clean: OCA.world(true), dirty: OCA.world(false) }; g = old; }
+  g.drawImage(clean ? scgDW.clean : scgDW.dirty, -470, -30);
+  g.save(); g.translate(-470, -30); try { fn(); } catch (e) { /* 略過 */ } g.restore();
+  for (let i = 0; i < 6; i++) { const q = (t * 7 + i * 31) % 90; sgA('#fff', .5 * (1 - q / 90), 20 + (i * 53) % 150 + sgS(t * 2 + i) * 3, 100 - q, 2, 2); }
+}
+const SCG_DSC = [
+  t => { sgDawn(0); sgGull(t, 0); sgBoat(64, 0, t); sgPier(); sgCap(52, 48, t); sgMe(4, 46);
+    const f = .5 + sgS(t * 3) * .5; sgR('#2c3566', 91, 54, 11, 7); sgR('#bfe6ff', 92, 55, 9, 5); sgR('#ffd34d', 90, 56, 1, 3); sgR('#ffd34d', 102, 56, 1, 3); sgR('#fff', 94, 56, 2, 1);
+    sgA('#fff3b0', .35 * f, 86, 48, 22, 22); sgR('#fff', 104 + Math.round(f * 2), 51, 1, 3); sgR('#fff', 103 + Math.round(f * 2), 52, 3, 1); },
+  t => sgUnder(false, t, () => { OCA.tbag(520, 110 + sgS(t * 1.5) * 2, 0); OCA.bottle(590, 120); OCA.tcan(540, 92 + sgS(t * 1.2 + 1) * 2); OCA.tbag(610, 62 + sgS(t * 1.4 + 2) * 2, 0); OCA.cup && OCA.cup(500, 70); }),
+  t => sgUnder(true, t, () => { OCA.turtle(520 + Math.sin(t * .8) * 6, 120, 1); try { OCA.diver(560, 70 + Math.round(sgS(t * 2) * 1.5), 'down', Object.assign({}, DEF_CHAR, myChar()), 'base', t); } catch (e) { /* 略過 */ } })
+];
+
 const scgSt = { beat: -1, from: -1, t0: 0 };
 let scgPlay = null;   // 重播中：{ q: [{ ch, title, s, t, first }], i, title }
 function scgDraw(beat, t) {
-  const f = beat === 'pro' ? scgPro : (typeof beat === 'string' && beat[0] === 'v') ? SCG_VSC[+beat.slice(1)] : SCG_SC[beat];
+  const f = beat === 'pro' ? scgPro : (typeof beat === 'string' && beat[0] === 'v') ? SCG_VSC[+beat.slice(1)] : (typeof beat === 'string' && beat[0] === 'd') ? SCG_DSC[+beat.slice(1)] : SCG_SC[beat];
   if (f) f(t); else { sgR('#ffd2b0', 0, 0, 192, 60); sgGrass(60); }   // 之後新增的章節還沒畫 CG 時，先用一格晨光小村頂著
 }
 function scgFrame(cv, now) {
@@ -256,10 +286,10 @@ function scgClick(a, c) {
   if (a === 'scgnext') {
     if (petCgSkipType()) return false;   // 字還沒出完：先補完，不換句
     const p = scgPlay; if (!p) return true;
-    if (p.i < p.q.length - 1) { p.i++; p.title = p.q[p.i].first; } else { const au = p.auto; scgReset(); if (au) { closeBoard(); return false; } }
+    if (p.i < p.q.length - 1) { p.i++; p.title = p.q[p.i].first; } else { const au = p.auto, af = p.after; scgReset(); if (au) { closeBoard(); if (af) af(); return false; } }
     return true;
   }
-  if (a === 'scgback') { if (scgPlay && scgPlay.auto) { scgReset(); closeBoard(); return false; } scgReset(); return true; }
+  if (a === 'scgback') { if (scgPlay && scgPlay.auto) { const af = scgPlay.after; scgReset(); closeBoard(); if (af) af(); return false; } scgReset(); return true; }
   return false;
 }
 
@@ -286,6 +316,25 @@ function scgVoyQ(only) {   // only：-1＝四幕全播，0~3＝只播那一幕
   const q = [];
   SCG_VOY.forEach((a, k) => { if (only >= 0 && only !== k) return; a.lines.forEach((x, j) => q.push({ ch: 0, tag: '出海篇', title: a.title, beat: 'v' + k, s: x.s, t: x.t, opts: x.opts, first: j === 0 })); });
   return q;
+}
+function scgDivKey() { return 'dw_div_' + (typeof authUser !== 'undefined' && authUser ? authUser : (me ? me.username : '')); }
+function scgDivSeen() { try { return !!localStorage.getItem(scgDivKey()); } catch (e) { return false; } }
+function scgDivQ() {
+  const q = [];
+  SCG_DIV.forEach((a, k) => a.lines.forEach((x, j) => q.push({ ch: 0, tag: '潛水篇', title: a.title, beat: 'd' + k, s: x.s, t: x.t, opts: x.opts, first: j === 0 })));
+  return q;
+}
+/* 重看（從船長選單）：播完回到布告欄相簿 */
+function scgDivOpen(auto, after) {
+  bdOpen = true; pressed.length = 0; bdData = null; bdTab = 'story'; scgSt.beat = -1;
+  scgPlay = { q: scgDivQ(), i: 0, title: true, auto: !!auto, after: after || null };
+  renderBoard(); bdEl.hidden = false; bdCard.focus();
+}
+/* 第一次按「潛水」：先播這段劇情，播完（或跳過）再下水。回傳 true＝劇情接手了，呼叫的人不用再下水 */
+function scgDivCheck(after) {
+  if (!me || scgDivSeen()) return false;
+  try { localStorage.setItem(scgDivKey(), '1'); } catch (e) { /* 略過：下次還會再播一次 */ }
+  scgDivOpen(true, after); return true;
 }
 function scgVoyOpen(auto) {
   bdOpen = true; pressed.length = 0; bdData = null; bdTab = 'story'; scgSt.beat = -1;

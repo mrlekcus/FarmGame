@@ -11,7 +11,18 @@ const vPanel = $('village'), vList = $('v-list'), vLog = $('v-log');
 
 function nameTag(txt, cx, cy, col) {
   ctx.font = '800 5px "Chiron GoRound TC", "Noto Sans TC", sans-serif';
-  ctx.textAlign = 'center'; ctx.lineJoin = 'round'; ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(122,74,74,.9)';
+  ctx.lineJoin = 'round'; ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(122,74,74,.9)';
+  const tk = typeof ocnTitleOfName === 'function' ? ocnTitleOfName(txt) : null, tt = tk && typeof OCN_TITLE !== 'undefined' ? OCN_TITLE[tk] : null;
+  if (tt) {   // 海洋稱號：彩色小標籤放在名字前面
+    ctx.textAlign = 'left';
+    const pw = Math.ceil(ctx.measureText(tt[1]).width) + 4, nw = ctx.measureText(txt).width, x0 = Math.round(cx - (pw + 2 + nw) / 2);
+    ctx.fillStyle = 'rgba(122,74,74,.9)'; ctx.fillRect(x0 - 1, cy - 6, pw + 2, 8);
+    ctx.fillStyle = tt[0]; ctx.fillRect(x0, cy - 5, pw, 6);
+    ctx.fillStyle = '#fff'; ctx.fillText(tt[1], x0 + 2, cy);
+    ctx.strokeText(txt, x0 + pw + 2, cy); ctx.fillStyle = col; ctx.fillText(txt, x0 + pw + 2, cy);
+    ctx.textAlign = 'center'; return;
+  }
+  ctx.textAlign = 'center';
   ctx.strokeText(txt, cx, cy);
   ctx.fillStyle = col; ctx.fillText(txt, cx, cy);
 }

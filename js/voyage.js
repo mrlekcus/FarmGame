@@ -595,6 +595,7 @@ function renderVoyModal() {
     if (open.length && !aboard) h += '<p class="empty" style="margin:8px 0 2px"><b>正在招募</b></p>' + open.map(n => '<div class="giftrow"><span>' + esc(n.host) + ' · ' + VOY_TIER[n.tier] + ' · ' + n.n + '/' + n.cap + ' 人</span><button type="button" class="btn small" data-a="join" data-id="' + esc(n.id) + '"' + (n.n >= n.cap ? ' disabled' : '') + '>加入</button></div>').join('');
   }
   if (typeof scgVoySeen === 'function' && scgVoySeen()) h += '<button type="button" class="btn ghost wide" data-a="vstory">📖 重看出海劇情</button>';
+  if (typeof oceanCapBtn === 'function' && !(bld && !bld.done && !voy.gmPass)) h += oceanCapBtn();
   h += '<button type="button" class="btn ghost wide" data-a="close">先不出海</button>';
   voyCard.innerHTML = h;
   const pc = $('voy-port'); if (pc) { boatSide(pc.getContext('2d'), performance.now(), { still: true }); g = ctx; }
@@ -632,6 +633,9 @@ voyCard.addEventListener('click', e => {
   const a = b.dataset.a;
   if (a === 'close') closeVoyModal();
   else if (a === 'vstory') { closeVoyModal(); scgVoyOpen(true); }
+  else if (a === 'ocean') { closeVoyModal(); if (!(typeof scgDivCheck === 'function' && scgDivCheck(() => oceanOpen()))) oceanOpen(); }
+  else if (a === 'divstory') { closeVoyModal(); scgDivOpen(false); }
+  else if (a === 'oceanwear') { closeVoyModal(); ocnOpenWear(); }
   else if (a === 'open') voyOpenVoyage(0);
   else if (a === 'gmopen') voyOpenVoyage(+b.dataset.t);
   else if (a === 'join') voyJoin(b.dataset.id);
@@ -655,6 +659,7 @@ voySyncUI();
 function voyageInit() {
   if (!sb || !myUid) return;
   loadBuild(); bldOpenChannel();
+  if (typeof oceanInit === 'function') oceanInit();
   voy.notes.clear(); voyRenderNotes();
   rpc('voyage_mine').then(v => {
     if (v && v.id && scene !== 'boat') enterBoat(v, v.me && v.me.back ? v.me.back : { scene: 'farm' });   // 重新整理、斷線後回到船上
@@ -663,6 +668,7 @@ function voyageInit() {
 }
 function voyageStop() {
   if (scene === 'boat') leaveBoat(true, true);
+  try { if (typeof ocnStop === 'function' && ocnG.on) { ocnStop(); ocnOpen = false; } if (typeof ocnM !== 'undefined') { ocnM.hidden = true; ocnOpen = false; } } catch (e) { /* 略過 */ }
   voyCloseChannel(); bldCloseChannel(); voy.cur = null; voy.notes.clear(); voyRenderNotes();
   voyHud.hidden = true; voyPanel.hidden = true; if (vyOpen) closeVoyModal();
 }

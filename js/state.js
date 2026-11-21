@@ -30,7 +30,8 @@ const ITEM_FALLBACK = {
   'p:food': { name: '寵物飼料', shape: 'sack', color: '#d9a066' }, 'p:toy': { name: '寵物玩具', shape: 'round', color: '#ff8fa8' }, 'p:bowl': { name: '寵物飯碗', shape: 'round', color: '#7fb7e8' },
   'a:hay': { name: '乾草', shape: 'sack', color: '#e8c070' }, 'a:egg': { name: '雞蛋', shape: 'round', color: '#fff3d6' },
   'a:milk': { name: '牛奶', shape: 'bottle', color: '#ffffff' }, 'a:wool': { name: '羊毛', shape: 'cloud', color: '#f4f4f4' },
-  'x:fert': { name: '肥料', shape: 'sack', color: '#8c6a44' }, 'm:wood': { name: '木頭', shape: 'log', color: '#b98a62' },
+  'x:fert': { name: '肥料', shape: 'sack', color: '#8c6a44' },
+ 'm:wood': { name: '木頭', shape: 'log', color: '#b98a62' },
 };
 const fallbackItem = k => ITEM_FALLBACK[k] || ITEM_FALLBACK['a:' + k] || ITEM_FALLBACK['x:' + k] || null;   // 也接受沒有前綴的寫法（egg、hay、fert2）
 let itemMeta = {}, forPool = [], forTaken = new Set(), fgSlot = -1, rocksAt = {}, fgList = [], treesAt = {}, chopHits = {}, yardMode = false, anOpen = false, bld = null, bldAt = 0;   // bld：出海碼頭建造進度（voyage_build_info）；沒讀到就當作已完工   // treesAt：每棵可砍的樹幾點長回來（毫秒）；chopHits：這一棵目前砍了幾下
@@ -47,7 +48,7 @@ function sellValue(sold, qty, price) {
 const pl = { x: 4, y: 4, sx: 4, sy: 4, prog: 1, face: 'down', step: 0 };
 const srvNow = () => Date.now() + offset;
 
-let bagOpen = false, shopOpen = false, makerOpen = false, authOpen = true, actQueued = false, actHeld = false, actPtr = -1, firstTime = false, vmOpen = false, gmOpen = false, gmbOpen = false, vyOpen = false, cfOpen = false, gsOpen = false, gsNpcOpen = false, cgOpen = false, bbOpen = false, tcOpen = false;
+let bagOpen = false, shopOpen = false, makerOpen = false, authOpen = true, actQueued = false, actHeld = false, actPtr = -1, firstTime = false, vmOpen = false, gmOpen = false, gmbOpen = false, vyOpen = false, cfOpen = false, gsOpen = false, gsNpcOpen = false, cgOpen = false, bbOpen = false, tcOpen = false, ocnOpen = false;
 let pendingInvite = '';
 const pressed = [];
 let frOpen = false;
@@ -55,7 +56,7 @@ let lkOpen = false, bdOpen = false, ckOpen = false, rcOpen = false, mcOpen = fal
 let syOpen = false, lvOpen = false, cdOpen = false, dexOpen = false, qOpen = false, dsOpen = false, emOpen = false, stOpen = false, imm = false, sheetOpen = false, trOpen = false;
 let pnOpen = false, mnOpen = false, seOpen = false, mbOpen = false, seaOpen = false;   // seOpen：NPC 換種子視窗
 let petOpen = false;
-const paused = () => seOpen || mbOpen || seaOpen || anOpen || lkOpen || bdOpen || ckOpen || rcOpen || mcOpen || mnOpen || dgOpen || lvOpen || cdOpen || dexOpen || qOpen || dsOpen || pnOpen || stOpen || trOpen || (imm && sheetOpen) || frOpen || mlOpen || bagOpen || shopOpen || makerOpen || authOpen || vyOpen || vmOpen || gmOpen || gmbOpen || fOpen || syOpen || petOpen || cfOpen || gsOpen || gsNpcOpen || cgOpen || bbOpen || tcOpen || !ready;
+const paused = () => seOpen || mbOpen || seaOpen || anOpen || lkOpen || bdOpen || ckOpen || rcOpen || mcOpen || mnOpen || dgOpen || lvOpen || cdOpen || dexOpen || qOpen || dsOpen || pnOpen || stOpen || trOpen || (imm && sheetOpen) || frOpen || mlOpen || bagOpen || shopOpen || makerOpen || authOpen || vyOpen || vmOpen || gmOpen || gmbOpen || fOpen || syOpen || petOpen || cfOpen || gsOpen || gsNpcOpen || cgOpen || bbOpen || tcOpen || ocnOpen || !ready;
 
 /* ---------- 小提示與特效 ---------- */
 const toastEl = $('toast');

@@ -1367,3 +1367,64 @@ body.imm .camhint{display:block}
 .ps-tabs{flex:none;display:flex;gap:6px}
 .ps-tab{flex:1;padding:8px 4px;font:700 14px var(--f-display);color:var(--ink);background:#fff;border:3px solid var(--edge);border-radius:999px;cursor:pointer}
 .ps-tab.on{background:var(--pink);color:#fff}
+
+/* ---------- 海底清潔（自由潛水）---------- */
+#ocng{position:fixed;inset:0;z-index:1300;background:#050b1e;display:flex;align-items:center;justify-content:center;user-select:none;-webkit-user-select:none;touch-action:none}
+#ocng[hidden]{display:none}
+.ocg-wrap{position:relative;width:min(100vw,calc(100vh*16/9));aspect-ratio:16/9;font-size:clamp(10px,calc(min(100vw,177vh)/62),17px)}
+.ocg-wrap canvas{width:100%;height:100%;image-rendering:pixelated;display:block;background:#0b1740}
+.och{position:absolute;background:rgba(10,32,64,.62);border:2px solid rgba(190,235,255,.8);border-radius:12px;color:#fff;font-weight:700;padding:.25em .6em;line-height:1.35}
+.och b{float:right}
+.ocn-o2{left:1.2%;top:2%;width:21%}.ocn-bag{left:1.2%;top:13.5%;width:21%}
+.ocn-cl{left:50%;transform:translateX(-50%);top:2%;width:34%}
+.ocn-cl small{display:block;font-weight:600;font-size:.82em;opacity:.95;margin-top:.15em}
+.ocn-leave{right:1.2%;top:2%;cursor:pointer;font-family:inherit}
+.ocbar{height:.7em;border-radius:6px;background:rgba(255,255,255,.22);overflow:hidden;margin-top:.15em;clear:both}
+.ocbar i{display:block;height:100%;background:linear-gradient(#a8f3ff,#4fc3ff);width:0}
+.ocbar.y i{background:linear-gradient(#ffe9a0,#ffb840)}
+.ocbar.g i{background:linear-gradient(#b8f5c8,#3fd98a)}
+.ocbar i.low{background:linear-gradient(#ffb0b0,#ff4a4a)}
+.ocprompt{position:absolute;left:50%;transform:translateX(-50%);bottom:15%;background:#fff8c8;border:3px solid #f0b030;color:#8a5a10;border-radius:999px;padding:.2em 1em;font-weight:700;max-width:80%;text-align:center;box-shadow:0 3px 0 #c8901a}
+.ochold{position:absolute;left:50%;transform:translateX(-50%);bottom:10%;width:30%;height:.9em;background:rgba(0,0,0,.5);border-radius:999px;overflow:hidden;border:2px solid #fff}
+.ochold i{display:block;height:100%;background:#ffd34d;width:0}
+.ocpad{position:absolute;left:2%;bottom:3%;display:grid;grid-template-columns:repeat(3,3.6em);grid-template-rows:repeat(2,3.6em);gap:.3em;touch-action:none}
+.ocpad button{border:3px solid rgba(255,255,255,.8);background:rgba(10,32,64,.55);color:#fff;border-radius:14px;font-size:1.3em;touch-action:none}
+.ocpad button[data-k=up]{grid-area:1/2}.ocpad button[data-k=left]{grid-area:2/1}.ocpad button[data-k=down]{grid-area:2/2}.ocpad button[data-k=right]{grid-area:2/3}
+.ocact{position:absolute;right:3%;bottom:4%;width:5.8em;height:5.8em;border-radius:50%;border:4px solid #fff;background:#f08aa8;color:#fff;font-weight:800;font-size:1.1em;box-shadow:0 4px 0 #d9648a;touch-action:none}
+.octag{position:absolute;transform:translate(-50%,-100%);background:rgba(255,255,255,.9);border-radius:9px;padding:0 .5em;font-size:.8em;font-weight:700;color:#3a4a6a;white-space:nowrap;pointer-events:none}
+.octag.me{background:#ff9bb3;color:#fff}
+@media (hover:hover) and (pointer:fine){.ocpad,.ocact{opacity:.55}}
+.ocitems{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.ocitem{display:flex;align-items:center;gap:6px;border:3px solid #f1c3d0;border-radius:12px;padding:3px 10px 3px 4px;background:#fff;font:700 14px var(--f-display);color:var(--ink);cursor:pointer}
+.ocitem.on{background:#fff2a8;border-color:#f0b030}
+.ocico{width:34px;height:34px;image-rendering:pixelated;border-radius:8px}
+.ocbins{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:6px}
+.ocbinb{border:3px solid rgba(0,0,0,.25);border-radius:12px;color:#fff;font:800 14px var(--f-display);padding:8px 2px;cursor:pointer;text-shadow:0 1px 0 rgba(0,0,0,.3)}
+.ocbinb span{display:block;font-size:22px}
+.ocbinb:disabled{opacity:.45}
+.b-plastic{background:#4a90e0}.b-metal{background:#e0a020}.b-net{background:#40b070}.b-other{background:#9a7ad0}
+#ocncard.shake{animation:ocshake .4s}
+@keyframes ocshake{0%,100%{transform:translateX(0)}25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
+
+/* 潛水畫面蓋在最上層時，提示訊息也要看得到 */
+.toast{z-index:1500}
+
+.octt{display:inline-block;color:#fff;border-radius:999px;padding:0 .55em;margin-right:.3em;font-size:.95em;font-weight:800;border:2px solid #fff;line-height:1.25}
+.ocfeed{position:absolute;left:1.2%;top:26%;width:30%;display:flex;flex-direction:column;gap:.25em;pointer-events:none}
+.ocfl{background:rgba(10,32,64,.62);border:2px solid rgba(190,235,255,.6);border-radius:10px;color:#fff;font-weight:600;font-size:.85em;padding:.15em .55em;line-height:1.4}
+.ocbanner{position:absolute;left:50%;top:20%;transform:translateX(-50%);background:linear-gradient(#fff8c8,#ffe98a);border:4px solid #f0b030;border-radius:18px;padding:.35em 1.4em;text-align:center;font-weight:800;color:#8a5a10;box-shadow:0 4px 0 #c8901a;font-size:1.25em;z-index:3}
+.ocbanner small{font-size:.7em;font-weight:700}
+.ocbanner[hidden]{display:none}
+.ocwtl,.ocwgl{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.ocwgl{grid-template-columns:repeat(3,1fr)}
+.ocw{display:flex;flex-direction:column;align-items:center;gap:2px;border:3px solid #f1c3d0;border-radius:12px;padding:5px 4px;background:#fff;font:700 13px var(--f-display);color:var(--ink);cursor:pointer}
+.ocw small{font-weight:500;font-size:11px;opacity:.75}
+.ocw.on{background:#fff2a8;border-color:#f0b030}
+.ocw.lock{opacity:.5;cursor:default}
+.ocwc{width:56px;height:60px;image-rendering:pixelated;border-radius:8px}
+
+.ocemo-btn{position:absolute;right:3%;bottom:calc(4% + 6.4em);width:2.8em;height:2.8em;border-radius:50%;border:3px solid #fff;background:rgba(10,32,64,.55);font-size:1.2em;line-height:1;padding:0}
+.ocemo-pal{position:absolute;right:3%;bottom:calc(4% + 10.2em);display:grid;grid-template-columns:repeat(4,2.6em);gap:.3em;background:rgba(10,32,64,.72);padding:.4em;border-radius:14px;border:3px solid rgba(255,255,255,.85)}
+.ocemo-pal button{height:2.6em;border:0;border-radius:10px;background:rgba(255,255,255,.9);font-size:1.15em;padding:0}
+.ocemo{position:absolute;transform:translate(-50%,-100%);font-size:1.7em;line-height:1;pointer-events:none;filter:drop-shadow(0 2px 0 rgba(0,0,0,.25));animation:ocemoUp 2.8s ease-out forwards}
+@keyframes ocemoUp{0%{opacity:0;margin-top:8px;scale:.4}12%{opacity:1;margin-top:0;scale:1.2}22%{scale:1}80%{opacity:1}100%{opacity:0;margin-top:-14px}}
