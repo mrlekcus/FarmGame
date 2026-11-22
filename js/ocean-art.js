@@ -159,6 +159,52 @@ function diverG(px, py, face, ch, gear, t) {
   if (gear === 'gold' && Math.sin((t || 0) * 3) > 0) sparkle(px + 15, py + 2);
   const b = GEARS.base; TK = b[0]; TK2 = b[1]; FL = b[2]; FL2 = b[3]; MK = b[4];
 }
+/* ---- 新增海洋生物（圖鑑用）：朝右畫、朝左自動鏡射 ---- */
+const LIFE=(()=>{
+/* 以朝右的圖樣畫，朝左自動鏡射：P(dx,dy,w,h,c) 的 dx 以魚的中心為 0 */
+const mk=(x,y,dir,fn)=>fn((dx,dy,w,h,c)=>{const X=dir>0?x+dx:x-dx-w+1;rr(c,X,y+dy,w,h);});
+function clown(x,y,dir,t){mk(x,y,dir,P=>{const o='#c2501a',c='#ff8a2a',w='#fff8ee',k='#2b2b3a';
+ P(-5,-3,10,7,o);P(-4,-4,8,7,c);P(-5,-2,2,5,c);P(5,-2,2,4,c);P(6,-1,2,2,c); // 身體+尾
+ P(-4,-4,2,7,w);P(-3,-4,1,7,k);P(1,-4,2,7,w);P(0,-4,1,7,k);P(5,-2,1,4,w);
+ P(2,-1,1,1,k);P(-1,-5,3,1,c);P(-1,4,3,1,c);});}
+function tang(x,y,dir,t){mk(x,y,dir,P=>{const b='#2f6fe0',d='#1a3f94',l='#6fb2ff',k='#14142a',yl='#ffd84a';
+ P(-6,-4,11,9,d);P(-5,-5,10,9,b);P(-6,-3,9,6,b);P(-3,-5,6,1,l);
+ P(5,-3,3,7,yl);P(8,-4,1,9,yl);P(-4,-6,8,1,d);P(-3,4,6,1,d);
+ P(2,-2,1,1,k);P(-5,0,6,1,k);P(-2,-3,5,1,'#4a8cf0');});}
+function butterfly(x,y,dir,t){mk(x,y,dir,P=>{const y1='#ffe04a',o='#d9a420',k='#1d1d2b',w='#fff8ee';
+ P(-5,-6,9,12,o);P(-4,-7,8,12,y1);P(4,-3,3,5,y1);P(7,-2,1,3,w);P(-6,-3,2,6,y1);
+ P(2,-4,1,9,k);P(-1,-7,1,12,'#fffbe0');P(3,-3,1,1,k);P(4,-1,2,1,k);P(-3,-5,5,1,w);});}
+function puffer(x,y,dir,t){const e=Math.sin(t*3)>0?1:0;mk(x,y,dir,P=>{const c='#f4d9a0',d='#c79a58',w='#fff4d8',k='#2b2b3a';
+ P(-5,-5,11,11,d);P(-4,-6,10,11,c);P(-6,-3,13,7,c);P(-4,2,8,3,w);
+ P(8,-1,1,3,d);P(7,-2,2,1,c);P(7,2,2,1,c);P(-2,-8,1,2,d);P(2,-8,1,2,d);P(-6,-1,1,1,d);P(6,-6,1,1,d);P(-6,4,1,1,d);P(6,4,1,1,d);P(0,6,1,1,d);
+ P(3,-2,2,2,'#fff');P(4,-2,1,2,k);P(5,2,2,1,d);P(0,-4,1,1,d);P(-3,-1,1,1,d);P(-1,1,1,1,d);P(-4,3,1,1,d);
+ P(-3,0,1,2+e,c);});}
+function seahorse(x,y,dir,t){const b=Math.round(Math.sin(t*2)*1);mk(x,y+b,dir,P=>{const c='#ffb23c',d='#b86a14',k='#1d1d2b';
+ P(0,-8,4,3,c);P(3,-7,3,1,c);P(5,-7,1,2,d);P(-1,-6,1,1,d);P(1,-7,1,1,k);   // 頭+吻
+ P(-1,-5,4,3,c);P(-1,-2,5,5,c);P(0,3,3,4,c);P(-1,3,1,3,d);P(0,7,2,2,c);P(-1,8,1,2,c);P(-2,9,2,1,c); // 身+尾
+ P(-3,-3,1,3,'#ffd27a');P(3,-1,1,3,'#ffd27a');P(0,-3,3,1,d);P(0,0,3,1,d);P(0,3,3,1,d);P(-2,-6,1,2,'#ffd27a');});}
+function ray(x,y,dir,t){const f=Math.round(Math.sin(t*2));mk(x,y,dir,P=>{const c='#8fa4c8',d='#566a90',w='#e8eefc',k='#1d1d2b';
+ P(-9,-1+f,4,2,d);P(-8,-2,16,4,c);P(-6,-3,12,6,c);P(-4,-4,8,8,c);P(-9,f,3,1,c);P(8,0,2,1,c);   // 翅
+ P(-4,-1,8,2,d);P(-2,2,4,2,w);P(10,0,6,1,d);P(2,-2,1,1,k);P(4,-2,1,1,k);});}
+function shark(x,y,dir,t){const f=Math.round(Math.sin(t*2));mk(x,y,dir,P=>{const c='#7c8ca8',d='#4e5c78',w='#e6ecf6',k='#14142a';
+ P(-14,-3,24,7,c);P(-11,-4,18,9,c);P(10,-2,5,5,c);P(-12,3,22,2,w);P(-4,-8,4,5,d);P(-3,-9,2,1,d);   // 背鰭
+ P(-18,-6+f,4,4,d);P(-17,-3,4,6,d);P(-16,2,4,4+f,d);P(-5,4,5,3,d);                                  // 尾
+ P(7,-2,1,1,k);P(10,2,3,1,k);P(11,1,1,1,w);P(8,0,1,2,d);});}
+function crab(x,y,dir,t){const s=Math.round(Math.sin(t*5));mk(x,y,dir,P=>{const c='#e0502a',d='#8a2c14',l='#ff8a5a',k='#1d1d2b';
+ P(-5,-3,10,5,d);P(-4,-4,8,5,c);P(-3,-4,6,1,l);P(-4,-6,1,3,c);P(3,-6,1,3,c);P(-4,-7,1,1,k);P(3,-7,1,1,k);
+ P(-8,-5+s,3,3,c);P(-9,-6+s,2,2,l);P(5,-5-s,3,3,c);P(7,-6-s,2,2,l);
+ P(-6,1,2,1,d);P(-7,2+s,1,2,d);P(4,1,2,1,d);P(6,2-s,1,2,d);P(-3,2,1,2,d);P(2,2,1,2,d);});}
+function octopus(x,y,dir,t){const w=Math.sin(t*2);mk(x,y,dir,P=>{const c='#c06ad8',d='#7a3a94',l='#e6a8f4',k='#1d1d2b';
+ P(-5,-8,10,8,c);P(-4,-9,8,2,c);P(-3,-9,3,1,l);P(-5,-1,10,2,d);
+ P(-2,-4,2,2,'#fff');P(2,-4,2,2,'#fff');P(-1,-3,1,1,k);P(3,-3,1,1,k);
+ for(let i=0;i<4;i++){const ox=-5+i*3;for(let k2=0;k2<6;k2++)P(ox+Math.round(Math.sin(k2*.8+i+w*2)*1.2),1+k2,2,1,k2%3==2?l:c);}});}
+function starfish(x,y,c){c=c||'#ff7a4a';const d=mixc(c,'#000',.3),l=mixc(c,'#fff',.4);
+ rr(d,x-1,y-1,3,3,d);rr(c,x,y-1,1,3);rr(c,x-1,y,3,1);rr(c,x,y-3,1,2);rr(c,x,y+2,1,2);rr(c,x-3,y,2,1);rr(c,x+2,y,2,1);rr(l,x,y,1,1);
+ rr(c,x-3,y-2,1,1);rr(c,x+3,y-2,1,1);rr(c,x-3,y+2,1,1);rr(c,x+3,y+2,1,1);}
+function urchin(x,y,c){c=c||'#5a2a8a';const l=mixc(c,'#fff',.45);disc(c,x,y,3,3);disc(mixc(c,'#000',.3),x,y+1,2,2);
+ [[-6,0],[6,0],[0,-6],[-4,-4],[4,-4],[-5,2],[5,2]].forEach(a=>rr(l,x+a[0],y+a[1],1,1));[[-4,-1],[4,-1],[0,-4],[-3,-3],[3,-3]].forEach(a=>rr(c,x+a[0],y+a[1],1,1));}
+function anemone(x,y,t){const cs=['#ff6aa8','#ff9ad0','#ffd0e8'];for(let i=-5;i<=5;i++){const h=5+(Math.abs(i)<3?3:0),sw=Math.round(Math.sin(t*2+i)*1.2);for(let k=0;k<h;k++)rr(cs[(k+i+9)%3],x+i+(k>2?sw:0),y-k,1,1);}rr('#9a3a68',x-6,y,13,2);}
+return{clown,tang,butterfly,puffer,seahorse,ray,shark,crab,octopus,starfish,urchin,anemone};})();
 return { GEARS, world, G: { W: GW, H: GH, L: GL, R: GR, wl, wr, fl, LEDGES }, diver: diverG, fish, jelly, anglerfish, turtle: tturtle, bub, bubbles, sparkle, starfish, tbag, bottle, tcan, tire, cup, net, line, disc, rr, mixc,
-  wreck, coralB };
+  wreck, coralB, LIFE };
 })();

@@ -11,9 +11,30 @@ const OCN_BUOY = [[430, 346], [576, 346], [722, 346]];
 const OCN_BIGN = { net: '廢漁網', tire: '廢輪胎', turtle: '纏住海龜的漁網', anchor: '沉船船錨', chain: '生鏽鐵鍊', hatch: '沉船艙門' };
 const OCN_SCHOOL = [[440, 50, 60, '#ff9a3c', 6, 0], [630, 70, 50, '#ffd84a', 4, 0], [640, 140, 40, '#6fd0ff', 5, 5], [500, 215, 50, '#ffd84a', 4, 10], [520, 400, 120, '#6fd0ff', 7, 0], [700, 380, 90, '#ffd84a', 5, 15], [180, 430, 90, '#ff9a3c', 5, 25], [950, 430, 100, '#6fd0ff', 6, 30], [480, 450, 40, '#ff9a3c', 4, 40]];
 const OCN_JELLY = [[580, 226, '#ff9bdf', 10], [576, 430, '#7fe6ff', 20], [620, 490, '#c9a8ff', 20], [120, 430, '#7fe6ff', 40], [880, 430, '#7fe6ff', 70], [1040, 420, '#c9a8ff', 70], [960, 470, '#7fe6ff', 70]];
-const OCN_TITLE = { s1: ['#8aa0b8', '海洋小幫手'], s2: ['#3fb070', '撿拾達人'], s3: ['#20a0a8', '海灣守護者'], s4: ['#e0709a', '珊瑚之友'], s5: ['#2f6fe0', '海龜救星'], s6: ['#2f6fe0', '合作潛水員'], s7: ['#8a5ad8', '船長的老朋友'] };
-const OCN_TREQ = { s1: '守護值 50', s2: '守護值 150', s3: '守護值 400', s4: '守護值 800', s5: '解救 10 隻海龜', s6: '合力拉起 30 個大件垃圾', s7: '集齊 8 張船長日記' };
+const OCN_TITLE = { s1: ['#8aa0b8', '海洋小幫手'], s2: ['#3fb070', '撿拾達人'], s3: ['#20a0a8', '海灣守護者'], s4: ['#e0709a', '珊瑚之友'], s5: ['#2f6fe0', '海龜救星'], s6: ['#2f6fe0', '合作潛水員'], s7: ['#8a5ad8', '船長的老朋友'], s8: ['#d9902a', '海洋觀察家'] };
+const OCN_TREQ = { s1: '守護值 50', s2: '守護值 150', s3: '守護值 400', s4: '守護值 800', s5: '解救 10 隻海龜', s6: '合力拉起 30 個大件垃圾', s7: '集齊 8 張船長日記', s8: '集滿海洋圖鑑 16 種' };
 const OCN_GEAR = { base: ['預設', '免費'], coral: ['珊瑚粉', '守護值 100'], blue: ['海灣藍', '守護值 250'], green: ['海龜綠', '守護值 500'], gold: ['黃金', '守護值 1000'], glow: ['夜光', '解救 10 隻海龜'] };
+/* 海洋圖鑑：位元 0~15；hint 是還沒看到時的提示。a＝在哪裡出現（清潔度門檻） */
+const OCN_DEX = [
+  ['小丑魚', '橘白條紋，喜歡躲在海葵旁邊。', '上面三層的通道裡'], ['藍倒吊', '藍色的身體配黃尾巴。', '清潔度 10% 以上，通道和深海平原'], ['蝴蝶魚', '扁扁的黃色身體，眼睛上有一條黑線。', '清潔度 30% 以上，平原中央'],
+  ['河豚', '圓滾滾的，緊張的時候會鼓起來。', '清潔度 40% 以上，深海平原'], ['海馬', '用尾巴勾著東西，在水裡直直地晃。', '藍洞的洞壁邊（清潔度 20%）'], ['魟魚', '像一張會飛的毯子，貼著海底滑過。', '清潔度 45% 以上，深海平原'],
+  ['小鯊魚', '不咬人，只是在遠處悠悠地游過。', '清潔度 60% 以上，平原上方'], ['章魚', '躲在洞裡和沉船裡，眼睛圓圓的。', '藍洞底、沉船墳場'], ['螃蟹', '橫著走，貼著海底到處逛。', '海底的地面上'],
+  ['海星', '趴在沙地上一動也不動。', '深海平原的地面'], ['海膽', '全身是刺，只能看不能摸。', '深海平原和沉船墳場的地面'], ['海葵', '搖搖擺擺的觸手，是小丑魚的家。', '深海平原的地面'],
+  ['熱帶小魚', '一群一群，到處都是。', '任何地方'], ['海龜', '慢慢地游，很有安全感。', '清潔度 25% 以上'], ['水母', '半透明的傘，一收一放。', '清潔度 10% 以上'], ['鮟鱇魚', '頭上掛著小燈，在暗處等著。', '沉船墳場和發光洞（清潔度 40% / 70%）']];
+/* 新生物的位置：k＝種類、x,y＝中心、rng＝游動範圍、sp＝速度、c＝清潔度門檻、bit＝圖鑑位元（ground＝貼地） */
+const OCN_LIFE = [
+  { k: 'clown', bit: 0, x: 470, y: 66, rng: 46, sp: .5, c: 0 }, { k: 'clown', bit: 0, x: 620, y: 106, rng: 40, sp: .45, c: 0 }, { k: 'clown', bit: 0, x: 520, y: 232, rng: 50, sp: .4, c: 5 },
+  { k: 'tang', bit: 1, x: 500, y: 160, rng: 55, sp: .35, c: 10 }, { k: 'tang', bit: 1, x: 700, y: 370, rng: 90, sp: .3, c: 30 }, { k: 'tang', bit: 1, x: 400, y: 440, rng: 70, sp: .32, c: 30 },
+  { k: 'butterfly', bit: 2, x: 600, y: 395, rng: 80, sp: .28, c: 30 }, { k: 'butterfly', bit: 2, x: 900, y: 410, rng: 60, sp: .3, c: 70 },
+  { k: 'puffer', bit: 3, x: 660, y: 450, rng: 90, sp: .22, c: 40 }, { k: 'puffer', bit: 3, x: 250, y: 425, rng: 50, sp: .2, c: 40 },
+  { k: 'seahorse', bit: 4, x: 532, y: 508, rng: 0, sp: 0, c: 20 }, { k: 'seahorse', bit: 4, x: 624, y: 500, rng: 0, sp: 0, c: 20 },
+  { k: 'ray', bit: 5, x: 480, y: 380, rng: 130, sp: .2, c: 45 }, { k: 'ray', bit: 5, x: 960, y: 455, rng: 70, sp: .18, c: 70 },
+  { k: 'shark', bit: 6, x: 576, y: 352, rng: 360, sp: .1, c: 60 },
+  { k: 'octopus', bit: 7, x: 576, y: 522, rng: 0, sp: 0, c: 20 }, { k: 'octopus', bit: 7, x: 170, y: 478, rng: 0, sp: 0, c: 40 },
+  { k: 'crab', bit: 8, x: 430, y: 0, rng: 40, sp: .5, c: 0, g: 1 }, { k: 'crab', bit: 8, x: 700, y: 0, rng: 50, sp: .45, c: 0, g: 1 }, { k: 'crab', bit: 8, x: 120, y: 0, rng: 30, sp: .5, c: 40, g: 1 }, { k: 'crab', bit: 8, x: 1010, y: 0, rng: 40, sp: .5, c: 70, g: 1 },
+  { k: 'starfish', bit: 9, x: 360, y: 0, c: 0, g: 1, col: '#ff7a4a' }, { k: 'starfish', bit: 9, x: 800, y: 0, c: 0, g: 1, col: '#ffd84a' }, { k: 'starfish', bit: 9, x: 880, y: 0, c: 70, g: 1, col: '#ff7a4a' }, { k: 'starfish', bit: 9, x: 60, y: 0, c: 40, g: 1, col: '#ffd84a' },
+  { k: 'urchin', bit: 10, x: 400, y: 0, c: 0, g: 1, col: '#5a2a8a' }, { k: 'urchin', bit: 10, x: 740, y: 0, c: 0, g: 1, col: '#2a2a5a' }, { k: 'urchin', bit: 10, x: 205, y: 0, c: 40, g: 1, col: '#5a2a8a' },
+  { k: 'anemone', bit: 11, x: 450, y: 0, c: 0, g: 1 }, { k: 'anemone', bit: 11, x: 780, y: 0, c: 0, g: 1 }, { k: 'anemone', bit: 11, x: 840, y: 0, c: 70, g: 1 }];
 /* 發光洞：12 盞珊瑚燈，全服每回收 1 件亮一點（OCN_GLOW_MAX 件＝全亮）；亮到一半出現發光魔鬼魚，全亮出現發光鯨 */
 const OCN_GLOW_MAX = 2400;
 const OCN_LAMP = [[830, 492], [872, 480], [912, 495], [952, 472], [992, 494], [1032, 478], [1072, 497], [1108, 484], [852, 428], [962, 414], [1062, 404], [1124, 438]];
@@ -302,11 +323,12 @@ function ocnDraw(now) {
   /* 洞口上方偶爾游過的大型生物（約每 70 秒一次，純氣氛） */
   if (c >= 20) { const T = 70, ph = (t % T) / 24; if (ph < 1) { const whale = Math.floor(t / T) % 2 === 0, dir = Math.floor(t / T) % 4 < 2 ? 1 : -1, x = dir > 0 ? 330 + ph * 520 : 850 - ph * 520, y = 300 + Math.sin(ph * 6) * 6; ocnDrawBig(x, y, dir, whale, 0); } }
   /* 生物 */
-  OCN_SCHOOL.forEach((s, i) => { if (c < s[5]) return; for (let k = 0; k < s[4]; k++) { const x = s[0] + Math.sin(t * .4 + k * 1.3 + i) * s[2], dir = Math.cos(t * .4 + k * 1.3 + i) > 0 ? 1 : -1; OCA.fish(x, s[1] + Math.sin(t + k * 2) * 6 + (k % 3) * 5, s[3], dir); } });
-  if (c >= 25) OCA.turtle(Math.round(640 + Math.sin(t * .2) * 60), 150, Math.cos(t * .2) > 0 ? 1 : -1);
-  if (c >= 50) OCA.turtle(Math.round(520 + Math.sin(t * .15) * 120), 420, Math.cos(t * .15) > 0 ? 1 : -1);
-  OCN_JELLY.forEach((j, i) => { if (c >= j[3]) OCA.jelly(j[0] + Math.sin(t * .8 + i) * 8, j[1] + Math.cos(t * 1.1 + i * 2) * 5, j[2], t); });
-  if (c >= 70) OCA.anglerfish(960, 498, t); if (c >= 40) OCA.anglerfish(120, 470, t);
+  OCN_SCHOOL.forEach((s, i) => { if (c < s[5]) return; for (let k = 0; k < s[4]; k++) { const x = s[0] + Math.sin(t * .4 + k * 1.3 + i) * s[2], dir = Math.cos(t * .4 + k * 1.3 + i) > 0 ? 1 : -1; const fy = s[1] + Math.sin(t + k * 2) * 6 + (k % 3) * 5; OCA.fish(x, fy, s[3], dir); ocnSee(12, x, fy); } });
+  if (c >= 25) { const tx = Math.round(640 + Math.sin(t * .2) * 60); OCA.turtle(tx, 150, Math.cos(t * .2) > 0 ? 1 : -1); ocnSee(13, tx, 150); }
+  if (c >= 50) { const tx = Math.round(520 + Math.sin(t * .15) * 120); OCA.turtle(tx, 420, Math.cos(t * .15) > 0 ? 1 : -1); ocnSee(13, tx, 420); }
+  OCN_JELLY.forEach((j, i) => { if (c >= j[3]) { const jx = j[0] + Math.sin(t * .8 + i) * 8, jy = j[1] + Math.cos(t * 1.1 + i * 2) * 5; OCA.jelly(jx, jy, j[2], t); ocnSee(14, jx, jy); } });
+  ocnDrawLife(t, c);
+  if (c >= 70) { OCA.anglerfish(960, 498, t); ocnSee(15, 960, 498); } if (c >= 40) { OCA.anglerfish(120, 470, t); ocnSee(15, 120, 470); }
   /* 發光洞：平時暗，珊瑚燈由全服進度點亮 */
   if (c >= 70) ocnGlowCave(t);
   /* 大件垃圾 */
@@ -337,6 +359,40 @@ function ocnDraw(now) {
   g = pg === ocnCtx ? ctx : pg; ocnG.cam = [cx, cy]; ocnTags(cx, cy);
 }
 const ocnTagEls = new Map();
+/* 新生物：游動、爬行、定點；走近就記進圖鑑 */
+let ocnDexBusy = 0;
+function ocnSee(bit, x, y) {
+  if (!ocnRun || !ocnRun.me || (ocnRun.me.dex >> bit) & 1 || ocnDexBusy > performance.now()) return;
+  if (Math.hypot(x - ocnG.x, y - ocnG.y) > 44) return;
+  ocnDexBusy = performance.now() + 1500;
+  rpc('ocean_dex', { p_bit: bit }).then(r => {
+    if (!ocnRun || !ocnRun.me) return; ocnRun.me.dex = r.dex; ocnRun.me.guardian = r.guardian;
+    if (r.new) { let n = 0; for (let i = 0; i < 16; i++) if ((r.dex >> i) & 1) n++; toast('📖 圖鑑新增：' + OCN_DEX[bit][0] + '（' + n + ' / 16）　守護值 +4' + (r.dex === 65535 ? '　🎉 集滿了！獲得稱號「海洋觀察家」' : ''), 4200); }
+    ocnDexBusy = 0;
+  }).catch(() => { ocnDexBusy = performance.now() + 20000; });
+}
+function ocnDrawLife(t, c) {
+  const L = OCA.LIFE, G = OCA.G;
+  OCN_LIFE.forEach((o, i) => {
+    if (c < o.c) return;
+    let x = o.x, y = o.y, dir = 1;
+    if (o.g) {
+      if (o.rng) { x = o.x + Math.sin(t * o.sp * .6 + i) * o.rng; dir = Math.cos(t * o.sp * .6 + i) > 0 ? 1 : -1; }
+      y = (Math.abs(x - 576) <= 56 && c >= 20 ? 538 : G.fl(x));
+      if (o.k === 'crab') { y -= 4; L.crab(x, y, dir, t * (o.rng ? 1 : 0)); }
+      else if (o.k === 'starfish') { y -= 2; L.starfish(x, y, o.col); }
+      else if (o.k === 'urchin') { y -= 3; L.urchin(x, y, o.col); }
+      else { y -= 2; L.anemone(x, y, t); if (o.x < 800 || c >= 70) { L.clown(x + Math.sin(t * .8 + i) * 4, y - 14 + Math.sin(t * 1.6 + i), Math.cos(t * .8 + i) > 0 ? 1 : -1, t); ocnSee(0, x, y - 14); } }
+      ocnSee(o.bit, x, y); return;
+    }
+    if (o.rng) { x = o.x + Math.sin(t * o.sp + i * 1.7) * o.rng; dir = Math.cos(t * o.sp + i * 1.7) > 0 ? 1 : -1; y = o.y + Math.sin(t * .9 + i) * 5; }
+    else y = o.y + Math.sin(t * 1.1 + i) * 3;
+    x = Math.round(x); y = Math.round(y);
+    if (o.k === 'seahorse') { L.seahorse(x, y - 4, 1, t); ocnSee(o.bit, x, y); return; }
+    if (o.k === 'octopus') { L.octopus(x, y, 1, t); ocnSee(o.bit, x, y); return; }
+    L[o.k](x, y, dir, t); ocnSee(o.bit, x, y);
+  });
+}
 const ocnDark = document.createElement('canvas'); ocnDark.width = 356; ocnDark.height = 216; const ocnDarkX = ocnDark.getContext('2d');
 function ocnGlowFrac() { return Math.min(1, ((ocnRun && ocnRun.glow) | 0) / OCN_GLOW_MAX); }
 function ocnDrawBig(x, y, dir, whale, glow) {
@@ -415,6 +471,17 @@ function ocnOpenRead(r) {
   h += '<button type="button" class="btn wide" data-a="rclose">收起來</button>';
   ocnCard.innerHTML = h; ocnCard.focus();
 }
+function ocnOpenDex() {
+  ocnMode = 'diary'; const m = (ocnWear && ocnWear.dex) | 0; let n = 0; for (let i = 0; i < 16; i++) if ((m >> i) & 1) n++;
+  let h = '<div class="shop-h"><h2>📖 海洋圖鑑</h2><span class="chip">' + n + ' / 16</span></div><p class="empty">靠近生物就會記進圖鑑，每種第一次 +4 守護值；集滿 16 種拿稱號「海洋觀察家」。</p><div class="ocdex">';
+  h += OCN_DEX.map((d, i) => ((m >> i) & 1) ? '<div class="ocdx"><span class="ocdc" data-i="' + i + '"></span><b>' + d[0] + '</b><small>' + d[1] + '</small></div>' : '<div class="ocdx lock"><span class="ocdc q">？</span><b>？？？</b><small>' + d[2] + '</small></div>').join('');
+  h += '</div><button type="button" class="btn ghost wide" data-a="wearback">返回</button>'; ocnCard.innerHTML = h;
+  ocnCard.querySelectorAll('.ocdc[data-i]').forEach(e => { const i = +e.dataset.i, c = document.createElement('canvas'); c.width = 40; c.height = 28; const x = c.getContext('2d'), pg = g; g = x; x.imageSmoothingEnabled = false;
+    const bg = x.createLinearGradient(0, 0, 0, 28); bg.addColorStop(0, '#5ec6d6'); bg.addColorStop(1, '#2a6cae'); x.fillStyle = bg; x.fillRect(0, 0, 40, 28);
+    try { const L = OCA.LIFE; ({ 0: () => L.clown(20, 14, 1, 1), 1: () => L.tang(20, 14, 1, 1), 2: () => L.butterfly(20, 14, 1, 1), 3: () => L.puffer(20, 14, 1, 1), 4: () => L.seahorse(18, 10, 1, 1), 5: () => L.ray(22, 14, 1, 1), 6: () => L.shark(26, 14, 1, 1), 7: () => L.octopus(20, 12, 1, 1), 8: () => L.crab(20, 16, 1, 0), 9: () => L.starfish(20, 15, '#ff7a4a'), 10: () => L.urchin(20, 15, '#5a2a8a'), 11: () => L.anemone(20, 22, 1), 12: () => { OCA.fish(12, 8, '#ff9a3c', 1); OCA.fish(22, 15, '#ffd84a', 1); OCA.fish(14, 20, '#6fd0ff', 1); }, 13: () => OCA.turtle(20, 14, 1), 14: () => OCA.jelly(20, 9, '#ff9bdf', 1), 15: () => OCA.anglerfish(22, 16, 1) })[i](); } catch (err) { /* 略過 */ }
+    g = pg === x ? ctx : pg; e.appendChild(c); });
+  ocnCard.focus();
+}
 function ocnOpenRelics() {
   ocnMode = 'diary'; const m = (ocnWear && ocnWear.relics) | 0, n = OCN_RELIC.filter((_, i) => m & (1 << i)).length;
   let h = '<div class="shop-h"><h2>🏺 沉船古物</h2><span class="chip">' + n + ' / ' + OCN_RELIC.length + '</span></div><p class="empty">沉船墳場（清潔度 40% 開放）的殘骸要 3 個人一起拉，拉開後每個人都會撿到一件古物，重複的會換成守護值。</p>';
@@ -435,6 +502,7 @@ ocnCard.addEventListener('click', async e => {
   if (b.dataset.a === 'rclose') { ocnCloseSort(); return; }
   if (b.dataset.a === 'diary') { ocnOpenDiary(); return; }
   if (b.dataset.a === 'relics') { ocnOpenRelics(); return; }
+  if (b.dataset.a === 'dex') { ocnOpenDex(); return; }
   if (b.dataset.a === 'wearback') { ocnMode = 'wear'; ocnRenderWear(); return; }
   if (b.dataset.a === 'back') { if (ocnG.on) { ocnMode = 'sort'; ocnRenderSort(); } else ocnCloseSort(); return; }
   if (b.dataset.t !== undefined || b.dataset.g !== undefined) { ocnWearPick(b); return; }
@@ -486,7 +554,7 @@ function ocnRenderWear() {
   h += Object.keys(OCN_TITLE).map(k => { const has = (w.titles || []).includes(k); return '<button type="button" class="ocw' + (has ? '' : ' lock') + (w.title === k ? ' on' : '') + '" data-t="' + k + '"' + (has ? '' : ' disabled') + '><span class="octt" style="background:' + OCN_TITLE[k][0] + '">' + OCN_TITLE[k][1] + '</span><small>' + (has ? '已解鎖' : '🔒 ' + OCN_TREQ[k]) + '</small></button>'; }).join('');
   h += '</div><p class="empty" style="margin-top:8px"><b>潛水裝飾</b>（只換顏色，水裡和廣場上的潛水員都看得到）</p><div class="ocwgl">';
   h += Object.keys(OCN_GEAR).map(k => { const has = (w.gears || []).includes(k); return '<button type="button" class="ocw' + (has ? '' : ' lock') + (w.gear === k ? ' on' : '') + '" data-g="' + k + '"' + (has ? '' : ' disabled') + '><span class="ocwv" data-g="' + k + '"></span><b>' + OCN_GEAR[k][0] + '</b><small>' + (has ? '已解鎖' : '🔒 ' + OCN_GEAR[k][1]) + '</small></button>'; }).join('');
-  h += '</div><button type="button" class="btn ghost wide" data-a="diary">📖 船長日記（' + ((w.diary | 0)) + ' / 8）</button><button type="button" class="btn ghost wide" data-a="relics">🏺 沉船古物（' + OCN_RELIC.filter((_, i) => (w.relics | 0) & (1 << i)).length + ' / ' + OCN_RELIC.length + '）</button><button type="button" class="btn ghost wide" data-a="back">' + (ocnG.on ? '返回' : '關閉') + '</button>';
+  h += '</div><button type="button" class="btn ghost wide" data-a="diary">📖 船長日記（' + ((w.diary | 0)) + ' / 8）</button><button type="button" class="btn ghost wide" data-a="dex">📖 海洋圖鑑（' + (() => { let n = 0; for (let i = 0; i < 16; i++) if (((w.dex | 0) >> i) & 1) n++; return n; })() + ' / 16）</button><button type="button" class="btn ghost wide" data-a="relics">🏺 沉船古物（' + OCN_RELIC.filter((_, i) => (w.relics | 0) & (1 << i)).length + ' / ' + OCN_RELIC.length + '）</button><button type="button" class="btn ghost wide" data-a="back">' + (ocnG.on ? '返回' : '關閉') + '</button>';
   ocnCard.innerHTML = h;
   ocnCard.querySelectorAll('.ocwv').forEach(e => { const c = document.createElement('canvas'); c.width = 28; c.height = 30; c.className = 'ocwc'; const x = c.getContext('2d'), pg = g; g = x; x.imageSmoothingEnabled = false;
     const bg = x.createLinearGradient(0, 0, 0, 30); bg.addColorStop(0, '#7fe3ea'); bg.addColorStop(1, '#2a86c4'); x.fillStyle = bg; x.fillRect(0, 0, 28, 30);
