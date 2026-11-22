@@ -1428,3 +1428,29 @@ body.imm .camhint{display:block}
 .ocemo-pal button{height:2.6em;border:0;border-radius:10px;background:rgba(255,255,255,.9);font-size:1.15em;padding:0}
 .ocemo{position:absolute;transform:translate(-50%,-100%);font-size:1.7em;line-height:1;pointer-events:none;filter:drop-shadow(0 2px 0 rgba(0,0,0,.25));animation:ocemoUp 2.8s ease-out forwards}
 @keyframes ocemoUp{0%{opacity:0;margin-top:8px;scale:.4}12%{opacity:1;margin-top:0;scale:1.2}22%{scale:1}80%{opacity:1}100%{opacity:0;margin-top:-14px}}
+
+/* ---- 手機（觸控）：畫面鋪滿、浮動搖桿 ---- */
+.ocstick{position:absolute;transform:translate(-50%,-50%);border-radius:50%;border:3px solid rgba(255,255,255,.85);background:rgba(10,32,64,.45);pointer-events:none;z-index:5}
+.ocstick i{position:absolute;left:50%;top:50%;width:46%;height:46%;border-radius:50%;background:rgba(255,255,255,.9);border:3px solid #9fd0ff;transform:translate(-50%,-50%)}
+.ocstick[hidden],.ochint[hidden]{display:none}
+.ochint{position:absolute;left:12px;bottom:calc(14px + env(safe-area-inset-bottom));background:rgba(255,248,200,.95);border:2px solid #f0b030;color:#8a5a10;border-radius:999px;font-weight:700;padding:.2em .9em;pointer-events:none;animation:ochintFade 6s ease-out forwards}
+@keyframes ochintFade{0%,70%{opacity:1}100%{opacity:0}}
+.ocg-touch{align-items:stretch;justify-content:stretch}
+.ocg-touch .ocg-wrap{width:100vw;height:100vh;height:100dvh;aspect-ratio:auto;font-size:clamp(10px,2.9vmin,13px);--hw:min(150px,calc((100% - 28px)/3))}
+.ocg-touch .ocpad{display:none}
+.ocg-touch .ocn-o2,.ocg-touch .ocn-bag,.ocg-touch .ocn-cl{top:calc(8px + env(safe-area-inset-top));transform:none;width:var(--hw)}
+.ocg-touch .ocn-o2{left:calc(8px + env(safe-area-inset-left))}
+.ocg-touch .ocn-bag{left:calc(14px + var(--hw) + env(safe-area-inset-left))}
+.ocg-touch .ocn-cl{left:calc(20px + var(--hw)*2 + env(safe-area-inset-left))}
+.ocg-touch .ocn-cl small{display:none}
+.ocg-touch .ocn-leave{top:calc(8px + env(safe-area-inset-top));right:calc(8px + env(safe-area-inset-right))}
+@media (orientation:portrait){.ocg-touch .ocn-leave{top:calc(62px + env(safe-area-inset-top))}.ocg-touch .ocfeed{top:calc(104px + env(safe-area-inset-top))}}
+@media (orientation:landscape){.ocg-touch .ocfeed{top:calc(62px + env(safe-area-inset-top))}}
+.ocg-touch .ocact{right:calc(18px + env(safe-area-inset-right));bottom:calc(26px + env(safe-area-inset-bottom));width:min(104px,26vmin);height:min(104px,26vmin);font-size:20px;opacity:.92}
+.ocg-touch .ocemo-btn{right:calc(26px + env(safe-area-inset-right));bottom:calc(26px + min(104px,26vmin) + 12px + env(safe-area-inset-bottom));width:50px;height:50px;font-size:22px;opacity:.92}
+.ocg-touch .ocemo-pal{right:calc(14px + env(safe-area-inset-right));bottom:calc(26px + min(104px,26vmin) + 70px + env(safe-area-inset-bottom))}
+.ocg-touch .ocprompt{bottom:22%;font-size:13px}
+.ocg-touch .ochold{bottom:15%}
+.ocg-touch .och{box-sizing:border-box;padding:.2em .5em}.ocg-touch .ocn-lbl{display:none}
+.ocphoto-btn{bottom:calc(4% + 9.8em)}
+.ocg-touch .ocphoto-btn{bottom:calc(26px + min(104px,26vmin) + 12px + 58px + env(safe-area-inset-bottom))}

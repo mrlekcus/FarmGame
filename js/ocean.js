@@ -4,23 +4,69 @@
    撿垃圾放進回收袋，回到水面的船邊分類回收；大件垃圾（漁網、輪胎、纏著海龜的網）要 2 人以上一起拉。
    全服清潔度、守護值、分海域、大件垃圾都在伺服器（ocean.sql）；這裡負責畫面、游泳、送出動作，位置用 Realtime 廣播（ocean:<海域>）。 */
 const OCN = { VW: 192, VH: 108, SPEED: 46, O2_S: 200, PICK_R: 11, BIG_R: 26, SPAWN: [554, 22], RESPAWN_MS: 600000 };
-const OCN_BIG = [[456, 176], [520, 246], [470, 512], [700, 512]];     // 大件垃圾 1～4 號位置（x, 腳底 y）
+const OCN_BIG = [[456, 176], [520, 246], [470, 512], [700, 512], [70, 505], [172, 505], [290, 505]];     // 大件垃圾 1～4 號位置（x, 腳底 y）
 const OCN_ITEM = { bag: ['🛍', '塑膠袋', 'plastic'], bottle: ['🧴', '寶特瓶', 'plastic'], can: ['🥫', '鋁罐', 'metal'], line: ['🧵', '釣魚線', 'net'], cup: ['🥤', '保麗龍杯', 'other'] };
 const OCN_BIN = { plastic: ['🧴', '塑膠'], metal: ['🥫', '金屬'], net: ['🕸', '漁網'], other: ['🗑', '其他'] };
 const OCN_BUOY = [[430, 346], [576, 346], [722, 346]];
-const OCN_BIGN = { net: '廢漁網', tire: '廢輪胎', turtle: '纏住海龜的漁網' };
+const OCN_BIGN = { net: '廢漁網', tire: '廢輪胎', turtle: '纏住海龜的漁網', anchor: '沉船船錨', chain: '生鏽鐵鍊', hatch: '沉船艙門' };
 const OCN_SCHOOL = [[440, 50, 60, '#ff9a3c', 6, 0], [630, 70, 50, '#ffd84a', 4, 0], [640, 140, 40, '#6fd0ff', 5, 5], [500, 215, 50, '#ffd84a', 4, 10], [520, 400, 120, '#6fd0ff', 7, 0], [700, 380, 90, '#ffd84a', 5, 15], [180, 430, 90, '#ff9a3c', 5, 25], [950, 430, 100, '#6fd0ff', 6, 30], [480, 450, 40, '#ff9a3c', 4, 40]];
 const OCN_JELLY = [[580, 226, '#ff9bdf', 10], [576, 430, '#7fe6ff', 20], [620, 490, '#c9a8ff', 20], [120, 430, '#7fe6ff', 40], [880, 430, '#7fe6ff', 70], [1040, 420, '#c9a8ff', 70], [960, 470, '#7fe6ff', 70]];
-const OCN_TITLE = { s1: ['#8aa0b8', '海洋小幫手'], s2: ['#3fb070', '撿拾達人'], s3: ['#20a0a8', '海灣守護者'], s4: ['#e0709a', '珊瑚之友'], s5: ['#2f6fe0', '海龜救星'], s6: ['#2f6fe0', '合作潛水員'] };
-const OCN_TREQ = { s1: '守護值 50', s2: '守護值 150', s3: '守護值 400', s4: '守護值 800', s5: '解救 10 隻海龜', s6: '合力拉起 30 個大件垃圾' };
+const OCN_TITLE = { s1: ['#8aa0b8', '海洋小幫手'], s2: ['#3fb070', '撿拾達人'], s3: ['#20a0a8', '海灣守護者'], s4: ['#e0709a', '珊瑚之友'], s5: ['#2f6fe0', '海龜救星'], s6: ['#2f6fe0', '合作潛水員'], s7: ['#8a5ad8', '船長的老朋友'] };
+const OCN_TREQ = { s1: '守護值 50', s2: '守護值 150', s3: '守護值 400', s4: '守護值 800', s5: '解救 10 隻海龜', s6: '合力拉起 30 個大件垃圾', s7: '集齊 8 張船長日記' };
 const OCN_GEAR = { base: ['預設', '免費'], coral: ['珊瑚粉', '守護值 100'], blue: ['海灣藍', '守護值 250'], green: ['海龜綠', '守護值 500'], gold: ['黃金', '守護值 1000'], glow: ['夜光', '解救 10 隻海龜'] };
+/* 發光洞：12 盞珊瑚燈，全服每回收 1 件亮一點（OCN_GLOW_MAX 件＝全亮）；亮到一半出現發光魔鬼魚，全亮出現發光鯨 */
+const OCN_GLOW_MAX = 2400;
+const OCN_LAMP = [[830, 492], [872, 480], [912, 495], [952, 472], [992, 494], [1032, 478], [1072, 497], [1108, 484], [852, 428], [962, 414], [1062, 404], [1124, 438]];
+/* 沉船墳場：每清掉 6 件沉船殘骸，兩艘沉船上多長出 2 叢珊瑚（最多 8 叢） */
+const OCN_WCORAL = [[118, 486, '#ff8aa8', 7], [142, 486, '#ffb25a', 6], [236, 487, '#b36bd6', 7], [258, 487, '#ff8aa8', 6], [128, 486, '#7fe3ea', 5], [246, 487, '#ffd27a', 5], [150, 486, '#ff6b8a', 8], [270, 487, '#7fffd4', 6]];
+const OCN_RELIC = [['銹蝕的銅鈴', '船上掛過的小鈴，敲一下還有悶悶的聲音。'], ['古老的羅盤', '指針還會動，只是不再指北。'], ['破損的航海地圖', '墨跡暈開了，只剩半座島。'], ['青銅小酒杯', '杯底刻著看不懂的花紋。'], ['珊瑚色玻璃珠', '在水裡看，像一顆小小的夕陽。'], ['舊懷錶', '停在三點十分，不知道是哪一天。']];
+/* 藍洞的上升氣泡流：踩進去會被帶到洞口上方的浮標高度，當作回程捷徑 */
+const OCN_COL = [552, 600];
+/* 藍洞的漂流瓶：每人每天 1 個。日記沒讀完先給日記（共 8 張，集齊得稱號），讀完後給輪替的海洋小知識（共 20 則，順序要跟伺服器一致：伺服器只回第幾則） */
+const OCN_BOTTLE = [[576, 522]];
+const OCN_DIARY = [
+  '第一次下水那天，海水清得像玻璃。我在淺灘撿到一個貝殼，以為自己找到了全世界的寶藏。',
+  '我有個潛水的夥伴，是一隻老海龜。牠總在藍洞口等我，我們一起看光從水面灑下來，像一根根金色的柱子。',
+  '那些年，我們每天都潛水。海草林裡的魚多到數不清，沉船旁邊的珊瑚開得像花園。',
+  '後來船越來越多，岸上的東西也越來越多。有一天，我把掛在海草上的塑膠袋拿掉；過幾天，又掛上了新的。',
+  '垃圾越來越多，魚越來越少。老海龜有一次被漁網纏住，我花了一整個下午才救牠出來。牠沒有怪我，只是看了我很久。',
+  '那之後，我的腿一天比一天沒力氣，下不去深的地方了。我把潛水鏡收起來，告訴自己：海的事，就交給年輕人吧。',
+  '可是我每天還是坐在船頭看著海。看久了才明白，我不是在等海變乾淨，我是在等一個願意下水的人。',
+  '今天，我看見有人撈起了一個瓶子。如果你讀到這裡，謝謝你。汪！這片海，現在也是你的海了。'
+];
+const OCN_TIPS = [
+  '塑膠袋在水裡飄起來很像水母，海龜常常把它當成食物吃下去。',
+  '被丟棄的漁網叫「幽靈漁網」，會在海裡繼續纏住生物，持續很多年。',
+  '鋁罐回收再製，比重新開採鋁礦製造省下很多能源，所以丟對桶很重要。',
+  '珊瑚是動物，不是植物；牠鮮豔的顏色來自住在身體裡的藻類。',
+  '海草林是魚寶寶的育兒室，很多小魚就是在裡面長大的。',
+  '保麗龍被海浪打碎後，會變成很難撿回來的小碎片。',
+  '小於 5 毫米的塑膠碎片叫微塑膠，連很深的海和很遠的極地都找得到。',
+  '釣魚線又細又透明，海鳥和海龜很容易被它纏住。',
+  '地球上有很大一部分的氧氣，是海裡的浮游植物製造的。',
+  '大多數水母不會主動攻擊人，只是跟著海流漂。',
+  '鯨魚的歌聲可以在海裡傳得很遠很遠。',
+  '玻璃瓶可以一再回收，再製之後品質也不會變差。',
+  '有些海龜可以活超過五十年，一輩子都在同一片大海裡旅行。',
+  '珊瑚礁只佔海底很小的面積，卻是許多海洋生物的家。',
+  '深海有些生物會自己發光，這叫做生物發光。',
+  '寶特瓶洗乾淨再回收，才比較容易被重新做成新的東西。',
+  '垃圾分類丟對，回收的東西才不會被弄髒而白白浪費。',
+  '魚群一起游動，可以讓每一隻魚都比較不容易被天敵抓到。',
+  '海浪把岸上的垃圾帶進海裡，所以在岸邊撿垃圾也是保護海洋。',
+  '你今天撿起的每一件垃圾，都少了一次傷害海洋生物的機會。'
+];
 const ocnPill = k => OCN_TITLE[k] ? '<span class="octt" style="background:' + OCN_TITLE[k][0] + '">' + OCN_TITLE[k][1] + '</span>' : '';
 let ocnTitleMap = {}, ocnFeedSeen = 0, ocnBanner = 0;
-const ocnTitleOfName = n => ocnTitleMap[n] || null;
-async function ocnLoadTitleMap() { try { const m = await rpc('ocean_title_map'); if (m && typeof m === 'object') ocnTitleMap = m; } catch (e) { /* 伺服器還沒裝第二階段：不影響其他玩法 */ } }
-function oceanInit() { if (!sb || !myUid) return; ocnLoadTitleMap(); clearInterval(oceanInit.t); oceanInit.t = setInterval(() => { if (!document.hidden) ocnLoadTitleMap(); }, 90000); }
+const ocnTitleOfName = n => ocnTitleMap[n] || (typeof clean === 'function' ? ocnTitleMap[clean(n, 8)] : null) || null;
+async function ocnLoadTitleMap() { try { const m = await rpc('ocean_title_map'); if (m && typeof m === 'object') { const o = {}; Object.keys(m).forEach(k => { o[k] = m[k]; if (typeof clean === 'function') { const c = clean(k, 8); if (c) o[c] = m[k]; } }); if (me && me.name) { if (ocnMyTitle) { o[me.name] = ocnMyTitle; const c = typeof clean === 'function' ? clean(me.name, 8) : ''; if (c) o[c] = ocnMyTitle; } } ocnTitleMap = o; } } catch (e) { /* 伺服器還沒裝第二階段：不影響其他玩法 */ } }
+let ocnMyTitle = null;
+function ocnNoteName() { if (me && me.name) rpc('ocean_note_name', { p_name: me.name }).then(t => { ocnMyTitle = t || null; return ocnLoadTitleMap(); }).catch(() => { /* 還沒裝第五階段：略過 */ }); }
+function oceanInit() { if (!sb || !myUid) return; ocnNoteName(); ocnLoadTitleMap(); clearInterval(oceanInit.t); oceanInit.t = setInterval(() => { if (!document.hidden) ocnLoadTitleMap(); }, 90000); }
 Object.assign(ERR, {
   ocean_locked: '這個還沒解鎖',
+  ocean_bottle_taken: '這個漂流瓶今天已經撿過了，明天再來',
+  ocean_bottle_locked: '藍洞還沒開放',
   ocean_not_in: '你還沒下水', ocean_bad_kind: '這個垃圾不能這樣放', ocean_bag_full: '回收袋滿了，先回水面的船邊回收', ocean_too_fast: '慢一點，一個一個撿',
   ocean_no_item: '袋子裡沒有這個垃圾', ocean_bad_slot: '沒有這個大件垃圾', ocean_cleared: '這個已經被清掉了'
 });
@@ -42,13 +88,15 @@ ocnGame.innerHTML =
   '<div class="ocg-wrap"><canvas id="ocnc" width="192" height="108"></canvas>' +
   '<div class="och ocn-o2">💧 氧氣 <b id="ocn-o2t"></b><div class="ocbar"><i id="ocn-o2i"></i></div></div>' +
   '<div class="och ocn-bag">🧺 回收袋 <b id="ocn-bagt"></b><div class="ocbar y"><i id="ocn-bagi"></i></div></div>' +
-  '<div class="och ocn-cl">🌊 全服海底清潔度 <b id="ocn-clt"></b><div class="ocbar g"><i id="ocn-cli"></i></div><small id="ocn-sub"></small></div>' +
+  '<div class="och ocn-cl">🌊 <span class="ocn-lbl">全服海底</span>清潔度 <b id="ocn-clt"></b><div class="ocbar g"><i id="ocn-cli"></i></div><small id="ocn-sub"></small></div>' +
   '<button type="button" class="och ocn-leave" id="ocn-leave">回船上</button>' +
   '<div class="ocprompt" id="ocn-prompt" hidden></div>' +
   '<div class="ochold" id="ocn-hold" hidden><i id="ocn-holdi"></i></div>' +
   '<div class="ocpad" id="ocn-pad"><button type="button" data-k="up">▲</button><button type="button" data-k="left">◀</button><button type="button" data-k="down">▼</button><button type="button" data-k="right">▶</button></div>' +
   '<div class="ocemo-pal" id="ocn-epal" hidden>' + OCN_EMO.map((e, i) => '<button type="button" data-e="' + i + '" title="' + e[1] + '">' + e[0] + '</button>').join('') + '</div>' +
+  '<button type="button" class="ocemo-btn ocphoto-btn" id="ocn-pbtn" hidden aria-label="拍照">📷</button>' +
   '<button type="button" class="ocemo-btn" id="ocn-ebtn" aria-label="表情">😊</button>' +
+  '<div class="ocstick" id="ocn-stick" hidden><i></i></div><div class="ochint" id="ocn-hint" hidden>左半邊按住拖曳，就能游動</div>' +
   '<button type="button" class="ocact" id="ocn-act">動作</button></div>';
 document.body.appendChild(ocnGame);
 const ocnCv = ocnGame.querySelector('#ocnc'), ocnCtx = ocnCv.getContext('2d'); ocnCtx.imageSmoothingEnabled = false;
@@ -59,7 +107,7 @@ async function oceanOpen() {
   if (!ready || !me || ocnBusy) return;
   ocnBusy = true;
   try {
-    const st = await rpc('ocean_enter'); ocnApply(st); ocnFeedSeen = st.feed_head | 0; await ocnLoadPeople(); ocnLoadTitleMap();
+    const st = await rpc('ocean_enter'); ocnApply(st); ocnFeedSeen = st.feed_head | 0; ocnNoteName(); await ocnLoadPeople(); ocnLoadTitleMap();
     ocnBusy = false; ocnStart();
   } catch (e) { ocnBusy = false; toast(errText(e)); }
 }
@@ -101,14 +149,23 @@ function ocnTrashLive() {
 
 /* ---------- 打開／關閉遊戲 ---------- */
 function ocnStart() {
-  ocnMode = 'game'; ocnG.on = true; ocnOpen = true; ocnM.hidden = true; pressed.length = 0;
+  ocnMode = 'game'; ocnG.on = true; ocnOpen = true; ocnM.hidden = true; pressed.length = 0; ocnFit();
   if (!ocnWorld) { const pg = g; ocnWorld = { clean: OCA.world(true), dirty: OCA.world(false) }; g = pg; }
   ocnGenTrash();
   Object.assign(ocnG, { x: OCN.SPAWN[0], y: OCN.SPAWN[1], vx: 0, vy: 0, face: 'right', o2: 100, keys: {}, act: false, actEdge: false, hold: null, pullAt: 0, bub: [], pop: [], spot: null, last: performance.now(), sendAt: 0, leaving: false });
-  ocnG.others.clear(); ocnG.emo.clear(); ocnEPal && (ocnEPal.hidden = true); ocnOpenChannel(ocnRun.sea); ocnGame.hidden = false;
+  ocnStickEnd(); ocnG.others.clear(); ocnG.emo.clear(); (function () { let used = false; try { used = !!localStorage.getItem('dw_ocn_stick'); } catch (er) { /* 略過 */ } ocnHintEl.hidden = used || !ocnGame.classList.contains('ocg-touch'); })(); ocnEPal && (ocnEPal.hidden = true); ocnOpenChannel(ocnRun.sea); ocnGame.hidden = false;
   cancelAnimationFrame(ocnG.raf); ocnG.raf = requestAnimationFrame(ocnFrame); ocnPollAt = 0;
   toast('下水了！把垃圾撿起來，到水面的船邊分類回收。', 4200);
 }
+/* 手機（觸控）：畫面鋪滿整個螢幕，直拿看窄一點、橫拿看寬一點；電腦維持 16:9。畫面大小變了（轉向）就重算 */
+function ocnFit() {
+  const touch = !!(window.matchMedia && matchMedia('(pointer:coarse)').matches);
+  ocnGame.classList.toggle('ocg-touch', touch);
+  let vw = 192, vh = 108;
+  if (touch) { const w = window.innerWidth, h = window.innerHeight, ps = Math.max(3, Math.min(w, h) / (w > h ? 90 : 108)); vw = Math.max(96, Math.round(w / ps)); vh = Math.max(72, Math.round(h / ps)); }
+  if (OCN.VW !== vw || OCN.VH !== vh) { OCN.VW = vw; OCN.VH = vh; ocnCv.width = vw; ocnCv.height = vh; ocnCtx.imageSmoothingEnabled = false; }
+}
+window.addEventListener('resize', () => { if (ocnG.on) ocnFit(); });
 function ocnStop() { ocnG.on = false; cancelAnimationFrame(ocnG.raf); ocnGame.hidden = true; ocnCloseChannel(); ocnG.keys = {}; ocnG.act = false; if (ocnM.hidden) ocnOpen = false; }
 async function ocnLeave() {
   if (ocnG.leaving) return; ocnG.leaving = true;
@@ -143,14 +200,16 @@ function ocnSpots() {
   ocnTrashLive().forEach(o => { const y = o.float ? o.y + Math.sin(performance.now() / 700 + o.ph) * 1.5 : o.y; out.push({ id: 't' + o.id, kind: 'tap', x: o.x + 1, y: y + 3, rad: OCN.PICK_R, t: o }); });
   ((r && r.big) || []).forEach(b => { if (!b.cleared) { const p = OCN_BIG[b.slot - 1]; if (p && !ocnLocked(p[0], p[1] - 8)) out.push({ id: 'b' + b.slot, kind: 'hold', x: p[0], y: p[1] - 10, rad: OCN.BIG_R, b }); } });
   OCN_BUOY.forEach((p, i) => out.push({ id: 'buoy' + i, kind: 'tap', x: p[0], y: p[1], rad: 14 }));
+  if (r && ocnClean() >= 20) OCN_BOTTLE.forEach((p, i) => { if (!((r.me.bmask | 0) & (1 << i))) out.push({ id: 'btl' + i, kind: 'tap', x: p[0], y: p[1], rad: 14, bi: i }); });
   if (ocnG.y < 30) out.push({ id: 'boat', kind: 'tap', x: ocnG.x, y: ocnG.y, rad: 99 });
   return out;
 }
 function ocnBagN() { const b = (ocnRun && ocnRun.me && ocnRun.me.bag) || {}; return Object.keys(b).reduce((s, k) => s + (b[k] | 0), 0); }
 function ocnSpotText(s) {
   if (s.t) return ocnBagN() >= ocnRun.bag_max ? '🧺 回收袋滿了，先回水面的船邊回收' : '✋ 撿起' + OCN_ITEM[s.t.type][1];
-  if (s.b) { const need = ocnRun.need, n = s.b.pullers; return (OCN_BIGN[s.b.kind] || '大件垃圾') + '：要 ' + need + ' 個人一起按住拉' + (ocnG.hold && ocnG.hold.id === s.id ? '（' + n + ' / ' + need + (n < need ? '，等隊友…' : '') + '）' : '，按住動作'); }
+  if (s.b) { const need = s.b.need || ocnRun.need, n = s.b.pullers; return (OCN_BIGN[s.b.kind] || '大件垃圾') + '：要 ' + need + ' 個人一起按住拉' + (ocnG.hold && ocnG.hold.id === s.id ? '（' + n + ' / ' + need + (n < need ? '，等隊友…' : '') + '）' : '，按住動作'); }
   if (s.id.startsWith('buoy')) return '🎈 浮標：按一下回到水面（氧氣補滿）';
+  if (s.id.startsWith('btl')) return '✋ 撿起漂流瓶';
   if (s.id === 'boat') return ocnBagN() ? '♻ 回收分類（袋子裡有 ' + ocnBagN() + ' 個）' : '♻ 回收站：袋子是空的，下去撿一些吧';
   return '';
 }
@@ -161,6 +220,10 @@ async function ocnAct(s) {
       const r = await rpc('ocean_pick', { p_kind: s.t.type }); ocnRun.me.bag = r.bag; ocnG.picked[s.t.id] = Date.now();
       try { localStorage.setItem('ocn_pk_' + myUid, JSON.stringify(ocnG.picked)); } catch (e) { /* 略過 */ }
       ocnG.pop.push({ x: s.t.x, y: s.t.y, a: 0 });
+    } else if (s.id.startsWith('btl')) {
+      if (performance.now() - ocnG.pickAt < 600) return; ocnG.pickAt = performance.now();
+      const r = await rpc('ocean_bottle', { p_slot: s.bi + 1 }); ocnRun.me.bmask = r.bmask; ocnRun.me.diary = r.diary; ocnRun.me.guardian = r.guardian;
+      ocnG.pop.push({ x: OCN_BOTTLE[s.bi][0], y: OCN_BOTTLE[s.bi][1], a: 0 }); ocnOpenRead(r);
     } else if (s.id.startsWith('buoy')) { ocnG.x = OCN.SPAWN[0]; ocnG.y = OCN.SPAWN[1]; ocnG.vx = ocnG.vy = 0; ocnG.o2 = 100; toast('浮上水面了'); }
     else if (s.id === 'boat') ocnOpenSort();
   } catch (e) { toast(errText(e) + '〔' + String((e && (e.message || e.msg)) || e).slice(0, 80) + '〕', 5000); console.warn('ocean', e); }
@@ -179,16 +242,18 @@ function ocnFrame(now) {
   try { ocnUpdate(dt, now); ocnDraw(now); } catch (e) { console.error(e); g = ctx; }
   ocnG.raf = requestAnimationFrame(ocnFrame);
 }
+function ocnRelicToast(a, b) { for (let i = 0; i < OCN_RELIC.length; i++) if (!(a & (1 << i)) && (b & (1 << i))) toast('🏺 撿到沉船古物：' + OCN_RELIC[i][0], 4200); }
 function ocnUpdate(dt, now) {
   const r = ocnRun; if (!r) return;
   if (now - ocnPollAt > 1500 && !ocnG.leaving) {
     ocnPollAt = now;
-    rpc('ocean_state').then(st => { if (ocnG.on) { ocnApply(st); ocnCheckFeed(st); if (me && me.name && st.me.title) ocnTitleMap[me.name] = st.me.title; } }).catch(e => { if (String(e && e.message || e).includes('ocean_not_in')) rpc('ocean_enter').then(st => ocnApply(st)).catch(() => {}); });
+    rpc('ocean_state').then(st => { if (ocnG.on) { const r0 = (ocnRun && ocnRun.me && ocnRun.me.relics) | 0; ocnApply(st); ocnCheckFeed(st); ocnRelicToast(r0, st.me.relics | 0); if (me && me.name && st.me.title) { ocnTitleMap[me.name] = st.me.title; ocnMyTitle = st.me.title; } } }).catch(e => { if (String(e && e.message || e).includes('ocean_not_in')) rpc('ocean_enter').then(st => ocnApply(st)).catch(() => {}); });
   }
   if (now - ocnPeopleAt > 6000) { ocnPeopleAt = now; ocnLoadPeople(); }
   const k = ocnG.keys; let ax = (k.right ? 1 : 0) - (k.left ? 1 : 0), ay = (k.down ? 1 : 0) - (k.up ? 1 : 0);
   if (ax && ay) { ax *= .707; ay *= .707; }
   ocnG.vx += (ax * OCN.SPEED - ocnG.vx) * Math.min(1, dt * 7); ocnG.vy += (ay * OCN.SPEED - ocnG.vy) * Math.min(1, dt * 7);
+  if (ocnClean() >= 20 && ocnG.y > 350 && ocnG.y < 535 && OCN_COL.some(cx => Math.abs(ocnG.x - cx) <= 9)) ocnG.vy += (-88 - ocnG.vy) * Math.min(1, dt * 4);
   const stuck = ocnSolid(ocnG.x, ocnG.y), nx = ocnG.x + ocnG.vx * dt, ny = ocnG.y + ocnG.vy * dt;
   if (stuck || !ocnSolid(nx, ocnG.y)) ocnG.x = nx; else ocnG.vx = 0;
   if (stuck || !ocnSolid(ocnG.x, ny)) ocnG.y = ny; else ocnG.vy = 0;
@@ -205,6 +270,7 @@ function ocnUpdate(dt, now) {
   } else ocnG.hold = null;
   ocnG.others.forEach((o, u) => { if (now - o.at > 6000) { ocnG.others.delete(u); return; } o.x += (o.tx - o.x) * Math.min(1, dt * 10); o.y += (o.ty - o.y) * Math.min(1, dt * 10); });
   if (ocnCh && now - ocnG.sendAt > 120) { ocnG.sendAt = now; try { ocnCh.send({ type: 'broadcast', event: 'p', payload: { u: myUid, x: Math.round(ocnG.x * 10) / 10, y: Math.round(ocnG.y * 10) / 10, f: ocnG.face === 'left' ? 'l' : 'r' } }); } catch (e) { /* 略過 */ } }
+  { const pb = document.getElementById('ocn-pbtn'); if (pb) pb.hidden = !(ocnClean() >= 70 && ocnG.x > 800 && ocnG.y > 330 && ocnGlowFrac() >= .5); }
   if (Math.random() < dt * 3) ocnG.bub.push({ x: ocnG.x + (ocnG.face === 'left' ? -3 : 3), y: ocnG.y - 8, a: 0 });
   ocnG.bub.forEach(b => { b.y -= dt * 14; b.a += dt; }); ocnG.bub = ocnG.bub.filter(b => b.a < 1.6 && b.y > 14);
   ocnG.pop.forEach(p => p.a += dt); ocnG.pop = ocnG.pop.filter(p => p.a < .8);
@@ -225,16 +291,31 @@ function ocnDraw(now) {
   if (c < 20) { ocnCtx.beginPath(); ocnCtx.ellipse(576, 505, 62, 40, 0, 0, 7); ocnCtx.fill(); }
   /* 浮標 */
   OCN_BUOY.forEach((p, i) => { const y = p[1] + Math.sin(t * 1.5 + i) * 1.5; OCA.rr('rgba(255,255,255,.4)', p[0], p[1] - 90, 1, 90); OCA.disc('#ff7a3c', Math.round(p[0]), Math.round(y), 4); OCA.rr('#fff', Math.round(p[0]) - 2, Math.round(y) - 2, 2, 1); });
+  /* 藍洞的漂流瓶 */
+  if (c >= 20) OCN_BOTTLE.forEach((p, i) => { if ((ocnRun.me.bmask | 0) & (1 << i)) return; const by = Math.round(p[1] + Math.sin(t * 1.6 + i * 2) * 1.5), gl = .22 + .1 * Math.sin(t * 3 + i);
+    ocnCtx.fillStyle = 'rgba(190,245,255,' + gl.toFixed(2) + ')'; ocnCtx.beginPath(); ocnCtx.arc(p[0], by, 9, 0, 7); ocnCtx.fill();
+    OCA.rr('#a8e8ff', p[0] - 2, by - 3, 5, 8); OCA.rr('#e8fbff', p[0] - 1, by - 2, 1, 5); OCA.rr('#b0743c', p[0] - 1, by - 5, 3, 2); OCA.rr('#fff4cf', p[0], by - 1, 2, 4); });
+  /* 沉船上長出來的珊瑚 */
+  if (c >= 40) { const nw = Math.min(OCN_WCORAL.length, Math.floor(((r && r.wreck) | 0) / 3) * 2 + (((r && r.wreck) | 0) > 0 ? 0 : 0)); for (let i = 0; i < nw; i++) { const w = OCN_WCORAL[i]; OCA.coralB(w[0], w[1], w[2], w[3] + Math.round(Math.sin(t + i))); } }
+  /* 藍洞：上升氣泡流 */
+  if (c >= 20) OCN_COL.forEach((bx, k) => { for (let i = 0; i < 9; i++) { const ph = (t * .55 + i / 9 + k * .37) % 1, y = 530 - ph * 190; if (y < 350) continue; ocnCtx.strokeStyle = 'rgba(220,250,255,.75)'; ocnCtx.fillStyle = 'rgba(220,250,255,.18)'; ocnCtx.beginPath(); ocnCtx.arc(bx + Math.sin(t * 3 + i * 2) * 4, Math.round(y), (i % 3) ? 2 : 3, 0, 7); ocnCtx.fill(); ocnCtx.stroke(); } ocnCtx.fillStyle = 'rgba(170,230,255,.10)'; ocnCtx.fillRect(bx - 8, 350, 16, 180); });
+  /* 洞口上方偶爾游過的大型生物（約每 70 秒一次，純氣氛） */
+  if (c >= 20) { const T = 70, ph = (t % T) / 24; if (ph < 1) { const whale = Math.floor(t / T) % 2 === 0, dir = Math.floor(t / T) % 4 < 2 ? 1 : -1, x = dir > 0 ? 330 + ph * 520 : 850 - ph * 520, y = 300 + Math.sin(ph * 6) * 6; ocnDrawBig(x, y, dir, whale, 0); } }
   /* 生物 */
   OCN_SCHOOL.forEach((s, i) => { if (c < s[5]) return; for (let k = 0; k < s[4]; k++) { const x = s[0] + Math.sin(t * .4 + k * 1.3 + i) * s[2], dir = Math.cos(t * .4 + k * 1.3 + i) > 0 ? 1 : -1; OCA.fish(x, s[1] + Math.sin(t + k * 2) * 6 + (k % 3) * 5, s[3], dir); } });
   if (c >= 25) OCA.turtle(Math.round(640 + Math.sin(t * .2) * 60), 150, Math.cos(t * .2) > 0 ? 1 : -1);
   if (c >= 50) OCA.turtle(Math.round(520 + Math.sin(t * .15) * 120), 420, Math.cos(t * .15) > 0 ? 1 : -1);
   OCN_JELLY.forEach((j, i) => { if (c >= j[3]) OCA.jelly(j[0] + Math.sin(t * .8 + i) * 8, j[1] + Math.cos(t * 1.1 + i * 2) * 5, j[2], t); });
   if (c >= 70) OCA.anglerfish(960, 498, t); if (c >= 40) OCA.anglerfish(120, 470, t);
+  /* 發光洞：平時暗，珊瑚燈由全服進度點亮 */
+  if (c >= 70) ocnGlowCave(t);
   /* 大件垃圾 */
   ((r && r.big) || []).forEach(b => {
     const p = OCN_BIG[b.slot - 1]; if (!p || b.cleared) return;
     if (b.kind === 'tire') { OCA.tire(p[0], p[1] - 5); OCA.tire(p[0] + 8, p[1] - 9); OCA.tire(p[0] - 7, p[1] - 3); }
+    else if (b.kind === 'anchor') { const x = p[0], y = p[1]; OCA.rr('#5a5f66', x - 2, y - 30, 4, 28); OCA.rr('#5a5f66', x - 9, y - 26, 18, 3); OCA.rr('#8a9098', x - 2, y - 30, 1, 28); OCA.rr('#5a5f66', x - 12, y - 8, 4, 4); OCA.rr('#5a5f66', x - 10, y - 4, 20, 3); OCA.rr('#5a5f66', x + 8, y - 8, 4, 4); OCA.rr('#7a4a2a', x - 4, y - 33, 8, 3); }
+    else if (b.kind === 'chain') { for (let i = 0; i < 9; i++) { const x = p[0] - 14 + i * 3.5, y = p[1] - 4 - Math.sin(i * .7) * 7; OCA.rr('#7a4a2a', Math.round(x), Math.round(y), 4, 3); OCA.rr('#a8643a', Math.round(x), Math.round(y), 2, 1); } }
+    else if (b.kind === 'hatch') { const x = p[0], y = p[1]; OCA.rr('#4e3626', x - 14, y - 24, 28, 22); OCA.rr('#6b4a35', x - 12, y - 22, 24, 18); for (let i = 0; i < 4; i++) OCA.rr('#2f1e12', x - 10 + i * 6, y - 22, 1, 18); OCA.rr('#7a8088', x - 2, y - 15, 4, 4); OCA.rr('#5a5f66', x - 14, y - 24, 28, 1); }
     else { OCA.net(p[0] - 13, p[1] - 28, 28, 26, 'rgba(110,200,120,.9)'); if (b.kind === 'turtle') OCA.turtle(p[0] - 7, p[1] - 20, 1); }
     if (b.pullers > 0) OCA.rr('rgba(255,230,120,.5)', p[0] - 14, p[1] - 30, 30, 1);
   });
@@ -256,6 +337,27 @@ function ocnDraw(now) {
   g = pg === ocnCtx ? ctx : pg; ocnG.cam = [cx, cy]; ocnTags(cx, cy);
 }
 const ocnTagEls = new Map();
+const ocnDark = document.createElement('canvas'); ocnDark.width = 356; ocnDark.height = 216; const ocnDarkX = ocnDark.getContext('2d');
+function ocnGlowFrac() { return Math.min(1, ((ocnRun && ocnRun.glow) | 0) / OCN_GLOW_MAX); }
+function ocnDrawBig(x, y, dir, whale, glow) {
+  const L = whale ? 64 : 40, col = glow ? 'rgba(150,245,255,.9)' : 'rgba(10,30,60,.5)', col2 = glow ? 'rgba(230,255,255,.95)' : 'rgba(10,30,60,.38)';
+  const f = Math.sin(performance.now() / 500) * 3; ocnCtx.fillStyle = col; ocnCtx.beginPath();
+  if (whale) { ocnCtx.ellipse(x, y, L / 2, 11, 0, 0, 7); ocnCtx.fill(); ocnCtx.beginPath(); ocnCtx.moveTo(x - dir * L / 2, y); ocnCtx.lineTo(x - dir * (L / 2 + 14), y - 9 + f); ocnCtx.lineTo(x - dir * (L / 2 + 14), y + 9 + f); ocnCtx.fill(); ocnCtx.fillStyle = col2; ocnCtx.beginPath(); ocnCtx.ellipse(x + dir * 6, y + 5, L / 3, 4, 0, 0, 7); ocnCtx.fill(); }
+  else { ocnCtx.moveTo(x + dir * L / 2, y); ocnCtx.quadraticCurveTo(x, y - 20 + f, x - dir * L / 2, y - 2); ocnCtx.quadraticCurveTo(x - dir * 6, y + 4, x - dir * L / 2, y + 2); ocnCtx.quadraticCurveTo(x, y + 14 - f, x + dir * L / 2, y); ocnCtx.fill(); ocnCtx.fillRect(x - dir * L / 2 - dir * 12, y - 1, 12, 1); }
+  if (glow) { ocnCtx.fillStyle = col2; ocnCtx.fillRect(Math.round(x + dir * 4), Math.round(y - 2), 2, 2); }
+}
+function ocnGlowCave(t) {
+  const fr = ocnGlowFrac(), lit = Math.floor(fr * OCN_LAMP.length), X0 = 800, Y0 = 330;
+  OCN_LAMP.forEach((l, i) => { const on = i < lit, c = ['#7fe3ea', '#b36bd6', '#ff8aa8', '#7fffd4'][i % 4]; OCA.coralB(l[0], l[1], on ? c : '#3a4a68', 9 + (i % 3) * 2); });
+  const d = ocnDarkX; d.globalCompositeOperation = 'source-over'; d.clearRect(0, 0, 356, 216); d.fillStyle = 'rgba(2,4,18,.66)'; d.fillRect(0, 0, 356, 216); d.globalCompositeOperation = 'destination-out';
+  const hole = (x, y, rad, a) => { const gr = d.createRadialGradient(x - X0, y - Y0, 2, x - X0, y - Y0, rad); gr.addColorStop(0, 'rgba(0,0,0,' + a + ')'); gr.addColorStop(1, 'rgba(0,0,0,0)'); d.fillStyle = gr; d.beginPath(); d.arc(x - X0, y - Y0, rad, 0, 7); d.fill(); };
+  OCN_LAMP.forEach((l, i) => { if (i < lit) hole(l[0], l[1] - 6, 34 + Math.sin(t * 2 + i) * 2, .9); });
+  if (ocnRun && ocnRun.me && ocnRun.me.gear === 'glow') hole(ocnG.x, ocnG.y, 46, .95);
+  ocnG.others.forEach((o, u) => { if ((ocnPeople.get(u) || {}).gear === 'glow') hole(o.x, o.y, 46, .95); });
+  d.globalCompositeOperation = 'source-over'; ocnCtx.drawImage(ocnDark, X0, Y0);
+  if (fr >= .5) ocnDrawBig(840 + ((t * 8) % 260), 380 + Math.sin(t) * 8, 1, false, 1);
+  if (fr >= 1) ocnDrawBig(1040 - ((t * 5) % 220), 440 + Math.sin(t * .7) * 6, -1, true, 1);
+}
 function ocnTags(cx, cy) {
   const wrap = ocnGame.querySelector('.ocg-wrap'), k = wrap.clientWidth / OCN.VW, used = new Set();
   const put = (id, name, x, y, mine, tk) => { used.add(id); let e = ocnTagEls.get(id); if (!e) { e = ocnMk('div', '', 'octag' + (mine ? ' me' : '')); wrap.appendChild(e); ocnTagEls.set(id, e); } const hh = ocnPill(tk) + esc(name); if (e.dataset.h !== hh) { e.dataset.h = hh; e.innerHTML = hh; } e.style.left = ((x - cx) * k) + 'px'; e.style.top = ((y - cy - 13) * k) + 'px'; };
@@ -280,7 +382,7 @@ function ocnHud() {
   const pr = document.getElementById('ocn-prompt'), s = ocnG.spot; const txt = s ? ocnSpotText(s) : '';
   if (txt) { if (pr.textContent !== txt) pr.textContent = txt; pr.hidden = false; } else pr.hidden = true;
   const hd = document.getElementById('ocn-hold');
-  if (ocnG.hold && s && s.b) { hd.hidden = false; document.getElementById('ocn-holdi').style.width = Math.min(100, s.b.pullers / r.need * 100) + '%'; } else hd.hidden = true;
+  if (ocnG.hold && s && s.b) { hd.hidden = false; document.getElementById('ocn-holdi').style.width = Math.min(100, s.b.pullers / (s.b.need || r.need) * 100) + '%'; } else hd.hidden = true;
 }
 
 /* ---------- 回收分類 ---------- */
@@ -302,10 +404,38 @@ function ocnRenderSort() {
   h += '<p class="empty" style="margin-top:6px">塑膠：袋子、瓶子　金屬：鋁罐　漁網：釣魚線　其他：保麗龍杯</p><button type="button" class="btn ghost wide" data-a="wear">🏷️ 稱號與裝飾</button><button type="button" class="btn ghost wide" data-a="close">回到海裡</button>';
   ocnCard.innerHTML = h; ocnCard.querySelectorAll('.ocic').forEach(e => e.appendChild(ocnIcon(e.dataset.t)));
 }
+/* 漂流瓶讀信、日記本 */
+function ocnOpenRead(r) {
+  ocnMode = 'read'; ocnOpen = true; pressed.length = 0; ocnM.hidden = false; ocnG.keys = {}; ocnG.act = false;
+  const d = r.kind === 'diary';
+  let h = '<div class="shop-h"><h2>' + (d ? '📖 船長日記　第 ' + (r.n + 1) + ' 張' : '🌊 海洋小知識') + '</h2><span class="chip">🛡 +' + r.gain + '</span></div>';
+  h += '<p style="line-height:1.8;font-size:15px;margin:10px 4px;white-space:pre-wrap">' + esc(d ? OCN_DIARY[r.n] || '' : OCN_TIPS[r.n] || '') + '</p>';
+  if (d) h += '<p class="empty">日記 ' + r.diary + ' / 8' + (r.diary >= 8 ? '　🎉 集齊了！獲得稱號「船長的老朋友」' : '') + '</p>';
+  else h += '<p class="empty">今天的漂流瓶還沒撿完的話，藍洞裡還有。</p>';
+  h += '<button type="button" class="btn wide" data-a="rclose">收起來</button>';
+  ocnCard.innerHTML = h; ocnCard.focus();
+}
+function ocnOpenRelics() {
+  ocnMode = 'diary'; const m = (ocnWear && ocnWear.relics) | 0, n = OCN_RELIC.filter((_, i) => m & (1 << i)).length;
+  let h = '<div class="shop-h"><h2>🏺 沉船古物</h2><span class="chip">' + n + ' / ' + OCN_RELIC.length + '</span></div><p class="empty">沉船墳場（清潔度 40% 開放）的殘骸要 3 個人一起拉，拉開後每個人都會撿到一件古物，重複的會換成守護值。</p>';
+  h += OCN_RELIC.map((x, i) => (m & (1 << i)) ? '<p style="line-height:1.6;font-size:14px;margin:6px 2px">🏺 <b>' + x[0] + '</b>　' + x[1] + '</p>' : '<p style="margin:6px 2px;opacity:.5">🔒 ？？？</p>').join('');
+  h += '<button type="button" class="btn ghost wide" data-a="wearback">返回</button>'; ocnCard.innerHTML = h; ocnCard.focus();
+}
+function ocnOpenDiary() {
+  ocnMode = 'diary'; const n = (ocnWear && ocnWear.diary) | 0;
+  let h = '<div class="shop-h"><h2>📖 船長日記</h2><span class="chip">' + n + ' / 8</span></div>';
+  h += n ? OCN_DIARY.slice(0, n).map((t, i) => '<p style="line-height:1.7;font-size:14px;margin:6px 2px"><b>第 ' + (i + 1) + ' 張</b>　' + esc(t) + '</p>').join('') : '<p class="empty">還沒有日記。藍洞（清潔度 20% 開放）裡的漂流瓶會有。</p>';
+  h += '<button type="button" class="btn ghost wide" data-a="wearback">返回</button>';
+  ocnCard.innerHTML = h; ocnCard.focus();
+}
 ocnCard.addEventListener('click', async e => {
   const b = e.target.closest('button'); if (!b || ocnBusy) return;
   if (b.dataset.a === 'close') { ocnCloseSort(); return; }
   if (b.dataset.a === 'wear') { ocnOpenWear(); return; }
+  if (b.dataset.a === 'rclose') { ocnCloseSort(); return; }
+  if (b.dataset.a === 'diary') { ocnOpenDiary(); return; }
+  if (b.dataset.a === 'relics') { ocnOpenRelics(); return; }
+  if (b.dataset.a === 'wearback') { ocnMode = 'wear'; ocnRenderWear(); return; }
   if (b.dataset.a === 'back') { if (ocnG.on) { ocnMode = 'sort'; ocnRenderSort(); } else ocnCloseSort(); return; }
   if (b.dataset.t !== undefined || b.dataset.g !== undefined) { ocnWearPick(b); return; }
   if (b.dataset.i) { ocnSel = b.dataset.i; ocnRenderSort(); return; }
@@ -356,7 +486,7 @@ function ocnRenderWear() {
   h += Object.keys(OCN_TITLE).map(k => { const has = (w.titles || []).includes(k); return '<button type="button" class="ocw' + (has ? '' : ' lock') + (w.title === k ? ' on' : '') + '" data-t="' + k + '"' + (has ? '' : ' disabled') + '><span class="octt" style="background:' + OCN_TITLE[k][0] + '">' + OCN_TITLE[k][1] + '</span><small>' + (has ? '已解鎖' : '🔒 ' + OCN_TREQ[k]) + '</small></button>'; }).join('');
   h += '</div><p class="empty" style="margin-top:8px"><b>潛水裝飾</b>（只換顏色，水裡和廣場上的潛水員都看得到）</p><div class="ocwgl">';
   h += Object.keys(OCN_GEAR).map(k => { const has = (w.gears || []).includes(k); return '<button type="button" class="ocw' + (has ? '' : ' lock') + (w.gear === k ? ' on' : '') + '" data-g="' + k + '"' + (has ? '' : ' disabled') + '><span class="ocwv" data-g="' + k + '"></span><b>' + OCN_GEAR[k][0] + '</b><small>' + (has ? '已解鎖' : '🔒 ' + OCN_GEAR[k][1]) + '</small></button>'; }).join('');
-  h += '</div><button type="button" class="btn ghost wide" data-a="back">' + (ocnG.on ? '返回' : '關閉') + '</button>';
+  h += '</div><button type="button" class="btn ghost wide" data-a="diary">📖 船長日記（' + ((w.diary | 0)) + ' / 8）</button><button type="button" class="btn ghost wide" data-a="relics">🏺 沉船古物（' + OCN_RELIC.filter((_, i) => (w.relics | 0) & (1 << i)).length + ' / ' + OCN_RELIC.length + '）</button><button type="button" class="btn ghost wide" data-a="back">' + (ocnG.on ? '返回' : '關閉') + '</button>';
   ocnCard.innerHTML = h;
   ocnCard.querySelectorAll('.ocwv').forEach(e => { const c = document.createElement('canvas'); c.width = 28; c.height = 30; c.className = 'ocwc'; const x = c.getContext('2d'), pg = g; g = x; x.imageSmoothingEnabled = false;
     const bg = x.createLinearGradient(0, 0, 0, 30); bg.addColorStop(0, '#7fe3ea'); bg.addColorStop(1, '#2a86c4'); x.fillStyle = bg; x.fillRect(0, 0, 28, 30);
@@ -367,7 +497,7 @@ async function ocnWearPick(b) {
   try {
     const t = b.dataset.t !== undefined ? (ocnWear.title === b.dataset.t ? '' : b.dataset.t) : (ocnWear.title || ''), gr = b.dataset.g !== undefined ? b.dataset.g : ocnWear.gear;
     const r = await rpc('ocean_set', { p_title: t, p_gear: gr }); ocnWear.title = r.title; ocnWear.gear = r.gear;
-    if (ocnRun && ocnRun.me) { ocnRun.me.title = r.title; ocnRun.me.gear = r.gear; } if (me && me.name) { if (r.title) ocnTitleMap[me.name] = r.title; else delete ocnTitleMap[me.name]; }
+    if (ocnRun && ocnRun.me) { ocnRun.me.title = r.title; ocnRun.me.gear = r.gear; } if (me && me.name) { if (r.title) { ocnTitleMap[me.name] = r.title; ocnMyTitle = r.title; } else { delete ocnTitleMap[me.name]; ocnMyTitle = null; ocnNoteName(); } }
   } catch (e) { toast(errText(e)); }
   ocnBusy = false; ocnRenderWear();
 }
@@ -377,7 +507,7 @@ const OCN_KEYS = { ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRig
 const ocnIsAct = k => k === ' ' || k === 'e' || k === 'E' || k === 'Enter' || k === 'z' || k === 'Z';
 window.addEventListener('keydown', e => {
   if (!ocnOpen) return; const tg = e.target && e.target.tagName; if (tg === 'INPUT' || tg === 'SELECT' || tg === 'TEXTAREA') return;
-  if (ocnMode === 'sort' || ocnMode === 'wear') { if (e.key === 'Escape') { ocnCloseSort(); e.stopImmediatePropagation(); } return; }
+  if (ocnMode === 'sort' || ocnMode === 'wear' || ocnMode === 'read' || ocnMode === 'diary') { if (e.key === 'Escape') { ocnCloseSort(); e.stopImmediatePropagation(); } return; }
   if (!ocnG.on) return;
   if (OCN_KEYS[e.key]) { ocnG.keys[OCN_KEYS[e.key]] = true; e.preventDefault(); e.stopImmediatePropagation(); }
   else if (ocnIsAct(e.key)) { if (!e.repeat) ocnG.actEdge = true; ocnG.act = true; e.preventDefault(); e.stopImmediatePropagation(); }
@@ -391,7 +521,39 @@ ocnGame.querySelector('#ocn-pad').addEventListener('pointerdown', e => { const b
 const ocnActBtn = ocnGame.querySelector('#ocn-act');
 ocnActBtn.addEventListener('pointerdown', e => { ocnG.actEdge = true; ocnG.act = true; e.preventDefault(); });
 ['pointerup', 'pointercancel', 'pointerleave'].forEach(ev => ocnActBtn.addEventListener(ev, () => { ocnG.act = false; }));
+/* 浮動搖桿：手機上，在左半邊任何地方按住拖曳，搖桿就出現在手指下 */
+const ocnStickEl = ocnGame.querySelector('#ocn-stick'), ocnHintEl = ocnGame.querySelector('#ocn-hint');
+let ocnJ = null;
+function ocnStickKeys(k) { ocnG.keys.left = !!k.left; ocnG.keys.right = !!k.right; ocnG.keys.up = !!k.up; ocnG.keys.down = !!k.down; }
+function ocnStickEnd() { ocnJ = null; ocnStickEl.hidden = true; ocnStickKeys({}); }
+ocnGame.addEventListener('pointerdown', e => {
+  if (!ocnG.on || !ocnGame.classList.contains('ocg-touch') || e.pointerType === 'mouse' || ocnJ) return;
+  if (e.target.closest('button,.ocemo-pal')) return;
+  const rc = ocnGame.getBoundingClientRect(); if (e.clientX - rc.left > rc.width * .55) return;
+  const wr = ocnGame.querySelector('.ocg-wrap').getBoundingClientRect();
+  ocnJ = { id: e.pointerId, ox: e.clientX, oy: e.clientY, R: Math.max(40, Math.min(60, Math.min(rc.width, rc.height) * .13)) };
+  ocnStickEl.style.width = ocnStickEl.style.height = ocnJ.R * 2 + 'px'; ocnStickEl.style.left = (e.clientX - wr.left) + 'px'; ocnStickEl.style.top = (e.clientY - wr.top) + 'px';
+  ocnStickEl.firstChild.style.transform = 'translate(-50%,-50%)'; ocnStickEl.hidden = false; ocnHintEl.hidden = true;
+  try { localStorage.setItem('dw_ocn_stick', '1'); } catch (er) { /* 略過 */ }
+  try { ocnGame.setPointerCapture(e.pointerId); } catch (er) { /* 略過 */ }
+  e.preventDefault();
+});
+ocnGame.addEventListener('pointermove', e => {
+  if (!ocnJ || e.pointerId !== ocnJ.id) return;
+  let dx = e.clientX - ocnJ.ox, dy = e.clientY - ocnJ.oy; const d = Math.hypot(dx, dy), R = ocnJ.R;
+  if (d > R) { dx *= R / d; dy *= R / d; }
+  ocnStickEl.firstChild.style.transform = 'translate(calc(-50% + ' + dx + 'px),calc(-50% + ' + dy + 'px))';
+  const dead = R * .32, ax = Math.abs(dx), ay = Math.abs(dy);
+  ocnStickKeys({ left: dx < -dead && ax > ay * .4, right: dx > dead && ax > ay * .4, up: dy < -dead && ay > ax * .4, down: dy > dead && ay > ax * .4 });
+  e.preventDefault();
+});
+['pointerup', 'pointercancel'].forEach(ev => ocnGame.addEventListener(ev, e => { if (ocnJ && e.pointerId === ocnJ.id) ocnStickEnd(); }));
 const ocnEPal = ocnGame.querySelector('#ocn-epal');
+ocnGame.querySelector('#ocn-pbtn').addEventListener('click', () => {
+  const sc = 4, c = document.createElement('canvas'); c.width = ocnCv.width * sc; c.height = ocnCv.height * sc; const x = c.getContext('2d'); x.imageSmoothingEnabled = false; x.drawImage(ocnCv, 0, 0, c.width, c.height);
+  x.font = 'bold ' + (10 * sc) + 'px sans-serif'; x.fillStyle = 'rgba(255,255,255,.85)'; x.textAlign = 'right'; x.fillText('雷克斯農場・發光洞 ' + new Date().toLocaleDateString(), c.width - 8 * sc, c.height - 6 * sc);
+  const a = document.createElement('a'); a.download = 'glow-cave.png'; a.href = c.toDataURL('image/png'); document.body.appendChild(a); a.click(); a.remove(); toast('📷 已拍下，存成圖片了', 2600);
+});
 ocnGame.querySelector('#ocn-ebtn').addEventListener('click', () => { ocnEPal.hidden = !ocnEPal.hidden; });
 ocnEPal.addEventListener('click', e => { const b = e.target.closest('button[data-e]'); if (b) ocnSendEmo(+b.dataset.e); });
 ocnGame.querySelector('#ocn-leave').addEventListener('click', () => ocnLeave());
