@@ -111,6 +111,12 @@ function drawTrainCar(now) {
   ob('#7a4a28', '#3a2412', (TRW - 1) * T - 2, 6 * T - 4, 18, 28); r('#e8c14a', (TRW - 1) * T + 10, 6 * T + 10, 2, 3);
 }
 
+function trTrackTrain(now) {
+  const by = (MDH - 2) * T + 4;
+  r('#8a7a64', 0, by, MDW * T, 10); for (let x = 0; x < MDW * T; x += 6) r('#6a4c30', x, by + 1, 3, 8); r('#b8b8c0', 0, by + 2, MDW * T, 2); r('#b8b8c0', 0, by + 6, MDW * T, 2);
+  if (typeof stLoco === 'function') { const X0 = 2 * T; stLoco(X0, by - 20, now || 0); stCar(X0 + 57, by - 18, '#4a6aa8', '#24386a'); stCar(X0 + 99, by - 18, '#b0523c', '#5e2418'); r('#444', X0 + 58, by + 8, 4, 2); r('#444', X0 + 98, by + 8, 4, 2); }
+}
+
 /* ---------- 草原站（24×16）：滿地野花、風車、陽光；月台在左側 ---------- */
 function drawTrainMeadow(now) {
   r('#9bcf6e', -480, -480, MDW * T + 960, MDH * T + 960);
@@ -130,10 +136,7 @@ function drawTrainMeadow(now) {
   const a = now / 900;
   for (let i = 0; i < 4; i++) { const an = a + i * Math.PI / 2; for (let d = 4; d < 30; d += 2) r(d < 8 ? '#5a3a20' : '#f4f0e6', Math.round(wx + 20 + Math.cos(an) * d) - 1, Math.round(wy + 16 + Math.sin(an) * d) - 1, 3, 3); }
   r('#5a3a20', wx + 18, wy + 14, 5, 5);
-  // 整排軌道（y14，從左邊樹林穿到右邊樹林）和停著的火車（和廣場車站同一組：車頭朝左，煙會冒）
-  const by = (MDH - 2) * T + 4;
-  r('#8a7a64', 0, by, MDW * T, 10); for (let x = 0; x < MDW * T; x += 6) r('#6a4c30', x, by + 1, 3, 8); r('#b8b8c0', 0, by + 2, MDW * T, 2); r('#b8b8c0', 0, by + 6, MDW * T, 2);
-  if (typeof stLoco === 'function') { const X0 = 2 * T; stLoco(X0, by - 20, now || 0); stCar(X0 + 57, by - 18, '#4a6aa8', '#24386a'); stCar(X0 + 99, by - 18, '#b0523c', '#5e2418'); r('#444', X0 + 58, by + 8, 4, 2); r('#444', X0 + 98, by + 8, 4, 2); }
+  trTrackTrain(now);
   // 太陽光斑
   ctx.globalAlpha = .07; r('#fff6b0', 0, 0, MDW * T, MDH * T); ctx.globalAlpha = 1;
 }
@@ -149,10 +152,10 @@ function drawTrainMountain(now) {
   for (let y = 0; y < MDH; y++) for (let x = 0; x < MDW; x++) {
     const px = x * T, py = y * T, k = K[y][x];
     r((x + y) % 2 ? '#c9a05a' : '#bf9650', px, py, T, T);
-    if (x >= 1 && x <= 4 && y >= 4 && y <= 12) { r('#d8c9a4', px, py, T, T); if (x === 4) r('#b8a884', px + 15, py, 1, T); continue; }
+    if (y === MDH - 2) continue;
     const hv = hash(x, y, 177);
-    if (hv < 0.3) { const c = ['#c8321e', '#e8801e', '#f2b030', '#a82a1a'][Math.floor(hash(x, y, 178) * 4)], fx = px + 2 + Math.floor(hash(x, y, 179) * 11), fy = py + 3 + Math.floor(hash(x, y, 180) * 9); r(c, fx, fy, 3, 2); r(c, fx + 1, fy - 1, 1, 1); }
-    if (k === HB && !(y === 3 && x <= 4)) {
+    if (hv < (x >= 1 && x <= 5 && y >= 4 && y <= 12 ? 0.55 : 0.3)) { const c = ['#c8321e', '#e8801e', '#f2b030', '#a82a1a'][Math.floor(hash(x, y, 178) * 4)], fx = px + 2 + Math.floor(hash(x, y, 179) * 11), fy = py + 3 + Math.floor(hash(x, y, 180) * 9); r(c, fx, fy, 3, 2); r(c, fx + 1, fy - 1, 1, 1); }
+    if (k === HB) {
       r('rgba(0,0,0,.18)', px, py + 12, T, 4); r('#8a8478', px + 1, py + 2, 14, 12); r('#a8a294', px + 2, py + 2, 10, 5); r('#6a645a', px + 1, py + 11, 14, 3); r('#bdb7a8', px + 4, py + 3, 3, 2);
     }
     if (k === TR) trMaple(px, py, x, y);
@@ -161,7 +164,7 @@ function drawTrainMountain(now) {
     const t = (now / 40 + i * 53) % 400, fx = (i * 37 + Math.sin(now / 700 + i) * 12 + t * 0.35) % (MDW * T), fy = (t / 400) * MDH * T;
     r(['#c8321e', '#e8801e', '#f2b030'][i % 3], Math.round(fx), Math.round(fy), 3, 2);
   }
-  ob('#5a3a20', '#3a2412', 4 * T + 6, 3 * T + 2, 3, 22); ob('#f4ecd2', '#5e2418', 3 * T + 8, 3 * T - 4, 26, 11); r('#e8801e', 3 * T + 12, 3 * T - 1, 18, 2); r('#5e2418', 3 * T + 12, 3 * T + 3, 18, 1);
+  trTrackTrain(now);
   ctx.globalAlpha = .14; r('#ff8a2a', 0, 0, MDW * T, MDH * T); ctx.globalAlpha = 1;
 }
 
@@ -172,9 +175,9 @@ function drawTrainNight(now) {
   for (let y = 0; y < MDH; y++) for (let x = 0; x < MDW; x++) {
     const px = x * T, py = y * T, k = K[y][x];
     r((x + y) % 2 ? '#3a2f70' : '#342a66', px, py, T, T);
-    if (x >= 1 && x <= 4 && y >= 4 && y <= 12) { r('#6a6290', px, py, T, T); if (x === 4) r('#4a4272', px + 15, py, 1, T); continue; }
+    if (y === MDH - 2) continue;
     if (hash(x, y, 277) < 0.3) fl.push([px + 2 + Math.floor(hash(x, y, 279) * 11), py + 3 + Math.floor(hash(x, y, 280) * 9), hash(x, y, 281) * 6]);
-    if (k === HB && !(y === 3 && x <= 4)) { r('rgba(0,0,0,.25)', px, py + 12, T, 4); r('#4a7ad8', px + 4, py + 1, 8, 13); r('#8ac8ff', px + 6, py + 1, 3, 9); r('#2a4a98', px + 4, py + 11, 8, 3); }
+    if (k === HB) { r('rgba(0,0,0,.25)', px, py + 12, T, 4); r('#4a7ad8', px + 4, py + 1, 8, 13); r('#8ac8ff', px + 6, py + 1, 3, 9); r('#2a4a98', px + 4, py + 11, 8, 3); }
     if (k === TR) { r('rgba(0,0,0,.25)', px, py + 15, 16, 3); r('#2a1c4a', px + 6, py + 8, 4, 9); r('#3a2a70', px - 3, py - 6, 22, 14); r('#4a3a90', px - 1, py - 8, 18, 10); r('#5a4aa8', px + 3, py - 3, 5, 3); }
   }
   // 大月亮（右上）與星星
@@ -183,13 +186,14 @@ function drawTrainNight(now) {
   for (let dy = -20; dy <= 20; dy++) { const w = Math.floor(Math.sqrt(400 - dy * dy)); r('#fff6d0', mx - w, my + dy, w * 2, 1); }
   r('#e8dca8', mx - 8, my - 6, 6, 5); r('#e8dca8', mx + 4, my + 4, 5, 4); r('#e8dca8', mx - 2, my + 10, 4, 3);
   for (let i = 0; i < 26; i++) { const sx = Math.floor(hash(i, 3, 301) * MDW * T), sy = Math.floor(hash(i, 4, 302) * MDH * T * 0.6); if (Math.hypot(sx - mx, sy - my) < 26) continue; r(Math.sin(now / 500 + i) > 0 ? '#ffffff' : '#a8a8e8', sx, sy, 1, 1); }
+  trTrackTrain(now);
+  for (let y = 4; y <= 12; y++) for (let x = 1; x <= 5; x++) fl.push([x * T + 2 + Math.floor(hash(x, y, 283) * 11), y * T + 3 + Math.floor(hash(x, y, 284) * 9), hash(x, y, 285) * 6]);   // 原月台位置：發光花海
   ctx.globalAlpha = .22; r('#0a0628', 0, 0, MDW * T, MDH * T); ctx.globalAlpha = 1;
   // 發光藍花（在暗色濾鏡之後畫，才會亮）
   fl.forEach(([fx, fy, ph]) => {
     const g = 0.5 + 0.5 * Math.sin(now / 700 + ph);
     r('rgba(110,190,255,' + (0.10 + g * 0.12).toFixed(2) + ')', fx - 4, fy - 3, 9, 9); r('#2a6a8a', fx, fy + 3, 1, 3); r(g > 0.5 ? '#bfe8ff' : '#7ac0ff', fx - 1, fy, 3, 3); r('#ffffff', fx, fy + 1, 1, 1);
   });
-  ob('#3a2a58', '#1a1030', 4 * T + 6, 3 * T + 2, 3, 22); ob('#d8d4f0', '#3a2a70', 3 * T + 8, 3 * T - 4, 26, 11); r('#6a5ad8', 3 * T + 12, 3 * T - 1, 18, 2); r('#3a2a70', 3 * T + 12, 3 * T + 3, 18, 1);
 }
 
 function drawTrainScene(now) {

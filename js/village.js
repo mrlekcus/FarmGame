@@ -307,12 +307,16 @@ function startNet(rm, priv, tries) {
       .on('broadcast', { event: 'pwl' }, m => onPetWelcome(m && m.payload))
       .on('broadcast', { event: 'pgl' }, m => onPetGoal(m && m.payload))
       .on('broadcast', { event: 'ptk' }, m => onPetTrick(m && m.payload))
-      .subscribe(status => {
+      .subscribe((status, err) => {
         if (!net || net.ch !== ch) return;
+        if (rm.indexOf('train-') === 0 && status !== 'CLOSED') addSys(status === 'SUBSCRIBED' ? '已連上車上的聊天頻道' : '聊天頻道連線：' + status + (err && err.message ? '（' + String(err.message).slice(0, 40) + '）' : ''));
         if (status === 'SUBSCRIBED') { net.ok = true; net.wasOk = true; net.bad = 0; lastSendAt = 0; if (priv) privEverOk = true; trackSelf(); try { fxJoined(); } catch (e) { /* 略過 */ } }
         else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
           if (net.ok || net.wasOk) { net.ok = false; return; }   // 連上後才斷線：supabase-js 會自動重連，netWatch 看門狗負責兜底
           if (status === 'CLOSED') return;
+          if (rm.indexOf('train-') === 0 && (tries | 0) < 6) {   // 火車團：私人頻道連不上就換公開頻道（反過來也一樣），同一團的人遇到的是同一個伺服器設定，會一起換到能用的那種
+            setTimeout(() => { if (net && net.ch === ch && !net.ok) startNet(rm, !priv, (tries | 0) + 1); }, 1500); return;
+          }
           if (priv && privEverOk && net.tries < 8) {   // 私人頻道之前連得上，這次失敗只是暫時的：隔幾秒重試私人頻道。千萬不要改用公開頻道——公開頻道和別人的私人頻道是分開的，會變成只有自己一個人
             const t = net.tries + 1; setTimeout(() => { if (net && net.ch === ch && !net.ok) startNet(rm, true, t); }, 2500); return;
           }
@@ -438,7 +442,8 @@ function showItem(kind, key) {
 const showFish = key => showItem('fish', key);
 function sendChat(text) {
   text = clean(text, 40).trim();
-  if (!text || !net || !net.ok) return;
+  if (!text) return;
+  if (!net || !net.ok) { toast('聊天頻道還沒連上，稍等幾秒再試', 1800); return; }
   const now = performance.now();
   if (now - lastChat < 900) { toast('慢一點，別洗頻喔', 1200); return; }
   lastChat = now;
