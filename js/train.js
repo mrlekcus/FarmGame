@@ -359,7 +359,7 @@ function trainStop() {
   tr.cur = null; if (vyOpen && voy.mode === 'train') closeVoyModal();
 }
 
-/* ---------- 傳說蟲全服廣播：每 10 秒問一次伺服器有沒有新的（第一次只記下目前進度，不重播舊的）---------- */
+/* ---------- 傳說蟲全服廣播：每 20 秒問一次伺服器有沒有新的（第一次只記下目前進度，不重播舊的）---------- */
 const trFeed = { last: null, fail: 0 };
 const TR_STN_NAME = { meadow: '草原站', mountain: '山間站', night: '夜行站' };
 async function trFeedPoll() {
@@ -369,17 +369,13 @@ async function trFeedPoll() {
     trFeed.last = r.last | 0; trFeed.fail = 0;
     if (first) return;
     (r.rows || []).slice(-3).forEach(x => {
-      if (x.kind === 'open') {   // 有人開團：全服通知，去廣場的火車站加入
-        const om = '🚂 ' + String(x.name || '旅人').slice(0, 8) + ' 開了火車團！到廣場的火車站就能加入';
-        toast(om, 6500); if (typeof addSys === 'function' && typeof vLog !== 'undefined' && vLog) addSys(om); if (typeof chime === 'function') chime([72, 76, 79], 0.09);
-        return;
-      }
+      if (x.kind === 'open') return;   // 開團改用右上角招募卡（trNotePoll），這裡不重複提示
       const msg = '✨ ' + String(x.name || '旅人').slice(0, 8) + ' 在' + (TR_STN_NAME[x.station] || '火車') + '抓到了傳說的「' + String(x.bug || '蟲').slice(0, 8) + '」！';
       toast(msg, 5200); if (typeof addSys === 'function' && typeof vLog !== 'undefined' && vLog) addSys(msg); if (typeof chime === 'function') chime([79, 84, 88, 91], 0.09);
     });
   } catch (e) { trFeed.fail++; /* 伺服器還沒裝這段就略過 */ }
 }
-setInterval(trFeedPoll, 10000); setTimeout(trFeedPoll, 4000);
+setInterval(trFeedPoll, 20000); setTimeout(trFeedPoll, 5000);
 
 /* ---------- 廣場上的火車：有團出發就開走，全部結束後倒車回站（時間用伺服器的，大家看到的一樣）---------- */
 const trPz = { away: false, dep: 0, end: 0, back: 0, at: 0, stale: true, fail: 0, whistle: 0 };
@@ -432,3 +428,56 @@ function trResIcon(c, k) {
     '@media(max-width:420px){.trb-grid{grid-template-columns:1fr}}';
   document.head.appendChild(st);
 })();
+
+/* ---------- 右上角招募卡（跟出海團一樣）：有人開團就跳出來，可以直接按「加入」；每 6 秒問一次，倒數每秒更新 ---------- */
+const trNoteEl = document.createElement('div'); trNoteEl.id = 'trnote'; trNoteEl.hidden = true; trNoteEl.setAttribute('aria-live', 'polite');
+document.querySelector('.stage').appendChild(trNoteEl);
+const trNotes = new Map(); let trNoteSig = '', trNoteFail = 0, trNoteCv = null, trNoteImg = '';
+function trNoteUrl() {   // 小火車圖（只畫一次）
+  if (!trNoteImg) {
+    trNoteCv = document.createElement('canvas'); trNoteCv.width = 128; trNoteCv.height = 80;
+    const c2 = trNoteCv.getContext('2d'); c2.imageSmoothingEnabled = false; const old = g; g = c2;
+    try {
+      r('#9fd8ff', 0, 0, 128, 80); r('#c8ecff', 0, 40, 128, 14); r('#8fcf6a', 0, 56, 128, 24); r('#6fb04e', 0, 56, 128, 3);
+      r('#5a4636', 0, 66, 128, 3); for (let x = 2; x < 128; x += 8) r('#8a6b4b', x, 69, 4, 3); r('#3c3c46', 0, 65, 128, 2);
+      [[8, '#e0554a'], [50, '#e8a13a']].forEach(([x, col]) => { r(col, x, 38, 36, 24); r('#fff3b0', x + 4, 42, 8, 8); r('#fff3b0', x + 16, 42, 8, 8); r('#fff3b0', x + 28, 42, 6, 8); r('#2a2a33', x, 60, 36, 3); r('#2a2a33', x + 5, 62, 7, 7); r('#2a2a33', x + 24, 62, 7, 7); });
+      r('#4a4a56', 96, 40, 22, 22); r('#2f2f3a', 92, 34, 8, 8); r('#6a6a78', 108, 30, 10, 10); r('#2a2a33', 96, 62, 22, 3); r('#2a2a33', 100, 62, 7, 7); r('#2a2a33', 110, 62, 7, 7); r('#ffe27a', 117, 46, 3, 6);
+      r('#fff', 94, 26, 8, 6); r('#e6e6ee', 98, 20, 7, 6);
+    } catch (e) { /* 略過 */ }
+    g = old; trNoteImg = trNoteCv.toDataURL();
+  }
+  return trNoteImg;
+}
+async function trNotePoll() {
+  if (!ready || !sb || !me || document.hidden || trNoteFail >= 3) return;
+  if (scene === 'train') { if (trNotes.size) { trNotes.clear(); trNoteRender(); } return; }
+  try {
+    const list = await rpc('train_list_open'); trNoteFail = 0;
+    const next = new Map();
+    (Array.isArray(list) ? list : []).forEach(n => { const o = trNotes.get(n.id); next.set(n.id, { id: n.id, host: n.host_name || '旅人', tier: n.tier, n: n.n | 0, cap: n.cap | 0 || 8, dl: n.lobby_ms, hidden: o ? o.hidden : false }); });
+    trNotes.clear(); next.forEach((v, k) => trNotes.set(k, v)); trNoteRender();
+  } catch (e) { trNoteFail++; /* 伺服器還沒裝火車團就略過 */ }
+}
+function trNoteRender(tickOnly) {
+  const show = scene !== 'train' && ready && me && !authOpen ? [...trNotes.values()].filter(n => !n.hidden && srvNow() < n.dl).slice(0, 3) : [];
+  const sig = show.map(n => n.id + ':' + n.n).join('|');
+  if (tickOnly && sig === trNoteSig) { trNoteEl.querySelectorAll('.voyc-t').forEach(el => { el.textContent = voyFmt(+el.dataset.t - srvNow()); }); return; }
+  trNoteSig = sig; trNoteEl.hidden = !show.length;
+  trNoteEl.style.top = (44 + (typeof voyNoteEl !== 'undefined' && !voyNoteEl.hidden ? voyNoteEl.offsetHeight + 6 : 0)) + 'px';
+  trNoteEl.innerHTML = show.map(n => {
+    const dots = Array.from({ length: n.cap }, (_, i) => '<i class="' + (i < n.n ? 'on' : '') + '"></i>').join(''), full = n.n >= n.cap;
+    return '<div class="voyc" data-id="' + esc(n.id) + '"><img alt="" src="' + trNoteUrl() + '"><div class="voyc-b"><b>火車抓蟲團招募中</b>' +
+      '<small>' + esc(n.host) + ' · ' + (TR_TIER[n.tier] || '') + '</small><div class="voyc-dots" aria-label="' + n.n + '/' + n.cap + ' 人">' + dots + '</div>' +
+      '<small class="voyc-t" data-t="' + n.dl + '">' + voyFmt(n.dl - srvNow()) + '</small>' +
+      '<div class="voyc-btns"><button type="button" class="btn small" data-a="join"' + (full ? ' disabled' : '') + '>加入</button>' +
+      '<button type="button" class="btn small ghost" data-a="skip">略過</button></div></div></div>';
+  }).join('');
+}
+trNoteEl.addEventListener('pointerdown', e => e.stopPropagation());
+trNoteEl.addEventListener('click', e => {
+  const b = e.target.closest('button[data-a]'), c = e.target.closest('.voyc'); if (!b || !c) return;
+  const id = c.dataset.id;
+  if (b.dataset.a === 'skip') { const n = trNotes.get(id); if (n) n.hidden = true; trNoteRender(); }
+  else { trNotes.delete(id); trNoteRender(); trJoinRun(id); }
+});
+setInterval(trNotePoll, 6000); setTimeout(trNotePoll, 3000); setInterval(() => trNoteRender(true), 1000);
