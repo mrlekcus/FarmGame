@@ -425,19 +425,19 @@ function scgTrnQ(from, to) {
 }
 /* from~to：要播哪幾幕（0~3）；auto＝播完自動關掉並呼叫 after（回到站長面板）；跳過／看完都會呼叫 after */
 function scgTrnOpen(from, to, after) {
+  if (typeof vyOpen !== 'undefined' && vyOpen && typeof closeVoyModal === 'function') closeVoyModal();   // 站長面板還開著會蓋住 CG
   bdOpen = true; pressed.length = 0; bdData = null; bdTab = 'story'; scgSt.beat = -1;
   scgPlay = { q: scgTrnQ(from, to), i: 0, title: true, auto: true, after: after || null };
   renderBoard(); bdEl.hidden = false; bdCard.focus();
 }
-/* 第一次開站長面板、車站還沒蓋好：先播序（第 1、2 幕）。回傳 true＝劇情接手了 */
+/* 第一次開站長面板、車站還沒蓋好：先播序（第 1、2 幕）。回傳 true＝劇情接手了。
+   「看過了」要等看完或按跳過才記下來；中途卡住、關掉遊戲，下次還會再播。 */
 function scgTrnIntro(after) {
-  if (!me || scgTrnSeen('a')) return false;
-  try { localStorage.setItem(scgTrnKey('a'), '1'); } catch (e) { /* 略過：下次還會再播一次 */ }
-  scgTrnOpen(0, 1, after); return true;
+  if (!me || scgTrnSeen('a') || scgPlaying()) return false;
+  scgTrnOpen(0, 1, () => { try { localStorage.setItem(scgTrnKey('a'), '1'); } catch (e) { /* 略過 */ } if (after) after(); }); return true;
 }
 /* 車站剛蓋好：播第 3、4 幕（每個帳號一次；之後想看從站長面板的「重看劇情」） */
 function scgTrnFinale(after) {
-  if (!me || scgTrnSeen('b')) return false;
-  try { localStorage.setItem(scgTrnKey('b'), '1'); } catch (e) { /* 略過 */ }
-  scgTrnOpen(2, 3, after); return true;
+  if (!me || scgTrnSeen('b') || scgPlaying()) return false;
+  scgTrnOpen(2, 3, () => { try { localStorage.setItem(scgTrnKey('b'), '1'); } catch (e) { /* 略過 */ } if (after) after(); }); return true;
 }

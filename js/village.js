@@ -53,13 +53,14 @@ function typingBubble(cx, cy, now) {
 const typingOn = rp => !!rp.typing && performance.now() - rp.typing < 6000;   // 對方每 3 秒會補送一次，超過 6 秒沒更新就當作沒在輸入了
 /* 同步的「世界」：p 廣場、t 塔羅屋、h 屋子（拜訪朋友或自己的家，各屋子有自己的頻道）。
    廣場和塔羅屋共用同一條村頻道，靠位置訊息裡的 w 分開；只有和自己同一個世界的人才會畫出來。 */
-const worldKey = () => scene === 'swamp' ? 's' : scene === 'cafe' ? 'c' : scene === 'arcade' ? 'g' : scene === 'temple' ? 'm' : scene === 'church' ? 'k' : scene === 'tarot' ? 't' : scene === 'house' ? 'h' : scene === 'boat' ? 'b' : 'p';
-const syncScene = () => scene === 'plaza' || scene === 'swamp' || scene === 'tarot' || scene === 'cafe' || scene === 'arcade' || scene === 'temple' || scene === 'church' || scene === 'boat' || (scene === 'house' && !!net);
+const TR_WK = { car: 'r', meadow: 'e', mountain: 'o', night: 'l' };   // 火車團：車廂和三個站各是一個「世界」，只看得到同一處的人
+const worldKey = () => scene === 'train' ? (TR_WK[tr.sub] || 'r') : scene === 'swamp' ? 's' : scene === 'cafe' ? 'c' : scene === 'arcade' ? 'g' : scene === 'temple' ? 'm' : scene === 'church' ? 'k' : scene === 'tarot' ? 't' : scene === 'house' ? 'h' : scene === 'boat' ? 'b' : 'p';
+const syncScene = () => scene === 'train' || scene === 'plaza' || scene === 'swamp' || scene === 'tarot' || scene === 'cafe' || scene === 'arcade' || scene === 'temple' || scene === 'church' || scene === 'boat' || (scene === 'house' && !!net);
 const hereRp = rp => (rp.w || 'p') === worldKey();
-const worldOf = w => w === 's' ? 's' : w === 'c' ? 'c' : w === 'g' ? 'g' : w === 'm' ? 'm' : w === 'k' ? 'k' : w === 't' ? 't' : w === 'h' ? 'h' : w === 'b' ? 'b' : 'p';
-const worldW = w => w === 's' ? SWW : w === 'c' ? CFW : w === 'g' ? GSW : w === 'm' || w === 'k' ? TCW : w === 't' ? RMW : w === 'h' ? houseMapW() : w === 'b' ? BTW : PLW;
-const worldH = w => w === 's' ? SWH : w === 'c' ? CFH : w === 'g' ? GSH : w === 'm' || w === 'k' ? TCH : w === 't' ? RMH : w === 'h' ? houseMapH() : w === 'b' ? BTH : PLH;
-const WORLD_IN = { s: '來到霧語沼澤', p: '來到廣場', c: '進了咖啡廳', g: '進了遊戲店', m: '進了福神廟', k: '進了小教堂', t: '進了塔羅屋', h: '來到屋子裡', b: '上船了' };
+const worldOf = w => w === 'r' || w === 'e' || w === 'o' || w === 'l' ? w : w === 's' ? 's' : w === 'c' ? 'c' : w === 'g' ? 'g' : w === 'm' ? 'm' : w === 'k' ? 'k' : w === 't' ? 't' : w === 'h' ? 'h' : w === 'b' ? 'b' : 'p';
+const worldW = w => w === 'r' ? TRW : w === 'e' || w === 'o' || w === 'l' ? MDW : w === 's' ? SWW : w === 'c' ? CFW : w === 'g' ? GSW : w === 'm' || w === 'k' ? TCW : w === 't' ? RMW : w === 'h' ? houseMapW() : w === 'b' ? BTW : PLW;
+const worldH = w => w === 'r' ? TRH : w === 'e' || w === 'o' || w === 'l' ? MDH : w === 's' ? SWH : w === 'c' ? CFH : w === 'g' ? GSH : w === 'm' || w === 'k' ? TCH : w === 't' ? RMH : w === 'h' ? houseMapH() : w === 'b' ? BTH : PLH;
+const WORLD_IN = { s: '來到霧語沼澤', p: '來到廣場', c: '進了咖啡廳', g: '進了遊戲店', m: '進了福神廟', k: '進了小教堂', t: '進了塔羅屋', h: '來到屋子裡', b: '上船了', r: '上車了', e: '來到草原站', o: '來到山間站', l: '來到夜行站' };
 const remoteAt = (x, y) => {
   let hit = null;
   remotes.forEach(rp => { if (rp.tx === x && rp.ty === y && hereRp(rp)) hit = rp; });
@@ -109,13 +110,13 @@ const addSys = text => addLog('', text, false, true);
 
 function renderVillage() {
   const inHouse = scene === 'house' && !!net;          // 在屋子裡：同一個聊天欄，標題改成屋子，沒有邀請碼，也沒有「離開廣場」
-  const onBoat = scene === 'boat';                     // 在船上：標題「出海團」，離開靠船上的面板
+  const onBoat = scene === 'boat' || scene === 'train';   // 在船上／火車上：標題「出海團」／「火車抓蟲團」，離開靠自己的面板
   if (!roomInfo && !inHouse && !onBoat) return;
   const n = remotes.size + 1;
-  $('v-input').placeholder = onBoat ? '對船上的朋友說點什麼' : inHouse ? '對屋子裡的朋友說點什麼' : '對廣場上的朋友說點什麼';
+  $('v-input').placeholder = scene === 'train' ? '對車上的朋友說點什麼' : onBoat ? '對船上的朋友說點什麼' : inHouse ? '對屋子裡的朋友說點什麼' : '對廣場上的朋友說點什麼';
   $('v-leave').hidden = inHouse || onBoat;
   if (onBoat) {
-    $('v-title').textContent = '出海團';
+    $('v-title').textContent = scene === 'train' ? '火車抓蟲團' : '出海團';
     $('v-count').textContent = n + '/8 人';
     $('v-copy').hidden = true;
   } else if (inHouse) {
@@ -387,12 +388,12 @@ function sendPos(dt) {
 /* 看門狗：頻道連上後如果掉線又沒自己恢復，就整條重建；回到前景、網路恢復時也會檢查 */
 function netWatch(force) {
   if (!ready || !sb) return;
-  if (net && (scene === 'plaza' || scene === 'swamp' || scene === 'tarot' || scene === 'cafe' || scene === 'arcade' || scene === 'temple' || scene === 'church' || scene === 'house' || scene === 'boat')) {
+  if (net && (scene === 'train' || scene === 'plaza' || scene === 'swamp' || scene === 'tarot' || scene === 'cafe' || scene === 'arcade' || scene === 'temple' || scene === 'church' || scene === 'house' || scene === 'boat')) {
     const st = net.ch.state;
     if (st === 'joined') {
       net.bad = 0; if (!net.ok) { net.ok = true; trackSelf(); }
       /* 船上自救：出海團的名單有別人，但我已連上頻道卻一個人都看不到，超過 16 秒就重連（最多 3 次） */
-      if (scene === 'boat' && net.ok && voy.cur && (voy.cur.members || []).length > 1 && remotes.size === 0) {
+      if (net.ok && remotes.size === 0 && ((scene === 'boat' && voy.cur && (voy.cur.members || []).length > 1) || (scene === 'train' && tr.cur && (tr.cur.members || []).filter(m => m.active !== false).length > 1))) {
         net.lonely++;
         if (net.lonely >= 4 && performance.now() - healAt > 30000 && (healN[net.room] | 0) < 3) { healAt = performance.now(); healN[net.room] = (healN[net.room] | 0) + 1; addSys('看不到其他人，重新連線中…'); startNet(net.room, true); return; }
       } else net.lonely = 0;

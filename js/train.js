@@ -54,7 +54,7 @@ function enterTrain(v, back) {
   tr.cur = v; tr.back = back || { scene: 'plaza' }; tr.dep = 0; tr.finishing = false; tr.busy = false; tr.pollAt = Date.now(); tr.endChecked = 0; tr.sum = null;
   tr.built = false; tr.taken = new Set(); tr.caught = new Set(); tr.mysteryToast = 0;
   scene = 'train'; trainGoto(v.status === 'running' && trIsStn(v.station) ? v.station : 'car');
-  remotes.clear(); vLog.innerHTML = ''; logNewHide(); myBubble = null; myShow = null; lastPosKey = ''; posAcc = 0; vPanel.hidden = false; renderVillage(); startNet('train-' + v.id, false);   // 同一趟的人在同一個頻道，看得到彼此、能聊天
+  remotes.clear(); vLog.innerHTML = ''; logNewHide(); myBubble = null; myShow = null; lastPosKey = ''; posAcc = 0; vPanel.hidden = false; renderVillage(); startNet('train-' + v.id, true);   // 同一趟的人在同一個頻道，看得到彼此、能聊天
   trRender();
   toast(v.status === 'running' ? '回到車上了' : (trIsHost() ? '上車了！等朋友加入，準備好就按「發車」' : '上車了！按「準備」讓站長知道'), 3000);
   if (typeof syncBgm === 'function') syncBgm();
@@ -74,7 +74,10 @@ function trEnded(msg) { if (msg) toast(msg, 3200); if (vyOpen) closeVoyModal(); 
 
 /* ---------- 站長：開團、看招募中的團 ---------- */
 async function openTrainStation() {
-  if (!ready || !me || voy.busy) return;
+  if (!ready || !me || voy.busy || tr.opening || (typeof scgPlaying === 'function' && scgPlaying())) return;   // 連點兩下不要開兩次（第二次會把站長面板蓋在劇情上）
+  tr.opening = true; try { await openTrainStation2(); } finally { tr.opening = false; }
+}
+async function openTrainStation2() {
   if (!sb) { toast('火車站還沒開通'); return; }
   try {
     const [info, list] = await Promise.all([rpc('train_info'), rpc('train_list_open')]);
@@ -356,7 +359,7 @@ function trainStop() {
   tr.cur = null; if (vyOpen && voy.mode === 'train') closeVoyModal();
 }
 
-/* ---------- 傳說蟲全服廣播：每 20 秒問一次伺服器有沒有新的（第一次只記下目前進度，不重播舊的）---------- */
+/* ---------- 傳說蟲全服廣播：每 10 秒問一次伺服器有沒有新的（第一次只記下目前進度，不重播舊的）---------- */
 const trFeed = { last: null, fail: 0 };
 const TR_STN_NAME = { meadow: '草原站', mountain: '山間站', night: '夜行站' };
 async function trFeedPoll() {
@@ -366,12 +369,17 @@ async function trFeedPoll() {
     trFeed.last = r.last | 0; trFeed.fail = 0;
     if (first) return;
     (r.rows || []).slice(-3).forEach(x => {
+      if (x.kind === 'open') {   // 有人開團：全服通知，去廣場的火車站加入
+        const om = '🚂 ' + String(x.name || '旅人').slice(0, 8) + ' 開了火車團！到廣場的火車站就能加入';
+        toast(om, 6500); if (typeof addSys === 'function' && typeof vLog !== 'undefined' && vLog) addSys(om); if (typeof chime === 'function') chime([72, 76, 79], 0.09);
+        return;
+      }
       const msg = '✨ ' + String(x.name || '旅人').slice(0, 8) + ' 在' + (TR_STN_NAME[x.station] || '火車') + '抓到了傳說的「' + String(x.bug || '蟲').slice(0, 8) + '」！';
       toast(msg, 5200); if (typeof addSys === 'function' && typeof vLog !== 'undefined' && vLog) addSys(msg); if (typeof chime === 'function') chime([79, 84, 88, 91], 0.09);
     });
   } catch (e) { trFeed.fail++; /* 伺服器還沒裝這段就略過 */ }
 }
-setInterval(trFeedPoll, 20000); setTimeout(trFeedPoll, 5000);
+setInterval(trFeedPoll, 10000); setTimeout(trFeedPoll, 4000);
 
 /* ---------- 廣場上的火車：有團出發就開走，全部結束後倒車回站（時間用伺服器的，大家看到的一樣）---------- */
 const trPz = { away: false, dep: 0, end: 0, back: 0, at: 0, stale: true, fail: 0, whistle: 0 };
