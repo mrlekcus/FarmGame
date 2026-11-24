@@ -107,6 +107,8 @@ function act() {
     else if (k2 === TS) enterLekcus();
     else if (k2 === CFD) enterCafe();
     else if (k2 === GSD) enterArcade();
+    else if (k2 === STD) openTrainStation();
+    else if (k2 === STM) openTrainStation();
     else if (k2 === TPD) enterTemple();
     else if (k2 === CHD) enterChurch();
     else if (k2 === CKP) campCook(x, y);
@@ -142,6 +144,7 @@ function act() {
     return;
   }
   if (scene === 'boat') { boatAct(x, y); return; }
+  if (scene === 'train') { trainAct(x, y); return; }
   if (scene === 'tarot') { const rpT = remoteAt(x, y); if (rpT) { openFriendPop(rpT); return; } lekcusRoomAct(x, y); return; }
   if (scene === 'town') { townAct(x, y); return; }
   if (scene === 'forest') { forestAct(x, y); return; }

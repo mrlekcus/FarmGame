@@ -179,10 +179,71 @@ const SCG_DSC = [
   t => sgUnder(true, t, () => { OCA.turtle(520 + Math.sin(t * .8) * 6, 120, 1); try { OCA.diver(560, 70 + Math.round(sgS(t * 2) * 1.5), 'down', Object.assign({}, DEF_CHAR, myChar()), 'base', t); } catch (e) { /* 略過 */ } })
 ];
 
+
+/* ---------- 火車篇：貓咪站長的老車站（第一次開站長面板播第 1、2 幕；車站蓋好那一刻播第 3、4 幕；站長面板可重看）---------- */
+const SCG_TRN = [
+  { title: '荒廢的老車站', lines: [
+    { s: '', t: '（黃昏。老車站的鐘，停在很久很久以前的某一刻。）' },
+    { s: 'stm', t: '喵……你來了。這座站，以前每天都有火車進站、出站，熱鬧得很。' }
+  ] },
+  { title: '從前的熱鬧', lines: [
+    { s: 'stm', t: '月台上擠滿了旅人，孩子們趴在窗邊數車廂。那時候，我每天吹著哨子，送大家出發。' },
+    { s: 'stm', t: '後來鐵軌鏽了，木頭也爛了，就再也沒有火車來了。' },
+    { s: 'me', opts: [['我來幫你修好它！', '真的嗎？喵！需要木頭、石頭、銅礦，還有一些金幣。慢慢捐，捐滿了車站就修好了。'], ['我先看看需要什麼。', '好，不急。材料備齊了再來找我，喵。']] }
+  ] },
+  { title: '一起修車站', lines: [
+    { s: '', t: '（你把最後一份材料交到站長手上。叮叮噹噹的敲打聲，在站裡響了一整天。）' },
+    { s: 'stm', t: '木頭釘上去了，石頭鋪好了，銅線也接上了……謝謝你。我都快忘記，熱鬧是什麼感覺了。' }
+  ] },
+  { title: '汽笛再響', lines: [
+    { s: '', t: '（夜裡，站燈一盞一盞亮了起來。遠遠地，傳來久違的汽笛聲。）' },
+    { s: 'stm', t: '聽見了嗎？火車回來了！現在你可以開自己的團，帶大家一起去抓蟲。' },
+    { s: 'stm', t: '歡迎光臨，站長會一直在這裡等你，喵！' }
+  ] }
+];
+function sgBands(cols, h) { cols.forEach((c, i) => sgR(c, 0, i * h, 192, h + 1)); }
+function sgStn(x, y, k) { if (typeof STATION_IMG === 'undefined' || !STATION_IMG.width) { sgR('#c05a46', x + 10, y + 30, 70, 30); return; } g.drawImage(STATION_IMG, Math.round(x), Math.round(y), Math.round(STATION_IMG.width * k), Math.round(STATION_IMG.height * k)); }
+function sgStm(x, y, t, k) { g.save(); g.translate(Math.round(x), Math.round(y)); g.scale(k, k); stationMasterArt(0, 0, t * 1000); g.restore(); }
+function sgRails(y) { sgR('#8a7a64', 0, y, 192, 8); for (let x = 0; x < 192; x += 6) sgR('#6a4c30', x, y + 1, 3, 6); sgR('#b8b8c0', 0, y + 1, 192, 2); sgR('#b8b8c0', 0, y + 5, 192, 2); }
+function sgLogs(x, y) { for (let i = 0; i < 3; i++) { sgR('#5a3a20', x, y + i * 5, 18, 5); sgR('#8a5a34', x + 1, y + i * 5 + 1, 16, 3); sgR('#d8b070', x + 16, y + i * 5 + 1, 2, 3); } }
+function sgRocks(x, y) { [[0, 4, 10], [8, 0, 10], [14, 5, 9]].forEach(([dx, dy, w]) => { sgR('#5a544a', x + dx, y + dy, w, 8); sgR('#8a8478', x + dx + 1, y + dy + 1, w - 2, 6); sgR('#bdb7a8', x + dx + 2, y + dy + 1, 3, 1); }); }
+function sgOre(x, y) { [[0, 4, 10], [8, 0, 9]].forEach(([dx, dy, w]) => { sgR('#4a3a2a', x + dx, y + dy, w, 8); sgR('#7a6a5a', x + dx + 1, y + dy + 1, w - 2, 6); sgR('#e8944a', x + dx + 2, y + dy + 2, 3, 3); sgR('#3fae8a', x + dx + 6, y + dy + 4, 2, 2); }); }
+function sgBench(x, y) { sgR('rgba(0,0,0,.14)', x, y + 12, 26, 2); sgR('#5a3a20', x, y + 4, 26, 4); sgR('#a8683a', x + 1, y + 5, 24, 2); sgR('#5a3a20', x, y, 26, 3); sgR('#a8683a', x + 1, y + 1, 24, 1); sgR('#5a3a20', x + 2, y + 8, 2, 5); sgR('#5a3a20', x + 22, y + 8, 2, 5); }
+function sgLamp(x, y, t) { sgR('#3a3a44', x, y, 2, 26); sgR('#5a4a2a', x - 3, y - 6, 8, 7); sgR('#ffe27a', x - 2, y - 5, 6, 5); sgA('#ffe27a', .08 + .03 * sgS(t * 2 + x), x - 7, y - 9, 16, 16); sgA('#ffe27a', .1, x - 4, y - 6, 10, 10); }
+const SCG_TSC = [
+  t => { sgBands(['#f3a86a', '#f8bd86', '#fdd09a', '#ffe0b0', '#ffe8c4'], 14); sgR('#ffd890', 150, 38, 16, 16);
+    sgR('#9a9a6a', 0, 62, 192, 46); sgR('#aaaa7a', 0, 62, 192, 2); for (let i = 0; i < 192; i += 8) sgR('#8a8a5a', i, 66 + (i % 3), 2, 1);
+    sgStn(64, 0, .7); sgR('#8a8a5a', 60, 62, 78, 3);
+    sgRails(78); sgR('#8a4a2a', 20, 76, 6, 2); sgR('#8a4a2a', 150, 77, 8, 2);
+    [10, 170].forEach(x => sgR('#7a6a5a', x, 40, 2, 24)); [8, 60, 120, 176].forEach(x => { sgR('#7a8a4a', x, 60, 1, 3); sgR('#7a8a4a', x + 2, 59, 1, 4); });
+    sgBench(28, 52); sgStm(34, 34, t, 2);
+    for (let i = 0; i < 5; i++) { const p = (t * 6 + i * 9) % 40; sgA('#ffe0b0', (1 - p / 40) * .5, 150 + i * 6 + sgS(p / 4 + i) * 3, 60 - p, 2, 2); }
+    sgA('#3c1e46', .24, 0, 0, 192, 108); },
+  t => { sgBands(['#ffe9b0', '#ffeec0', '#fff4d6', '#fff4d6', '#fff8e4'], 14); [[20, 10], [120, 18]].forEach(([x, y]) => { sgA('#fff', .8, x + ((t * 3) % 8), y + 2, 20, 5); sgA('#fff', .8, x + 4 + ((t * 3) % 8), y, 12, 5); });
+    sgR('#dcc890', 0, 64, 192, 44); sgR('#e8d8a0', 0, 64, 192, 2); sgStn(6, 2, .72); sgR('#d8c9a4', 0, 60, 192, 6);
+    sgRails(78); sgPuff(121, 54, t, 5, 9, '#fff'); stLoco(104, 58, t * 1000); stCar(166, 60, '#4a6aa8', '#24386a');
+    ['#e8694a', '#4a8ae8', '#e8c14a', '#7ac86a', '#c58aff', '#ff9a5a'].forEach((c, i) => { const x = 14 + i * 11, b = Math.round(sgS(t * 3 + i) * 1); sgR('#444', x + 2, 50 + (i % 2) * 2 + b, 6, 9); sgR(c, x + 3, 51 + (i % 2) * 2 + b, 4, 7); sgR('#a86a4a', x + 2, 45 + (i % 2) * 2 + b, 6, 6); sgR('#ffd2b0', x + 3, 46 + (i % 2) * 2 + b, 4, 4); });
+    sgStm(58, 46, t, 1); sgA('#c89650', .27, 0, 0, 192, 108); },
+  t => { sgBands(['#bfe3f5', '#cdeaf8', '#dcf1fb', '#e4f6ff'], 16); [[30, 12], [140, 8]].forEach(([x, y]) => { sgA('#fff', .85, x + ((t * 2) % 6), y + 2, 20, 5); sgA('#fff', .85, x + 4 + ((t * 2) % 6), y, 12, 5); });
+    sgR('#92c98a', 0, 62, 192, 46); sgR('#9fd296', 0, 62, 192, 2); sgStn(64, 0, .7);
+    [60, 138].forEach(x => sgR('#a8683a', x, 6, 3, 58)); [14, 30, 46].forEach(y => sgR('#a8683a', 60, y, 81, 2));
+    sgLogs(8, 52); sgRocks(166, 56); sgOre(150, 62); sgRails(92);
+    sgStm(26, 44, t, 2); sgMe(58, 60);
+    const sw = Math.floor(t * 4) % 2; sgR('#8a6a50', 88, 56 - sw * 3, 2, 12); sgR('#666', 84, 54 - sw * 3, 10, 4); sgR('#bbb', 85, 55 - sw * 3, 8, 2);
+    if (sw) { sgA('#fff3b0', .8, 92, 64, 3, 3); } },
+  t => { sgBands(['#101840', '#1c2260', '#2a2e70', '#3a3a78'], 16); for (let i = 0; i < 40; i++) { const x = Math.floor(hash(i, 3, 301) * 192), y = Math.floor(hash(i, 4, 302) * 50); sgR(Math.sin(t * 2 + i) > 0 ? '#ffffff' : '#c8c8ff', x, y, 1, 1); }
+    sgA('#fff6d0', .12, 138, 2, 40, 40); sgR('#fff6d0', 150, 12, 16, 16); sgR('#e8dca8', 153, 15, 4, 3);
+    sgR('#2a3a4a', 0, 64, 192, 44); sgR('#3a4a5a', 0, 64, 192, 2); sgStn(14, 0, .7);
+    [[30, 36], [38, 36], [66, 36], [74, 36]].forEach(([x, y]) => sgA('#ffe27a', .55, x, y, 6, 9));
+    sgRails(78); sgPuff(101, 56, t, 5, 9, '#e8e8f0'); stLoco(90, 58, t * 1000); stCar(152, 60, '#4a6aa8', '#24386a');
+    sgA('#fff0aa', .12 + .04 * sgS(t * 3), 76, 66, 12, 8); sgStm(66, 44, t, 1);
+    sgLamp(6, 40, t); sgLamp(176, 40, t); }
+];
+
 const scgSt = { beat: -1, from: -1, t0: 0 };
 let scgPlay = null;   // 重播中：{ q: [{ ch, title, s, t, first }], i, title }
 function scgDraw(beat, t) {
-  const f = beat === 'pro' ? scgPro : (typeof beat === 'string' && beat[0] === 'v') ? SCG_VSC[+beat.slice(1)] : (typeof beat === 'string' && beat[0] === 'd') ? SCG_DSC[+beat.slice(1)] : SCG_SC[beat];
+  const f = beat === 'pro' ? scgPro : (typeof beat === 'string' && beat[0] === 'v') ? SCG_VSC[+beat.slice(1)] : (typeof beat === 'string' && beat[0] === 'd') ? SCG_DSC[+beat.slice(1)] : (typeof beat === 'string' && beat[0] === 't') ? SCG_TSC[+beat.slice(1)] : SCG_SC[beat];
   if (f) f(t); else { sgR('#ffd2b0', 0, 0, 192, 60); sgGrass(60); }   // 之後新增的章節還沒畫 CG 時，先用一格晨光小村頂著
 }
 function scgFrame(cv, now) {
@@ -239,8 +300,9 @@ function scgAlbumHtml(chs, d) {
 /* 重播畫面：上面 CG（章節開頭有標題卡）、下面頭像＋對白（一個字一個字出現） */
 function scgPlayHtml() {
   const p = scgPlay, ln = p.q[p.i], last = p.i >= p.q.length - 1, me_ = ln.s === 'me', nq = me_ ? null : NPCS.find(q => q.k === ln.s);
-  const name = me_ ? (me ? me.name : '你') : (ln.s === 'cpt' ? '柴犬船長' : nq ? nq.n : '');
+  const name = me_ ? (me ? me.name : '你') : (ln.s === 'cpt' ? '柴犬船長' : ln.s === 'stm' ? '貓咪站長' : nq ? nq.n : '');
   const pic = me_ ? '<canvas width="16" height="22" data-me="1" style="width:48px;height:66px;flex:none;image-rendering:pixelated"></canvas>'
+    : ln.s === 'stm' ? '<canvas width="16" height="16" data-stm="1" style="width:48px;height:48px;flex:none;image-rendering:pixelated"></canvas>'
     : ln.s === 'cpt' ? '<canvas width="16" height="16" data-cpt="1" style="width:48px;height:48px;flex:none;image-rendering:pixelated"></canvas>' : nq ? '<canvas width="16" height="20" data-npc="' + nq.k + '" style="width:48px;height:60px;flex:none;image-rendering:pixelated"></canvas>' : '';
   return '<div class="shop-h"><h2>' + (ln.ch ? '第 ' + ln.ch + ' 章：' : (ln.tag ? ln.tag + '：' : '序章：')) + esc(ln.title) + '</h2></div>' +
     '<div style="position:relative;line-height:0"><canvas id="scgcv" width="192" height="108" style="display:block;width:100%;aspect-ratio:16/9;image-rendering:pixelated;border:3px solid var(--edge);border-radius:12px;background:#000"></canvas>' +
@@ -258,6 +320,7 @@ function scgAfter(root) {
   const ln = scgPlay.q[scgPlay.i];
   scgRun(root.querySelector('#scgcv'), ln.beat || (ln.ch ? ln.ch - 1 : 'pro'));
   root.querySelectorAll('canvas[data-cpt]').forEach(cv => captainPortrait(cv.getContext('2d')));
+  root.querySelectorAll('canvas[data-stm]').forEach(cv => stationMasterPortrait(cv.getContext('2d'), Date.now()));
   root.querySelectorAll('canvas[data-npc]').forEach(cv => npcIcon(cv.getContext('2d'), cv.dataset.npc));
   root.querySelectorAll('canvas[data-me]').forEach(cv => { const c2 = cv.getContext('2d'); c2.clearRect(0, 0, 16, 22); g = c2; try { drawPlayer(0, 6, 'down', false, 0, myChar()); } catch (e) { /* 略過 */ } g = ctx; });
   if (scgPlay.title) {
@@ -350,4 +413,31 @@ function scgVoyCheck(n) {
     try { localStorage.setItem(scgVoyKey(), '1'); } catch (e) { /* 略過 */ }
     scgVoyOpen(true);
   }, n ? 2000 : 1200);
+}
+
+/* ---------- 火車篇：播放入口（第 1、2 幕＝序；第 3、4 幕＝蓋好；各自只自動播一次，記在本機）---------- */
+function scgTrnKey(k) { return 'dw_trn' + k + '_' + (typeof authUser !== 'undefined' && authUser ? authUser : (me ? me.username : '')); }
+function scgTrnSeen(k) { try { return !!localStorage.getItem(scgTrnKey(k)); } catch (e) { return false; } }
+function scgTrnQ(from, to) {
+  const q = [];
+  SCG_TRN.forEach((a, k) => { if (k < from || k > to) return; a.lines.forEach((x, j) => q.push({ ch: 0, tag: '火車篇', title: a.title, beat: 't' + k, s: x.s, t: x.t, opts: x.opts, first: j === 0 })); });
+  return q;
+}
+/* from~to：要播哪幾幕（0~3）；auto＝播完自動關掉並呼叫 after（回到站長面板）；跳過／看完都會呼叫 after */
+function scgTrnOpen(from, to, after) {
+  bdOpen = true; pressed.length = 0; bdData = null; bdTab = 'story'; scgSt.beat = -1;
+  scgPlay = { q: scgTrnQ(from, to), i: 0, title: true, auto: true, after: after || null };
+  renderBoard(); bdEl.hidden = false; bdCard.focus();
+}
+/* 第一次開站長面板、車站還沒蓋好：先播序（第 1、2 幕）。回傳 true＝劇情接手了 */
+function scgTrnIntro(after) {
+  if (!me || scgTrnSeen('a')) return false;
+  try { localStorage.setItem(scgTrnKey('a'), '1'); } catch (e) { /* 略過：下次還會再播一次 */ }
+  scgTrnOpen(0, 1, after); return true;
+}
+/* 車站剛蓋好：播第 3、4 幕（每個帳號一次；之後想看從站長面板的「重看劇情」） */
+function scgTrnFinale(after) {
+  if (!me || scgTrnSeen('b')) return false;
+  try { localStorage.setItem(scgTrnKey('b'), '1'); } catch (e) { /* 略過 */ }
+  scgTrnOpen(2, 3, after); return true;
 }

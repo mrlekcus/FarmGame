@@ -161,7 +161,7 @@ const merchantDay = () => Math.floor((srvNow() + 8 * 3600000) / 86400000);
 const merchantHere = () => [5, 6, 0].includes((merchantDay() % 7 + 4) % 7);   // 和 SQL _merchant_here 一致
 /* 廣場地圖（30×20，鏡頭跟隨）：中央噴水池、十字步道、長椅，下方是回農場的門。
    原本 20×14 的廣場整組往右下平移 (PXO, PYO)，四周多出一圈空地；路燈、塔羅攤等舊座標都是「舊廣場座標」，畫的時候加上位移。 */
-const PLW = 30, PLH = 20, PXO = 5, PYO = 3;
+const PLW = 30, PLH = 28, PXO = 5, PYO = 3, PLH0 = 20;   // PLH0 是往南擴大之前的高度（20）；舊座標一格都沒動，南邊 8 列是新空地，大門跟著搬到最底下
 const pkind = Array.from({ length: PLH }, () => Array(PLW).fill(G));
 for (let y = 0; y < PLH; y++) for (let x = 0; x < PLW; x++) if (x === 0 || y === 0 || x === PLW - 1 || y === PLH - 1) pkind[y][x] = TR;
 {
@@ -180,14 +180,19 @@ for (let y = 0; y < PLH; y++) for (let x = 0; x < PLW; x++) if (x === 0 || y ===
   for (let y = 1; y <= 2; y++) for (let x = 9; x <= 11; x++) ps(x, y, TS);   // 直路最北端的塔羅攤
   [[21, 9], [22, 9]].forEach(([x, y]) => { pkind[y][x] = BN; });   // 外圍長椅（(3,9) 那張被遊戲店面佔掉了、(4,11) 遊戲店下方左邊那張也刪除了）（新座標）；(21,9)(22,9) 兩格相連是一張雙人長椅，在大路上方
   /* 新增的外圈空地：零星種樹（路、水、長椅旁和大門前面留空） */
-  for (let y = 1; y < PLH - 1; y++) for (let x = 1; x < PLW - 1; x++) {
+  for (let y = 1; y < PLH0 - 1; y++) for (let x = 1; x < PLW - 1; x++) {   // 只在舊範圍內隨機種樹；新增的南邊空地先留空，之後蓋火車站
     if (pkind[y][x] !== G) continue;
     if (x >= PXO && x < PXO + BW && y >= PYO && y < PYO + BH) continue;   // 舊廣場範圍內維持原樣
-    if (x >= PXO + 8 && x <= PXO + 12 && y >= PLH - 5) continue;           // 大門前面
+    if (x >= PXO + 8 && x <= PXO + 12 && y >= PLH0 - 5) continue;          // 大門前面（舊位置）
     let near = false;
     for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) { const q = pkind[y + j] && pkind[y + j][x + i]; if (q !== undefined && q !== G && q !== TR) near = true; }
     if (!near && hash(x, y, 53) < 0.16) pkind[y][x] = TR;
   }
+}
+for (let y = PLH0 - 1; y < PLH - 1; y++) for (let x = 1; x < PLW - 1; x++) {   // 新增的南邊空地：只在左右各 3 欄的外緣零星種樹，中間留給建築和步道
+  if (x > 3 && x < PLW - 4) continue;
+  if (y >= PLH - 4) continue;
+  if (hash(x, y, 53) < 0.18) pkind[y][x] = TR;
 }
 pkind[PLH - 1][PXO + 10] = GT;
 /* 柴犬船長 NPC（出海團）：廣場右下角大水池的西岸，船停在他右邊的水面上（畫法見 js/art/boat.js）。
@@ -215,17 +220,31 @@ for (let x = PIER_X0; x <= PIER_X1; x++) pkind[PIER_Y][x] = PR;
    畫法在 js/camp.js。原本散在這一區的 5 棵樹刪掉了。 */
 const CKP = 78, CMD = 79;
 const CAMP = [
-  { k: 'pot',     x: 4, y: 15, w: 2, h: 2, cook: true, n: '篝火吊鍋' },
-  { k: 'table',   x: 7, y: 15, w: 2, h: 1, cook: true, n: '切菜料理檯' },
-  { k: 'grill',   x: 7, y: 17, w: 2, h: 1, cook: true, n: '烤肉架' },
-  { k: 'tent',    x: 2, y: 17, w: 2, h: 2, n: '露營帳篷' },
-  { k: 'lantern', x: 1, y: 15, w: 1, h: 1, n: '露營提燈' },
-  { k: 'stump', x: 4, y: 18, w: 1, h: 1, seat: true, n: '露營木墩' },   // 木墩：和長椅一樣坐下（BN），位置與坐姿會同步
-  { k: 'stump', x: 5, y: 18, w: 1, h: 1, seat: true, n: '露營木墩' },
-  { k: 'stump', x: 6, y: 18, w: 1, h: 1, seat: true, n: '露營木墩' }
+  { k: 'pot',     x: 4, y: 23, w: 2, h: 2, cook: true, n: '篝火吊鍋' },
+  { k: 'table',   x: 7, y: 23, w: 2, h: 1, cook: true, n: '切菜料理檯' },
+  { k: 'grill',   x: 7, y: 25, w: 2, h: 1, cook: true, n: '烤肉架' },
+  { k: 'tent',    x: 2, y: 25, w: 2, h: 2, n: '露營帳篷' },
+  { k: 'lantern', x: 1, y: 23, w: 1, h: 1, n: '露營提燈' },
+  { k: 'stump', x: 4, y: 26, w: 1, h: 1, seat: true, n: '露營木墩' },   // 木墩：和長椅一樣坐下（BN），位置與坐姿會同步
+  { k: 'stump', x: 5, y: 26, w: 1, h: 1, seat: true, n: '露營木墩' },
+  { k: 'stump', x: 6, y: 26, w: 1, h: 1, seat: true, n: '露營木墩' }
 ];
-[[7, 14], [3, 16], [2, 17], [3, 18], [8, 18]].forEach(([x, y]) => { if (pkind[y][x] === TR) pkind[y][x] = G; });
+for (let y = 21; y <= 26; y++) for (let x = 1; x <= 9; x++) if (pkind[y][x] === TR) pkind[y][x] = G;   // 露營區搬到新的南邊空地（原本在 y15~18，現在讓給火車站）：清掉這一塊的樹
 CAMP.forEach(o => { for (let y = o.y; y < o.y + o.h; y++) for (let x = o.x; x < o.x + o.w; x++) pkind[y][x] = o.seat ? BN : o.cook ? CKP : CMD; });
+/* 火車站（外觀 js/art/station.js）：露營區原本的位置，7×6 格（x2~8、y12~17）；門在底部中間 (STB.x+3, STB.y+5)，站在下面面向上按動作鍵。
+   火車抓蟲團還沒做，現在只顯示站長不在的提示。 */
+const STD = 102, STB = { x: 2, y: 12, w: 7, h: 6 };
+for (let y = STB.y; y < STB.y + STB.h; y++) for (let x = STB.x; x < STB.x + STB.w; x++) pkind[y][x] = HB;
+pkind[STB.y + STB.h - 1][STB.x + 3] = STD;
+for (let x = 0; x <= 11; x++) pkind[STB.y + STB.h + 1][x] = HB;   // 火車站下面一排鐵軌和停著的火車（y19、x0~11，走不進去；x0 原本是邊界的樹，換成鐵軌讓軌道穿過樹林）；門前走道 y18 留空，右邊 x12 以後是空地
+pkind[STB.y + STB.h + 1][1] = G;   // 車頭左邊的平交道（x1）：可以從門前走道走到南邊的露營區，鐵軌在這格改畫木板
+pkind[13][11] = G; pkind[17][12] = G;   // 刪掉火車站旁邊擋路的長椅 (11,13) 和樹 (12,17)
+/* 門前走道（y18）原本是廣場的草地，隨機長出來的樹和長椅會擋住走到門前的路：整排清成可走（有路 P 的格子保留）；站長站在車尾右邊 (12,20)，周圍的樹也清掉 */
+for (let x = 1; x <= 14; x++) if (pkind[STB.y + STB.h][x] !== P) pkind[STB.y + STB.h][x] = G;
+for (let y = 17; y <= 21; y++) for (let x = 10; x <= 14; x++) if (pkind[y][x] === TR || pkind[y][x] === BN) pkind[y][x] = G;
+/* 貓咪站長 NPC：站在車尾右邊的空地，走不進去，面向他按動作鍵開團（門口也可以）。畫法見 js/art/station.js 的 stationMasterArt */
+const STM = 103, STM_X = 12, STM_Y = 20;
+pkind[STM_Y][STM_X] = STM;
 /* 咖啡廳（js/cafe.js）：廣場上方的 5×4 空地（舊廣場座標 x2~6、y3~6），蓋成暖木小木屋；門在底部中間 (CFB.x+2, CFB.y+3)，站在下面的大路上面向上按動作鍵進去 */
 const CFD = 81, CFB = { x: PXO + 2, y: PYO + 3, w: 5, h: 4 };
 for (let y = CFB.y; y < CFB.y + CFB.h; y++) for (let x = CFB.x; x < CFB.x + CFB.w; x++) pkind[y][x] = HB;

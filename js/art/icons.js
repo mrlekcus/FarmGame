@@ -118,6 +118,7 @@ const isFlyer = key => !!BF_ART[key] || !!BUG_FLY[key];
 function bugPix(key, fr, ox, oy, dim) {
   const DIM = '#cdbfb8';
   if (typeof swampBugPix === 'function' && swampBugPix(key, fr, ox, oy, dim)) return;   // 霧語沼澤的新蟲蝶（js/art/swamp.js）
+  if (typeof trainBugPix === 'function' && trainBugPix(key, fr, ox, oy, dim)) return;   // 火車草原站的新蟲（js/art/train.js）
   const P = (c, x, y, w = 1, h = 1) => r(dim ? DIM : c, ox + x, oy + y, w, h);
   const RR = (c, x, y, w, h) => { P(c, x + 1, y, w - 2, h); P(c, x, y + 1, w, h - 2); };
   const OB = (c, o, x, y, w, h) => { RR(o, x, y, w, h); RR(c, x + 1, y + 1, w - 2, h - 2); };

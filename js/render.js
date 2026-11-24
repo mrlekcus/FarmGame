@@ -196,7 +196,7 @@ function update(dt) {
       if (pressed.length) standUp();
     }
   }
-  updateCritters(dt);
+  updateCritters(dt); if (typeof trUpdate === 'function') trUpdate(dt);
   if (pressed.length || (autoPath && (paused() || fishing))) autoPath = null;   // 手動操作（鍵盤、搖桿）一動，自動走路就取消
   let over = 0;
   if (pl.prog < 1) {

@@ -590,6 +590,7 @@ let visiting = null, ownHouse = null;
 async function visitHouse(uid, name) {
   if (!ready || !me || enterBusy || dsOpen) return;
   if (scene === 'boat') { toast('出海中，下船後再去拜訪', 2200); return; }
+  if (scene === 'train') { toast('火車團進行中，下車後再去拜訪', 2200); return; }
   enterBusy = true;
   try {
     const d = await withTimeout(rpc('house_visit', { p_uid: uid }).then(x => houseDoorOf(x, uid)), 12000);

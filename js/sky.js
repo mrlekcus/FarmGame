@@ -189,6 +189,7 @@ function draw(now) {
   else if (scene === 'arcade') drawArcadeRoom(now);
   else if (scene === 'temple' || scene === 'church') drawTcRoom(now);
   else if (scene === 'boat') drawBoatScene(now);
+  else if (scene === 'train') drawTrainScene(now);
   else {
   for (let ty = 0; ty < H; ty++) for (let tx = 0; tx < W; tx++) {
     const k = K[ty][tx], px = tx * T, py = ty * T;
@@ -208,6 +209,7 @@ function draw(now) {
       else if (k === BN) drawBench(px, py, tx, ty);
       else if (k === BD) drawBoard(px, py);
       else if (k === CPT) drawCaptain(px, py, now);
+      else if (k === STM) drawStationMaster(px, py, now);
       else if (k === BB) drawBuildBoard(px, py, now);
       else if (k === NP) drawNpc(px, py, (npcAt(tx, ty) || NPCS[0]).k, now);
       else if (k === RK) drawRock(px, py, ROCKS.findIndex(q => q[0] === tx && q[1] === ty));
@@ -230,7 +232,7 @@ function draw(now) {
   else if (scene === 'forest') FOREST_BLD.forEach(b => drawBldg(b, now, dark > 0.15));
   else if (scene === 'swamp') drawSwampProps(now);
   else {
-    if (scene === 'plaza') { drawPlazaBoat(now); drawMsgBoard(now); drawPlazaCamp(now); drawCafeBldg(now, dark > 0.15); drawGameBldg(now, dark > 0.15); drawTcBldg(); }
+    if (scene === 'plaza') { drawPlazaBoat(now); drawMsgBoard(now); drawPlazaCamp(now); drawCafeBldg(now, dark > 0.15); drawGameBldg(now, dark > 0.15); drawTcBldg(); drawStationBldg(now, dark); }
     ctx.save(); ctx.translate(PXO * T, PYO * T);   // 塔羅攤、路燈、噴水池是舊廣場座標，位移後再畫
     drawTarotStall(now);
     if (scene === 'plaza') drawPlazaLamps(now);   // 廣場路燈（js/plaza-light.js）
@@ -286,6 +288,7 @@ function draw(now) {
     if (forTaken.has(f.slot + ':' + f.i) || yardMap.has(pk(f.x, f.y))) return;
     ents.push({ y: f.y + 0.5, draw: () => { miscArt(f.x * T, f.y * T + Math.round(Math.sin(now / 500 + f.i) * 0.6), f.key); } });
   }); }
+  if (scene === 'train') trainEnts(now, ents);
   if (scene === 'farm' || scene === 'forest' || scene === 'swamp') critters.forEach(c => {
     const fr = Math.floor(now / (c.fly ? 130 : 260) + c.ph) % 2, bob = c.fly ? Math.round(5 + Math.sin(now / 300 + c.ph) * 2) : 0;
     ents.push({ y: c.y + (c.fly ? 1.2 : 0), draw: () => {
@@ -375,7 +378,7 @@ function draw(now) {
     }
   }
 
-  if (scene === 'farm' || scene === 'forest' || scene === 'swamp') {
+  if (scene === 'farm' || scene === 'forest' || scene === 'swamp' || scene === 'train') {
     critters.forEach(c => {
       if (c.key !== 'firefly' || dark < 0.2) return;
       const gx = Math.round(c.x * T) - 12, gy = Math.round(c.y * T) - 12 - Math.round(5 + Math.sin(now / 300 + c.ph) * 2), pu = 0.5 + 0.5 * Math.sin(now / 350 + c.ph);

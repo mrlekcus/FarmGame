@@ -659,6 +659,7 @@ voySyncUI();
 function voyageInit() {
   if (!sb || !myUid) return;
   loadBuild(); bldOpenChannel();
+  if (typeof trainInit === 'function') trainInit();
   if (typeof oceanInit === 'function') oceanInit();
   voy.notes.clear(); voyRenderNotes();
   rpc('voyage_mine').then(v => {
@@ -668,6 +669,7 @@ function voyageInit() {
 }
 function voyageStop() {
   if (scene === 'boat') leaveBoat(true, true);
+  if (typeof trainStop === 'function') trainStop();
   try { if (typeof ocnStop === 'function' && ocnG.on) { ocnStop(); ocnOpen = false; } if (typeof ocnM !== 'undefined') { ocnM.hidden = true; ocnOpen = false; } } catch (e) { /* 略過 */ }
   voyCloseChannel(); bldCloseChannel(); voy.cur = null; voy.notes.clear(); voyRenderNotes();
   voyHud.hidden = true; voyPanel.hidden = true; if (vyOpen) closeVoyModal();

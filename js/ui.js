@@ -119,6 +119,8 @@ function updateTip() {
     s = cookTip();
   } else if (vfOn) {
     s = voyToggleReel ? '點動作鍵切換收線／放鬆，讓張力停在綠區！' : '按住動作鍵收線，放開放鬆；張力停在綠區進度才會增加！';
+  } else if (scene === 'train') {
+    s = !tr.cur ? '' : tr.cur.status === 'lobby' ? '集合中：按面板上的「準備」，等站長發車。' : '拿捕蟲網，面向蟲按動作鍵揮網，每人看到自己的蟲。';
   } else if (scene === 'boat' && !fishing) {
     s = voy.cur && voy.cur.status === 'sailing' ? '站在欄杆邊，面向海面按動作鍵拋竿。' : '集合中：按面板上的「準備」，等船長出發。';
   } else if (fishing) {
